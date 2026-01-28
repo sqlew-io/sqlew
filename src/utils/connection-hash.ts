@@ -15,32 +15,32 @@ import { normalizePathForHash } from './path-utils.js';
  *
  * The hash uniquely identifies a connection based on:
  * - API key (who)
- * - Project ID (which project, optional)
+ * - Project name (which project, optional)
  * - Full path (where, normalized)
  *
  * This allows the same user to have multiple connections
  * from different directories (e.g., git worktrees).
  *
  * @param apiKey - API key for authentication
- * @param projectId - Optional project ID
+ * @param projectName - Optional project name from config.toml
  * @param fullPath - Full path to the project directory
  * @returns SHA256 hash in Base64URL format (43 chars)
  *
  * @example
- * generateConnectionHash('sk_live_xxx', 'proj_123', 'C:\\Users\\dev\\my-app')
+ * generateConnectionHash('sk_live_xxx', 'my-project', 'C:\\Users\\dev\\my-app')
  * // => 'dGhpcyBpcyBhIHRlc3QgaGFzaA...'
  */
 export function generateConnectionHash(
   apiKey: string,
-  projectId: string | undefined,
+  projectName: string | undefined,
   fullPath: string
 ): string {
   // Normalize the path for consistent hashing
   const normalizedPath = normalizePathForHash(fullPath);
 
-  // Create hash input: apiKey + projectId + normalizedPath
+  // Create hash input: apiKey + projectName + normalizedPath
   // Use pipe separator that won't appear in any of the values
-  const hashInput = [apiKey, projectId ?? '', normalizedPath].join('|');
+  const hashInput = [apiKey, projectName ?? '', normalizedPath].join('|');
 
   // Generate SHA256 hash
   const hash = crypto.createHash('sha256').update(hashInput, 'utf-8').digest();

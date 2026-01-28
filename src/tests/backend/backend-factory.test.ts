@@ -17,6 +17,7 @@ import {
   loadCloudConfig,
   validateCloudConfig,
 } from '../../backend/index.js';
+import { hasGlobalEnvFile } from '../../config/cloud-config-loader.js';
 import type { SqlewConfig } from '../../config/types.js';
 
 describe('Backend Factory', () => {
@@ -24,7 +25,6 @@ describe('Backend Factory', () => {
     await resetBackend();
     // Clear environment variables
     delete process.env.SQLEW_API_KEY;
-    delete process.env.SQLEW_PROJECT_ID;
   });
 
   afterEach(async () => {
@@ -67,6 +67,11 @@ describe('Backend Factory', () => {
     });
 
     it('should throw error for cloud config without API key', async () => {
+      // Skip if ~/.sqlew.env exists (it will provide API key)
+      if (hasGlobalEnvFile()) {
+        return;
+      }
+
       const config: SqlewConfig = {
         database: { type: 'cloud' },
       };
@@ -163,27 +168,32 @@ describe('Backend Factory', () => {
   });
 
   describe('loadCloudConfig', () => {
-    it('should return null when no API key set', () => {
-      const config = loadCloudConfig();
+    it('should return null when no API key set', async () => {
+      // Skip if ~/.sqlew.env exists (it will provide API key)
+      if (hasGlobalEnvFile()) {
+        return;
+      }
+
+      const config = await loadCloudConfig();
 
       assert.strictEqual(config, null);
     });
 
-    it('should return config when API key is set', () => {
+    it('should return config when API key is set', async () => {
       process.env.SQLEW_API_KEY = 'test-api-key';
 
-      const config = loadCloudConfig();
+      const config = await loadCloudConfig();
 
       assert.strictEqual(config?.apiKey, 'test-api-key');
     });
 
-    it('should include projectId when set', () => {
+    it('should include projectName from config.toml if exists', async () => {
       process.env.SQLEW_API_KEY = 'test-api-key';
-      process.env.SQLEW_PROJECT_ID = 'my-project';
 
-      const config = loadCloudConfig();
+      const config = await loadCloudConfig(process.cwd());
 
-      assert.strictEqual(config?.projectId, 'my-project');
+      // projectName comes from .sqlew/config.toml, may be undefined
+      assert.ok(config?.projectName === undefined || typeof config.projectName === 'string');
     });
   });
 

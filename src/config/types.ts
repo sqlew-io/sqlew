@@ -372,8 +372,6 @@ export interface ProjectConfig {
 export const CLOUD_ENV_VARS = {
   /** API key for authentication (required for cloud mode) */
   API_KEY: 'SQLEW_API_KEY',
-  /** Project ID (optional) */
-  PROJECT_ID: 'SQLEW_PROJECT_ID',
 } as const;
 
 /**
@@ -407,7 +405,7 @@ export interface ConnectionIdentity {
 
 /**
  * Cloud backend configuration.
- * Loaded from ~/.sqlew.env (global) or environment variables.
+ * Loaded from ~/.sqlew.env (API key) and .sqlew/config.toml (project name).
  *
  * Note: API endpoint is NOT configurable here - it's hardcoded in the plugin.
  * This is intentional for security (no endpoint info in OSS).
@@ -418,7 +416,9 @@ export interface ConnectionIdentity {
 export interface CloudConfig {
   /** API key for authentication */
   apiKey: string;
-  /** Project ID (optional) */
+  /** Project name from .sqlew/config.toml [project].name */
+  projectName?: string;
+  /** Resolved project UUID (cached in ~/.sqlew.env) */
   projectId?: string;
   /** Connection identity for SaaS mode (v5.0.0+) */
   connectionIdentity?: ConnectionIdentity;

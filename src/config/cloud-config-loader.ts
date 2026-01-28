@@ -1,7 +1,8 @@
 /**
  * Cloud Configuration Loader
  *
- * Loads API key and cloud configuration from global ~/.sqlew.env file.
+ * Loads API key from global ~/.sqlew.env file.
+ * Loads project ID from .sqlew/config.toml [project].name.
  * Supports environment variable override for CI/CD environments.
  *
  * @since v5.0.0
@@ -10,7 +11,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CLOUD_ENV_VARS, type CloudConfig } from './types.js';
+import { parse as parseTOML } from 'smol-toml';
+import { CLOUD_ENV_VARS, type CloudConfig, type ProjectConfig } from './types.js';
 import { detectEnvironment, type Environment } from '../utils/environment-detector.js';
 import { extractPathSuffix, getProjectRoot } from '../utils/path-utils.js';
 import { generateConnectionHash } from '../utils/connection-hash.js';
@@ -118,31 +120,23 @@ export function loadApiKey(): string | null {
 }
 
 /**
- * Load project ID from environment or global config
+ * Load project name from .sqlew/config.toml [project].name
  *
- * Priority:
- * 1. Environment variable SQLEW_PROJECT_ID
- * 2. ~/.sqlew.env file
- *
- * @returns Project ID or undefined
+ * @param projectRoot - Project root directory (optional)
+ * @returns Project name or undefined
  */
-export function loadProjectId(): string | undefined {
-  // Priority 1: Environment variable
-  const envProjectId = process.env[CLOUD_ENV_VARS.PROJECT_ID];
-  if (envProjectId) {
-    return envProjectId;
-  }
+export function loadProjectName(projectRoot?: string): string | undefined {
+  const root = projectRoot ?? getProjectRoot();
+  const configPath = path.join(root, '.sqlew', 'config.toml');
 
-  // Priority 2: Global ~/.sqlew.env file
-  const globalEnvPath = getGlobalEnvPath();
   try {
-    if (fs.existsSync(globalEnvPath)) {
-      const content = fs.readFileSync(globalEnvPath, 'utf-8');
-      const parsed = parseEnvContent(content);
-      return parsed[CLOUD_ENV_VARS.PROJECT_ID];
+    if (fs.existsSync(configPath)) {
+      const content = fs.readFileSync(configPath, 'utf-8');
+      const parsed = parseTOML(content) as { project?: ProjectConfig };
+      return parsed.project?.name;
     }
   } catch {
-    // File read error, return undefined
+    // File read or parse error, return undefined
   }
 
   return undefined;
@@ -178,7 +172,7 @@ export function createConnectionIdentity(
  * Load complete cloud configuration from global file
  *
  * This is the main entry point for loading cloud configuration.
- * It loads API key, project ID, and creates connection identity.
+ * It loads API key from ~/.sqlew.env and project name from .sqlew/config.toml.
  *
  * @param projectRoot - Project root path (optional)
  * @returns Extended cloud config or null if API key not found
@@ -191,12 +185,12 @@ export function loadCloudConfigFromGlobal(
     return null;
   }
 
-  const projectId = loadProjectId();
-  const connectionIdentity = createConnectionIdentity(apiKey, projectId, projectRoot);
+  const projectName = loadProjectName(projectRoot);
+  const connectionIdentity = createConnectionIdentity(apiKey, projectName, projectRoot);
 
   return {
     apiKey,
-    projectId,
+    projectName,
     connectionIdentity,
   };
 }
@@ -206,6 +200,98 @@ export function loadCloudConfigFromGlobal(
  */
 export function hasGlobalEnvFile(): boolean {
   return fs.existsSync(getGlobalEnvPath());
+}
+
+// ============================================================================
+// Project ID Cache (v5.0.0+)
+// ============================================================================
+
+/**
+ * Convert project name to env var key format
+ * Replaces special characters with underscores
+ */
+function projectNameToEnvKey(projectName: string): string {
+  // Replace non-alphanumeric (except - and _) with underscore
+  const sanitized = projectName.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `SQLEW_PROJECT_ID_${sanitized}`;
+}
+
+/**
+ * Load cached project ID from ~/.sqlew.env
+ *
+ * Key format: SQLEW_PROJECT_ID_{project_name}
+ *
+ * @param projectName - Project name from config.toml
+ * @returns Cached project UUID or null if not found
+ */
+export function loadCachedProjectId(projectName: string): string | null {
+  const globalEnvPath = getGlobalEnvPath();
+  const envKey = projectNameToEnvKey(projectName);
+
+  try {
+    if (fs.existsSync(globalEnvPath)) {
+      const content = fs.readFileSync(globalEnvPath, 'utf-8');
+      const parsed = parseEnvContent(content);
+      return parsed[envKey] ?? null;
+    }
+  } catch {
+    // File read error, return null
+  }
+
+  return null;
+}
+
+/**
+ * Save project ID to ~/.sqlew.env
+ *
+ * Appends or updates the key SQLEW_PROJECT_ID_{project_name}
+ *
+ * @param projectName - Project name from config.toml
+ * @param projectId - Resolved project UUID
+ */
+export function saveCachedProjectId(projectName: string, projectId: string): void {
+  const globalEnvPath = getGlobalEnvPath();
+  const envKey = projectNameToEnvKey(projectName);
+
+  try {
+    let content = '';
+    let keyExists = false;
+
+    // Read existing content
+    if (fs.existsSync(globalEnvPath)) {
+      content = fs.readFileSync(globalEnvPath, 'utf-8');
+
+      // Check if key already exists and update it
+      const lines = content.split('\n');
+      const updatedLines = lines.map(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith(`${envKey}=`)) {
+          keyExists = true;
+          return `${envKey}=${projectId}`;
+        }
+        return line;
+      });
+
+      if (keyExists) {
+        content = updatedLines.join('\n');
+      }
+    }
+
+    // Append if key doesn't exist
+    if (!keyExists) {
+      // Ensure file ends with newline before appending
+      if (content && !content.endsWith('\n')) {
+        content += '\n';
+      }
+      content += `${envKey}=${projectId}\n`;
+    }
+
+    // Write back
+    fs.writeFileSync(globalEnvPath, content, 'utf-8');
+  } catch (error) {
+    // Log but don't throw - caching failure shouldn't break the flow
+    console.warn(`⚠️  Failed to cache project ID: ${error}`);
+  }
 }
 
 /**

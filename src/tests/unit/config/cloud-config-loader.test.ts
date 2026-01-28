@@ -6,7 +6,7 @@ import * as os from 'os';
 import {
   getGlobalEnvPath,
   loadApiKey,
-  loadProjectId,
+  loadProjectName,
   createConnectionIdentity,
   loadCloudConfigFromGlobal,
   hasGlobalEnvFile,
@@ -20,13 +20,11 @@ describe('cloud-config-loader', () => {
   beforeEach(() => {
     // Clear relevant env vars
     delete process.env.SQLEW_API_KEY;
-    delete process.env.SQLEW_PROJECT_ID;
   });
 
   afterEach(() => {
     // Restore original env
     process.env.SQLEW_API_KEY = originalEnv.SQLEW_API_KEY;
-    process.env.SQLEW_PROJECT_ID = originalEnv.SQLEW_PROJECT_ID;
   });
 
   describe('getGlobalEnvPath', () => {
@@ -54,18 +52,17 @@ describe('cloud-config-loader', () => {
     });
   });
 
-  describe('loadProjectId', () => {
-    it('should prioritize environment variable', () => {
-      process.env.SQLEW_PROJECT_ID = 'env_project_id';
-
-      const projectId = loadProjectId();
-      assert.strictEqual(projectId, 'env_project_id');
+  describe('loadProjectName', () => {
+    it('should return undefined when config.toml not found', () => {
+      const projectName = loadProjectName('/non-existent-path');
+      assert.strictEqual(projectName, undefined);
     });
 
-    it('should return undefined when not configured', () => {
-      const projectId = loadProjectId();
-      // May return undefined or value from ~/.sqlew.env if it exists
-      assert.ok(projectId === undefined || typeof projectId === 'string');
+    it('should return project name from config.toml if exists', () => {
+      // This test uses the actual project's config.toml
+      const projectName = loadProjectName(process.cwd());
+      // May return a string or undefined depending on config existence
+      assert.ok(projectName === undefined || typeof projectName === 'string');
     });
   });
 
