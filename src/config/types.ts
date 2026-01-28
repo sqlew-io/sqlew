@@ -377,19 +377,51 @@ export const CLOUD_ENV_VARS = {
 } as const;
 
 /**
+ * Detected environment types for connection identification
+ * @since v5.0.0
+ */
+export type Environment =
+  | 'windows'
+  | 'macos'
+  | 'linux'
+  | 'wsl'
+  | 'docker'
+  | 'unknown';
+
+/**
+ * Connection identity for SaaS backend.
+ * Provides unique identification for each connection.
+ *
+ * @since v5.0.0
+ */
+export interface ConnectionIdentity {
+  /** SHA256 hash for internal identification (Base64URL, 43 chars) */
+  connectionHash: string;
+  /** Detected environment for display (windows, macos, linux, wsl, docker) */
+  environment: Environment;
+  /** Last two path segments for display (e.g., 'RustroverProjects/my-app') */
+  pathSuffix: string;
+  /** Full path (stored locally, not sent to server) */
+  fullPath: string;
+}
+
+/**
  * Cloud backend configuration.
- * Loaded from environment variables (.sqlew/.env).
+ * Loaded from ~/.sqlew.env (global) or environment variables.
  *
  * Note: API endpoint is NOT configurable here - it's hardcoded in the plugin.
  * This is intentional for security (no endpoint info in OSS).
  *
  * @since v4.4.0
+ * @since v5.0.0 Added connectionIdentity for seat-based billing
  */
 export interface CloudConfig {
   /** API key for authentication */
   apiKey: string;
   /** Project ID (optional) */
   projectId?: string;
+  /** Connection identity for SaaS mode (v5.0.0+) */
+  connectionIdentity?: ConnectionIdentity;
 }
 
 /**
