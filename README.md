@@ -15,28 +15,7 @@
 npm install -g sqlew
 ```
 
-### 2. Connect to sqlew.io (Recommended) 🌐
-
-**NEW in v5.0.0**: Connect to the cloud for team-shared decisions!
-
-```toml
-# .sqlew/config.toml
-[database]
-type = "cloud"
-
-[database.connection]
-project_id = "your-project-id"
-api_key = "your-api-key"
-```
-
-**Benefits:**
-- 👥 **Team sharing** - All team members share the same decision database
-- 🌳 **Git worktree ready** - Works seamlessly with multiple branches
-- ⚡ **Zero setup** - No local database required
-
-> Visit [sqlew.io](https://sqlew.io) to get your API key.
-
-### 3. Install Plugin (Recommended)
+### 2. Install Plugin (Recommended)
 
 In Claude Code, run the following commands:
 
@@ -58,27 +37,46 @@ In Claude Code, run the following commands:
 
 > **Note:** Global Rules are automatically created at `~/.claude/rules/sqlew/` when the MCP server starts.
 
-### Alternative: Local Database (Offline)
+### 3. Connect to sqlew.io (For Teams) 🌐
 
-For offline or single-developer use:
+**NEW in v5.0.0**: Connect to the cloud for team-shared decisions!
+
+**Step 1: Get your API key** (one-time setup)
+
+Visit [sqlew.io](https://sqlew.io) and save your API key:
 
 ```bash
-# 1. Add to .mcp.json manually
-cat >> .mcp.json << 'EOF'
-{
-  "mcpServers": {
-    "sqlew": {
-      "command": "sqlew"
-    }
-  }
-}
-EOF
-
-# 2. Initialize local setup
-sqlew --init
+# ~/.sqlew.env (shared across all projects)
+SQLEW_API_KEY=your-api-key
 ```
 
-> **Note:** Local setup creates `.sqlew/sqlew.db` in your project.
+**Step 2: Configure each project**
+
+```toml
+# .sqlew/config.toml (per-project)
+[database]
+type = "cloud"
+
+[project]
+name = "your-project-name"
+```
+
+> **Note:** Each project needs its own `.sqlew/config.toml` to specify the project name.
+
+**Benefits:**
+- 👥 **Team sharing** - All team members share the same decision database
+- 🌳 **Git worktree ready** - Works seamlessly with multiple branches
+- ⚡ **Zero setup** - No local database required
+
+### Alternative: Local Database (Offline)
+
+For offline or single-developer use, **no setup required**:
+
+- Database (`.sqlew/sqlew.db`) is auto-created on first MCP server start
+- Config file (`.sqlew/config.toml`) is auto-generated with detected project name
+- Global rules (`~/.claude/rules/sqlew/`) are auto-installed
+
+Just start using Claude Code - everything initializes automatically!
 
 ### 4. Just use Plan Mode!
 
@@ -254,6 +252,7 @@ All tools support:
 ### Upgrade Guides
 
 - **[Upgrade from v4 to v5](docs/MIGRATION_CLEANUP_GUIDE.md)** - Cleanup legacy files after plugin migration
+- **[Migrating Local Data to SaaS](docs/MIGRATION_TO_SAAS.md)** - Export local v3.x/v4.x data to sqlew.io cloud
 - [Migration from v2](docs/MIGRATION_v2.md) - Version upgrade guides
 
 ## Use Cases
