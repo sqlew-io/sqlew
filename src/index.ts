@@ -87,8 +87,23 @@ async function startMcpServer(): Promise<void> {
     };
   });
 
+  // Flag for one-time agent name initialization
+  let agentNameInitialized = false;
+
   // Handle tool execution
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    // Lazy initialization of agent name (after MCP handshake is complete)
+    if (!agentNameInitialized) {
+      agentNameInitialized = true;
+      const clientVersion = server.getClientVersion();
+      if (clientVersion?.name) {
+        const { getBackend } = await import('./backend/backend-factory.js');
+        const backend = getBackend();
+        if (backend.setAgentName) {
+          backend.setAgentName(clientVersion.name);
+        }
+      }
+    }
     return await handleToolCall(request);
   });
 
@@ -107,16 +122,6 @@ async function startMcpServer(): Promise<void> {
     // This prevents EPIPE errors with clients expecting pure JSON-RPC protocol
     const transport = new StdioServerTransport();
     await server.connect(transport);
-
-    // Set agent name for SaaS audit headers (after MCP handshake)
-    const { getBackend } = await import('./backend/backend-factory.js');
-    const clientVersion = server.getClientVersion();
-    if (clientVersion?.name) {
-      const backend = getBackend();
-      if (backend.setAgentName) {
-        backend.setAgentName(clientVersion.name);
-      }
-    }
 
     // NOW safe to write diagnostic messages (using EPIPE-safe wrapper)
     safeConsoleError('✓ MCP Shared Context Server running on stdio');
