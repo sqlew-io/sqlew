@@ -28,10 +28,13 @@ export interface HelpParameter {
   default?: string;
 }
 
+export type ExampleTargetType = 'sqlite' | 'cloud' | 'all';
+
 export interface HelpExample {
   title: string;
   code: string;
   explanation: string;
+  target_type?: ExampleTargetType;
 }
 
 export interface HelpAction {
@@ -84,6 +87,7 @@ interface TomlExample {
   title: string;
   code: string;
   explanation: string;
+  target_type?: 'sqlite' | 'cloud' | 'all';
 }
 
 interface TomlAction {
