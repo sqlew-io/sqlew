@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [5.0.0] - 2026-01-28
+## [5.0.0] - 2026-01-31
 
 ### Added
 
@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Team-shared decision database - all team members see the same architectural decisions
 - Multiple AI agents can work simultaneously without conflicts
 - No local database setup required - just add your API key
+- Connection Identity for seat-based billing with project-scoped hashing
+- Project name resolution with UUID caching for optimized API calls
+- X-Agent header for MCP client tracking in audit logs
+
+**📚 Environment-aware Help Examples**
+
+- Examples filtered by environment (SQLite shows numeric IDs, SaaS shows UUIDs)
+- `target_type` attribute in TOML: `sqlite`, `cloud`, or `all`
+- Automatic filtering in help `query-action`, example `get`, `search`, `list-all` actions
 
 **🌳 Git Worktree Support**
 
@@ -53,6 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database schema reduced: 18 tables (7 master + 11 transaction)
 - Table prefix renamed: `v4_` → `m_/t_` (master/transaction convention)
 - Multi-database backend now includes Cloud option (SQLite/PostgreSQL/MySQL/Cloud)
+- Constraint ID now supports both `number` (SQLite) and `string` UUID (SaaS)
+- `constraint_id` parameter renamed to `id` (backward compatibility maintained via alias)
+- Lazy initialization of agent name after MCP handshake completion
 
 ### Removed
 
