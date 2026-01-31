@@ -35,23 +35,23 @@ export const CONSTRAINT_ACTION_SPECS: Record<string, ActionSpec> = {
   },
 
   activate: {
-    required: ['constraint_id'],
+    required: ['id'],
     optional: [],
     example: {
       action: 'activate',
-      constraint_id: 5
+      id: 5
     },
-    hint: "Activate an inactive constraint by ID"
+    hint: "Activate an inactive constraint by ID (constraint_id also accepted for backward compatibility)"
   },
 
   deactivate: {
-    required: ['constraint_id'],
+    required: ['id'],
     optional: [],
     example: {
       action: 'deactivate',
-      constraint_id: 5
+      id: 'fbb982cc-764f-4427-b34a-7e758e31c457'  // UUID for SaaS, number for SQLite
     },
-    hint: "Soft delete - constraint remains in database but marked inactive"
+    hint: "Soft delete - constraint remains in database but marked inactive. Use number for SQLite, UUID string for SaaS. constraint_id also accepted for backward compatibility."
   },
 
   suggest_pending: {

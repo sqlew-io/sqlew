@@ -1,7 +1,7 @@
 /**
  * Auto-initialize sqlew on server startup
  *
- * As of v5.1.0, this module handles:
+ * As of v5.0.0, this module handles:
  * - Global CLAUDE.md injection (~/.claude/CLAUDE.md)
  * - Project .gitignore updates
  *
@@ -34,7 +34,7 @@ const CLAUDE_MD_MARKER_END = '<!-- sqlew:auto-injected:end -->';
 /**
  * Inject sqlew snippets into global ~/.claude/CLAUDE.md
  *
- * As of v5.1.0, snippets are injected directly into CLAUDE.md instead of
+ * As of v5.0.0, snippets are injected directly into CLAUDE.md instead of
  * being copied to ~/.claude/rules/sqlew/. This ensures higher priority
  * and better compatibility with other CLI tools (Codex, Gemini CLI).
  *
@@ -131,7 +131,7 @@ function escapeRegex(str: string): string {
 /**
  * Initialize sqlew on MCP server startup
  *
- * As of v5.1.0:
+ * As of v5.0.0:
  * - Injects snippets into ~/.claude/CLAUDE.md (not rules/)
  * - Updates project .gitignore
  *

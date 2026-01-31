@@ -116,7 +116,7 @@ Set-Content "$env:USERPROFILE\.claude\CLAUDE.md" $content
 
 ### 5. Remove Global Rules (Legacy v5.0.0)
 
-If you used sqlew v5.0.0 (before v5.1.0), rules were copied to `~/.claude/rules/sqlew/`:
+If you used sqlew v5.0.0 (before v5.0.0), rules were copied to `~/.claude/rules/sqlew/`:
 
 ```bash
 # Windows

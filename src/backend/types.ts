@@ -60,5 +60,11 @@ export interface ToolBackend {
    * Optional: Plugin name (for plugin backends)
    */
   readonly pluginName?: string;
+
+  /**
+   * Optional: Set agent name for audit headers (SaaS only)
+   * @param name - MCP client name (e.g., "claude-code")
+   */
+  setAgentName?(name: string): void;
 }
 

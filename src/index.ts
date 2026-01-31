@@ -108,6 +108,16 @@ async function startMcpServer(): Promise<void> {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
+    // Set agent name for SaaS audit headers (after MCP handshake)
+    const { getBackend } = await import('./backend/backend-factory.js');
+    const clientVersion = server.getClientVersion();
+    if (clientVersion?.name) {
+      const backend = getBackend();
+      if (backend.setAgentName) {
+        backend.setAgentName(clientVersion.name);
+      }
+    }
+
     // NOW safe to write diagnostic messages (using EPIPE-safe wrapper)
     safeConsoleError('✓ MCP Shared Context Server running on stdio');
 
