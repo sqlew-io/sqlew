@@ -30,7 +30,7 @@ export async function deactivateConstraint(
   const actualAdapter = adapter ?? getAdapter();
   const knex = actualAdapter.getKnex();
 
-  // Normalize aliases: id → constraint_id
+  // Normalize aliases: constraint_id → id (backward compatibility)
   const normalizedParams = normalizeParams(params, CONSTRAINT_ALIASES) as DeactivateConstraintParams;
 
   try {
@@ -43,17 +43,17 @@ export async function deactivateConstraint(
 
       // Check if constraint exists in current project
       const constraint = await knex('t_constraints')
-        .where({ id: normalizedParams.constraint_id, project_id: projectId })
+        .where({ id: normalizedParams.id, project_id: projectId })
         .select('id', 'active')
         .first() as { id: number; active: number } | undefined;
 
       if (!constraint) {
-        throw new Error(`Constraint not found: ${normalizedParams.constraint_id}`);
+        throw new Error(`Constraint not found: ${normalizedParams.id}`);
       }
 
       // Update constraint to inactive (idempotent) with project_id filter
       await knex('t_constraints')
-        .where({ id: normalizedParams.constraint_id, project_id: projectId })
+        .where({ id: normalizedParams.id, project_id: projectId })
         .update({ active: SQLITE_FALSE });
 
       return {

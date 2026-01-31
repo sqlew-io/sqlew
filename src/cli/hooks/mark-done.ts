@@ -13,13 +13,12 @@
  *   .git/hooks/post-rewrite:  if [ "$1" = "rebase" ]; then sqlew mark-done --auto; fi
  *
  * @since v4.1.0
+ * @modified v5.0.0 - Changed to queue-based processing (same as other hooks)
  */
 
 import { loadCurrentPlan } from '../../config/global-config.js';
-import { initializeDatabase } from '../../database.js';
-import { setDecision } from '../../tools/context/actions/set.js';
+import { enqueueDecisionUpdate } from '../../utils/hook-queue.js';
 import { determineProjectRoot } from '../../utils/project-root.js';
-import { join } from 'path';
 
 // ============================================================================
 // Constants
@@ -93,41 +92,37 @@ export async function markDoneCommand(args: string[] = []): Promise<void> {
       process.exit(1);
     }
 
-    // Initialize database
-    const dbPath = join(projectPath, '.sqlew', 'sqlew.db');
-    try {
-      await initializeDatabase({ configPath: dbPath });
-    } catch (error) {
-      console.error('[sqlew mark-done] Database not initialized.');
-      process.exit(1);
-    }
-
     // Build decision key
     let decisionKey: string;
+    let planIdTag: string;
     if (planInfo) {
       const planName = planInfo.plan_file.replace(/\.md$/, '');
       decisionKey = `${PLAN_DECISION_PREFIX}/${planName}`;
+      planIdTag = planInfo.plan_id.slice(0, 8);
     } else {
       // Use provided plan ID
       decisionKey = `${PLAN_DECISION_PREFIX}/${options.planId}`;
+      planIdTag = options.planId!.slice(0, 8);
     }
 
-    // Update decision status to active (implemented tracked via tag)
+    // Enqueue decision status update (processed by MCP server's QueueWatcher)
+    // This avoids direct DB access and ensures ProjectContext is properly initialized
     try {
-      await setDecision({
+      enqueueDecisionUpdate(projectPath, {
         key: decisionKey,
         value: planInfo
           ? `Implementation completed for plan: ${planInfo.plan_file}`
           : `Implementation completed for plan: ${options.planId}`,
         status: IMPLEMENTED_STATUS,
         layer: 'cross-cutting',
-        tags: ['plan', 'implementation', WORKFLOW_TAG_IMPLEMENTED],
+        tags: ['plan', 'implementation', WORKFLOW_TAG_IMPLEMENTED, planIdTag],
       });
 
-      console.log(`[sqlew mark-done] Decision marked as ${IMPLEMENTED_STATUS}: ${decisionKey}`);
+      console.log(`[sqlew mark-done] Decision queued for update: ${decisionKey}`);
+      console.log('[sqlew mark-done] Changes will be applied when MCP server processes the queue.');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[sqlew mark-done] Error updating decision: ${message}`);
+      console.error(`[sqlew mark-done] Error queuing decision update: ${message}`);
       process.exit(1);
     }
   } catch (error) {

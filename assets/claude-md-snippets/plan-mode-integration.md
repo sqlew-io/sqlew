@@ -1,5 +1,38 @@
 ## Plan Mode Integration
 
+### REQUIRED: Suggest Search BEFORE Planning
+
+**CRITICAL**: Before writing any plan, you MUST search for related context.
+
+**Step 1**: Extract keywords from the user's task (e.g., migration, auth, database)
+
+**Step 2**: Run suggest search:
+```
+suggest { action: "by_context", key: "<keyword>", tags: ["<relevant-tags>"] }
+suggest { action: "by_context", target: "constraint", text: "<topic>" }
+```
+
+**Step 3**: Include results in plan (MANDATORY section):
+```markdown
+## Related Context (from sqlew)
+
+### Past Decisions
+| Key | Value | Score |
+|-----|-------|-------|
+| path/to/decision | description | 85 |
+
+> If empty: "No related decisions found for: <keywords>"
+
+### Applicable Constraints
+- **[category]**: constraint text (Priority: high)
+
+> If empty: "No constraints found for: <keywords>"
+```
+
+**FAILURE TO INCLUDE "Related Context" SECTION = INVALID PLAN**
+
+---
+
 ### REQUIRED: Decision & Constraint Recording
 
 **When writing plans, you MUST include the following sections:**

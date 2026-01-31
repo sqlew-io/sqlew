@@ -7,9 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [5.0.0] - 2026-01-08
+## [5.0.0] - 2026-01-31
 
 ### Added
+
+**🌐 SaaS Backend Support (sqlew.io)**
+
+- Connect to sqlew.io cloud service with `type = "cloud"` in config.toml
+- Team-shared decision database - all team members see the same architectural decisions
+- Multiple AI agents can work simultaneously without conflicts
+- No local database setup required - just add your API key
+- Connection Identity for seat-based billing with project-scoped hashing
+- Project name resolution with UUID caching for optimized API calls
+- X-Agent header for MCP client tracking in audit logs
+
+**📚 Environment-aware Help Examples**
+
+- Examples filtered by environment (SQLite shows numeric IDs, SaaS shows UUIDs)
+- `target_type` attribute in TOML: `sqlite`, `cloud`, or `all`
+- Automatic filtering in help `query-action`, example `get`, `search`, `list-all` actions
+
+**🌳 Git Worktree Support**
+
+- Automatic worktree detection for multi-branch development
+- Config inheritance from main repository
+- Independent session cache per worktree
+- Seamless context sharing across worktrees
+
+**🔌 Plugin-first Architecture**
+
+- Skills/Hooks/Agents moved to separate `sqlew-plugin` repository
+- Global Rules auto-created at `~/.claude/rules/sqlew/` on MCP startup
+- Per-project Skills/Hooks installation removed (use plugin marketplace instead)
+- Simplified setup: just install the plugin and connect to sqlew.io
 
 **Queue Tool for Hook Queue Management**
 
@@ -27,12 +57,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **MCP tools: 6 → 7** (queue tool added)
 - `help`, `example`, `use_case` tools now load from TOML files instead of database
 - Database schema reduced: 18 tables (7 master + 11 transaction)
 - Table prefix renamed: `v4_` → `m_/t_` (master/transaction convention)
+- Multi-database backend now includes Cloud option (SQLite/PostgreSQL/MySQL/Cloud)
+- Constraint ID now supports both `number` (SQLite) and `string` UUID (SaaS)
+- `constraint_id` parameter renamed to `id` (backward compatibility maintained via alias)
+- Lazy initialization of agent name after MCP handshake completion
 
 ### Removed
 
+- **Per-project Skills/Hooks installation** - Use sqlew-plugin from marketplace instead
 - **7 help database tables**: m_help_tools, m_help_actions, m_help_use_case_cats, t_help_action_params, t_help_action_examples, t_help_use_cases, t_help_action_sequences
 - `help-queries.ts` (replaced by HelpSystemLoader)
 - Task and file management tables (deprecated in v4.3.0)

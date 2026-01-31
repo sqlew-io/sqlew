@@ -15,7 +15,7 @@
 npm install -g sqlew
 ```
 
-### 2. Install Plugin (Recommended - v5.0.0+)
+### 2. Install Plugin (Recommended)
 
 In Claude Code, run the following commands:
 
@@ -37,29 +37,48 @@ In Claude Code, run the following commands:
 
 > **Note:** Global Rules are automatically created at `~/.claude/rules/sqlew/` when the MCP server starts.
 
-### Alternative: Manual Installation (Legacy)
+### 3. Connect to sqlew.io (For Teams) 🌐
 
-For users who prefer not to use the plugin system:
+**NEW in v5.0.0**: Connect to the cloud for team-shared decisions!
+
+**Step 1: Get your API key** (one-time setup)
+
+Visit [sqlew.io](https://sqlew.io) and save your API key:
 
 ```bash
-# 1. Add to .mcp.json manually
-cat >> .mcp.json << 'EOF'
-{
-  "mcpServers": {
-    "sqlew": {
-      "command": "sqlew"
-    }
-  }
-}
-EOF
-
-# 2. Initialize legacy hooks and rules
-sqlew --init
+# ~/.sqlew.env (shared across all projects)
+SQLEW_API_KEY=your-api-key
 ```
 
-> **Note:** Legacy installation does not include Skills.
+**Step 2: Configure each project**
 
-### 3. Just use Plan Mode!
+```toml
+# .sqlew/config.toml (per-project)
+[database]
+type = "cloud"
+
+[project]
+name = "your-project-name"
+```
+
+> **Note:** Each project needs its own `.sqlew/config.toml` to specify the project name.
+
+**Benefits:**
+- 👥 **Team sharing** - All team members share the same decision database
+- 🌳 **Git worktree ready** - Works seamlessly with multiple branches
+- ⚡ **Zero setup** - No local database required
+
+### Alternative: Local Database (Offline)
+
+For offline or single-developer use, **no setup required**:
+
+- Database (`.sqlew/sqlew.db`) is auto-created on first MCP server start
+- Config file (`.sqlew/config.toml`) is auto-generated with detected project name
+- Global rules (`~/.claude/rules/sqlew/`) are auto-installed
+
+Just start using Claude Code - everything initializes automatically!
+
+### 4. Just use Plan Mode!
 
 **That's it!** Now every time you:
 
@@ -113,11 +132,24 @@ sqlew transforms ADR from static documentation into a **queryable, AI-native dec
 
 AI agents automatically accumulate project knowledge through Plan Mode. Decisions are stored in SQL for efficient querying.
 
+### 🌐 Team Development Made Easy (NEW in v5.0.0)
+
+- **Shared decision database** - All team members see the same architectural decisions
+- **Multiple AI agents** - Work simultaneously without conflicts
+- **No local setup** - Just add your API key and start
+
+### 🌳 Perfect for Git Worktree Workflows
+
+- **Automatic worktree detection** - Each worktree shares the same context
+- **Config inheritance** - Main repository settings apply everywhere
+- **Independent sessions** - Each worktree has its own cache
+
 **Perfect for:**
 
 - 🏢 Large-scale projects with many architectural decisions
 - 🔧 Long-term maintenance where context must persist across sessions
-- 👥 Team environments where multiple AI agents share knowledge
+- 👥 **Team environments** where multiple AI agents share knowledge
+- 🌳 **Git worktree** workflows with multiple concurrent branches
 
 **Key benefits:**
 
@@ -125,12 +157,13 @@ AI agents automatically accumulate project knowledge through Plan Mode. Decision
 - 🔍 **Millisecond queries** (2-50ms) even with thousands of decisions
 - 🛡️ **Duplicate prevention** via similarity detection
 - 📚 **Persistent memory** across all AI sessions
+- 👥 **Team sync** via sqlew.io cloud backend
 
 → See [ADR Concepts](docs/ADR_CONCEPTS.md) for detailed architecture.
 
 ---
 
-**Technical Features**: 6 MCP tools (3 core: decision, constraint, suggest + 3 utility: help, example, use_case), three-tier similarity detection (0-100 point scoring), ACID transaction support, multi-database backend (SQLite/PostgreSQL/MySQL), metadata-driven organization with layers and tags
+**Technical Features**: 7 MCP tools (3 core: decision, constraint, suggest + 4 utility: help, example, use_case, queue), three-tier similarity detection (0-100 point scoring), ACID transaction support, multi-database backend (SQLite/PostgreSQL/MySQL/Cloud), metadata-driven organization with layers and tags
 
 ## Installation
 
@@ -219,6 +252,7 @@ All tools support:
 ### Upgrade Guides
 
 - **[Upgrade from v4 to v5](docs/MIGRATION_CLEANUP_GUIDE.md)** - Cleanup legacy files after plugin migration
+- **[Migrating Local Data to SaaS](docs/MIGRATION_TO_SAAS.md)** - Export local v3.x/v4.x data to sqlew.io cloud
 - [Migration from v2](docs/MIGRATION_v2.md) - Version upgrade guides
 
 ## Use Cases
@@ -266,14 +300,15 @@ Support development via [GitHub Sponsors](https://github.com/sponsors/sqlew-io) 
 
 ## Version
 
-Current version: **4.3.1**
+Current version: **5.0.0**
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
-**What's New in v4.3.1:**
+**What's New in v5.0.0:**
 
-- **`.claude/rules/` Integration** - Safer installation without modifying CLAUDE.md
-- **Incremental gitignore** - Missing entries added even if sqlew section exists
-- **Code Quality** - DRY improvements, obsolete code cleanup
+- 🌐 **SaaS Backend** - Connect to [sqlew.io](https://sqlew.io) for team-shared decisions
+- 🌳 **Git Worktree Support** - Seamless multi-branch development
+- 🔌 **Plugin-first Architecture** - Simplified setup via sqlew-plugin
+- 🔧 **Queue Tool** - Hook queue management (list, remove, clear)
 
 See [docs/HOOKS_GUIDE.md](docs/HOOKS_GUIDE.md) for Claude Code Hooks details.
 

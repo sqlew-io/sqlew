@@ -95,4 +95,13 @@ export class TransformingBackend implements ToolBackend {
   async disconnect(): Promise<void> {
     return this.wrapped.disconnect();
   }
+
+  /**
+   * Delegate setAgentName to wrapped backend
+   */
+  setAgentName(name: string): void {
+    if (this.wrapped.setAgentName) {
+      this.wrapped.setAgentName(name);
+    }
+  }
 }

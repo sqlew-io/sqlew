@@ -15,7 +15,7 @@ import { trackPlanCommand } from './cli/hooks/track-plan.js';
 import { saveCommand } from './cli/hooks/save.js';
 import { checkCompletionCommand } from './cli/hooks/check-completion.js';
 import { markDoneCommand } from './cli/hooks/mark-done.js';
-import { initializeGlobalRules, initializeGitignore } from './init-rules.js';
+import { injectToGlobalClaudeMd, initializeGitignore } from './init-rules.js';
 import { onSubagentStopCommand } from './cli/hooks/on-subagent-stop.js';
 import { onStopCommand } from './cli/hooks/on-stop.js';
 import { onEnterPlanCommand } from './cli/hooks/on-enter-plan.js';
@@ -289,13 +289,13 @@ async function initAllCommand(): Promise<void> {
   console.log(`[sqlew --init] Project root: ${projectPath}`);
   console.log('');
 
-  // 1. Initialize Global Rules (~/.claude/rules/sqlew/)
-  console.log('[1/2] Setting up global rules (~/.claude/rules/sqlew/)...');
+  // 1. Inject snippets into ~/.claude/CLAUDE.md
+  console.log('[1/2] Injecting sqlew snippets into ~/.claude/CLAUDE.md...');
   try {
-    initializeGlobalRules();
-    console.log('      ✓ Global plan mode integration rule installed');
+    injectToGlobalClaudeMd();
+    console.log('      ✓ Plan mode integration injected into CLAUDE.md');
   } catch (error) {
-    console.log(`      ✗ Rules setup failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.log(`      ✗ CLAUDE.md injection failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   // 2. Initialize gitignore

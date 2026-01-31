@@ -10,10 +10,17 @@ import type { SqlewConfig, CloudConfig } from '../config/types.js';
 import { CLOUD_ENV_VARS } from '../config/types.js';
 import { LocalBackend } from './local-backend.js';
 import { TransformingBackend } from './transforming-backend.js';
-import { createBackend as createSaaSBackend } from '@sqlew/saas-connector';
+import {
+  createBackend as createSaaSBackend,
+  resolveProject,
+} from '@sqlew/saas-connector';
 import { debugLog } from '../utils/debug-logger.js';
-import * as fs from 'fs';
-import * as path from 'path';
+import {
+  loadCloudConfigFromGlobal,
+  checkEnvFilePermissions,
+  loadCachedProjectId,
+  saveCachedProjectId,
+} from '../config/cloud-config-loader.js';
 
 /**
  * Global backend instance (singleton)
@@ -29,63 +36,57 @@ export function isCloudMode(config: SqlewConfig): boolean {
 }
 
 /**
- * Load cloud configuration from environment variables
+ * Load cloud configuration from global ~/.sqlew.env or environment variables
  *
- * @param projectRoot - Project root directory
+ * Flow:
+ * 1. Load API key from ~/.sqlew.env
+ * 2. Load project name from .sqlew/config.toml
+ * 3. Check cached project ID in ~/.sqlew.env
+ * 4. If not cached, resolve via /api/v1/project/resolve and cache
+ *
+ * @param projectRoot - Project root directory (for ConnectionIdentity)
  * @returns CloudConfig or null if not configured
  */
-export function loadCloudConfig(projectRoot?: string): CloudConfig | null {
-  // Try to load from .sqlew/.env file first
-  if (projectRoot) {
-    const envPath = path.join(projectRoot, '.sqlew', '.env');
-    if (fs.existsSync(envPath)) {
+export async function loadCloudConfig(projectRoot?: string): Promise<CloudConfig | null> {
+  // Check file permissions (Unix: warn if not 600)
+  const permCheck = checkEnvFilePermissions();
+  if (!permCheck.ok) {
+    console.warn(`⚠️  ${permCheck.message}`);
+  }
+
+  // Load base config (API key, project name, connection identity)
+  const baseConfig = loadCloudConfigFromGlobal(projectRoot);
+  if (!baseConfig) {
+    return null;
+  }
+
+  // Resolve project ID if project name is set
+  let projectId: string | undefined;
+  if (baseConfig.projectName) {
+    // 1. Check cache
+    const cachedId = loadCachedProjectId(baseConfig.projectName);
+    if (cachedId) {
+      projectId = cachedId;
+      debugLog('INFO', 'Using cached project ID', { projectName: baseConfig.projectName });
+    } else {
+      // 2. Resolve via API
       try {
-        const envContent = fs.readFileSync(envPath, 'utf-8');
-        parseEnvFile(envContent);
-      } catch {
-        // Ignore parse errors, fall back to process.env
+        debugLog('INFO', 'Resolving project ID via API', { projectName: baseConfig.projectName });
+        projectId = await resolveProject(baseConfig.apiKey, baseConfig.projectName);
+        // 3. Cache for future use
+        saveCachedProjectId(baseConfig.projectName, projectId);
+        debugLog('INFO', 'Project ID resolved and cached', { projectName: baseConfig.projectName });
+      } catch (error) {
+        console.warn(`⚠️  Failed to resolve project ID: ${error instanceof Error ? error.message : String(error)}`);
+        // Continue without projectId - some features may not work
       }
     }
   }
 
-  // Read from environment variables
-  const apiKey = process.env[CLOUD_ENV_VARS.API_KEY];
-  if (!apiKey) {
-    return null;
-  }
-
   return {
-    apiKey,
-    projectId: process.env[CLOUD_ENV_VARS.PROJECT_ID],
+    ...baseConfig,
+    projectId,
   };
-}
-
-/**
- * Parse .env file and set environment variables
- */
-function parseEnvFile(content: string): void {
-  const lines = content.split('\n');
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
-    const eqIndex = trimmed.indexOf('=');
-    if (eqIndex === -1) {
-      continue;
-    }
-    const key = trimmed.slice(0, eqIndex).trim();
-    let value = trimmed.slice(eqIndex + 1).trim();
-    // Remove quotes
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    // Only set if not already defined (environment takes precedence)
-    if (process.env[key] === undefined) {
-      process.env[key] = value;
-    }
-  }
 }
 
 /**
@@ -115,8 +116,8 @@ export function validateCloudConfig(config: CloudConfig | null): { valid: boolea
  */
 export async function createBackend(config: SqlewConfig, projectRoot?: string): Promise<ToolBackend> {
   if (isCloudMode(config)) {
-    // Load cloud config from environment
-    const cloudConfig = loadCloudConfig(projectRoot);
+    // Load cloud config from environment (async: resolves project ID)
+    const cloudConfig = await loadCloudConfig(projectRoot);
     const validation = validateCloudConfig(cloudConfig);
 
     if (!validation.valid) {

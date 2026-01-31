@@ -8,6 +8,7 @@
  *   echo '{"tool_input": {"todos": [...]}}' | sqlew check-completion
  *
  * @since v4.1.0
+ * @modified v5.0.0 - Changed to queue-based processing (same as other hooks)
  */
 
 import { readStdinJson, sendContinue, areAllTodosCompleted, getProjectPath } from './stdin-parser.js';
@@ -17,10 +18,7 @@ import {
   savePlanCache,
   type PlanCache,
 } from '../../config/global-config.js';
-import { initializeDatabase } from '../../database.js';
-import { setDecision } from '../../tools/context/actions/set.js';
-import { enqueueDecisionCreate } from '../../utils/hook-queue.js';
-import { join } from 'path';
+import { enqueueDecisionCreate, enqueueDecisionUpdate } from '../../utils/hook-queue.js';
 
 // ============================================================================
 // Constants
@@ -166,23 +164,14 @@ export async function checkCompletionCommand(): Promise<void> {
       return;
     }
 
-    // Initialize database
-    const dbPath = join(projectPath, '.sqlew', 'sqlew.db');
-    try {
-      await initializeDatabase({ configPath: dbPath });
-    } catch {
-      // Database not initialized - continue without updating
-      sendContinue();
-      return;
-    }
-
     // Build decision key from plan file name
     const planName = planInfo.plan_file.replace(/\.md$/, '');
     const decisionKey = `${PLAN_DECISION_PREFIX}/${planName}`;
 
-    // Update decision status to active (in_review tracked via tag)
+    // Enqueue decision status update (processed by MCP server's QueueWatcher)
+    // This avoids direct DB access and ensures ProjectContext is properly initialized
     try {
-      await setDecision({
+      enqueueDecisionUpdate(projectPath, {
         key: decisionKey,
         value: `All tasks completed for plan: ${planInfo.plan_file}`,
         status: IN_REVIEW_STATUS,
@@ -197,14 +186,14 @@ export async function checkCompletionCommand(): Promise<void> {
         tomlContext = processPlanCache(projectPath, tomlCache);
       }
 
-      const baseMessage = `[sqlew] All tasks completed! Decision updated to status: ${IN_REVIEW_STATUS}`;
+      const baseMessage = `[sqlew] All tasks completed! Decision queued for update to status: ${IN_REVIEW_STATUS}`;
       sendContinue(tomlContext ? `${baseMessage}\n${tomlContext}` : baseMessage);
     } catch (error) {
       // Log error but continue
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[sqlew check-completion] Error updating decision: ${message}`);
+      console.error(`[sqlew check-completion] Error queuing decision update: ${message}`);
 
-      // Still process TOML even if decision update failed
+      // Still process TOML even if decision queue failed
       const tomlCache = loadPlanCache(projectPath);
       if (tomlCache && tomlCache.plan_id === planInfo.plan_id) {
         const tomlContext = processPlanCache(projectPath, tomlCache);

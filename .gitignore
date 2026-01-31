@@ -60,21 +60,10 @@ PHASE*.md
 docker/data/*/
 .tmp-test-*
 
-# sqlew system files (auto-generated)
-.claude/agents/sqlew-*
-.claude/commands/sqw-*
-
 # testing directories
 test-two-step-git/
 test-vcs-staging/
 
-# sqlew auto-generated files
-.sqlew/queue/
-.sqlew/tmp/
-.claude/rules/plan-mode-integration.md
-.claude/skills/sqlew-decision-format/
-.claude/skills/sqlew-plan-guidance/
-.claude/commands/sqlew.md
 
 # for claude code tmp bug
 tmpclaude-*-cwd

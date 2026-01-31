@@ -255,6 +255,7 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
 
       // Test connection immediately - fail fast if connection is bad
       await db.getKnex().raw('SELECT 1');
+      await initializeBackend(fileConfig, finalProjectRoot);
       debugLog('INFO', 'Backend initialized', { type: dbType, host: dbHost, database: dbName });
     } catch (error: any) {
       // Connection failed - EXIT WITHOUT SQLITE FALLBACK
@@ -271,6 +272,7 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
     const resolvedDbPath = dbPath || resolve(finalProjectRoot, DEFAULT_DB_PATH);
     const config = { connection: { filename: resolvedDbPath } };
     db = await initializeDatabase(config);
+    await initializeBackend(fileConfig, finalProjectRoot);
     debugLog('INFO', 'Backend initialized', { type: 'sqlite', path: resolvedDbPath });
   }
 
