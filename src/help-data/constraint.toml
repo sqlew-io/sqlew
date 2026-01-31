@@ -147,20 +147,32 @@ description = "Deactivate a constraint (soft delete)"
   description = "Must be \"deactivate\""
 
   [[actions.params]]
-  name = "constraint_id"
-  type = "number"
+  name = "id"
+  type = "number | string"
   required = true
-  description = "ID of the constraint to deactivate"
+  description = "ID of the constraint (number for SQLite, UUID string for SaaS). constraint_id also accepted for backward compatibility"
 
   [[actions.examples]]
   title = "Deactivate constraint"
+  target_type = "sqlite"
   code = '''
 {
   "action": "deactivate",
-  "constraint_id": 5
+  "id": 5
 }
 '''
-  explanation = "Soft-delete a constraint by marking it inactive"
+  explanation = "Soft-delete a constraint by ID (SQLite uses numeric IDs)"
+
+  [[actions.examples]]
+  title = "Deactivate constraint"
+  target_type = "cloud"
+  code = '''
+{
+  "action": "deactivate",
+  "id": "fbb982cc-764f-4427-b34a-7e758e31c457"
+}
+'''
+  explanation = "Soft-delete a constraint by UUID (SaaS uses UUID strings)"
 
 # -----------------------------------------------------------------------------
 

@@ -4,9 +4,12 @@
  *
  * TOML-based implementation (v5.0+)
  * Loads from src/help-data/*.toml instead of database
+ *
+ * v5.0.1: Environment-aware example filtering (sqlite/cloud/all)
  */
 
 import { getHelpLoader } from '../../../help-loader.js';
+import { filterExamplesByEnvironment } from '../../../utils/example-filter.js';
 import { HelpQueryActionParams, HelpActionResult } from '../types.js';
 
 /**
@@ -36,11 +39,14 @@ export async function queryAction(
     };
   }
 
+  // Filter examples by current environment (sqlite/cloud)
+  const filteredExamples = filterExamplesByEnvironment(action.examples);
+
   return {
     tool: params.tool,
     action: action.name,
     description: action.description,
     parameters: action.params,
-    examples: action.examples
+    examples: filteredExamples
   };
 }

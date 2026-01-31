@@ -27,7 +27,7 @@ export interface ActivateConstraintsResponse {
  */
 export interface ActivateConstraintByIdResponse {
   success: boolean;
-  constraint_id: number;
+  id: number | string;
   message: string;
 }
 
@@ -91,14 +91,14 @@ export async function activateConstraintsByTag(
  * @returns Success response with constraint ID
  */
 export async function activateConstraint(
-  params: { constraint_id: number },
+  params: { id: number | string },
   adapter?: DatabaseAdapter
 ): Promise<ActivateConstraintByIdResponse> {
   const actualAdapter = adapter ?? getAdapter();
   const knex = actualAdapter.getKnex();
 
-  // Normalize aliases: id → constraint_id
-  const normalizedParams = normalizeParams(params, CONSTRAINT_ALIASES) as { constraint_id: number };
+  // Normalize aliases: constraint_id → id (backward compatibility)
+  const normalizedParams = normalizeParams(params, CONSTRAINT_ALIASES) as { id: number | string };
 
   try {
     return await connectionManager.executeWithRetry(async () => {
@@ -106,31 +106,31 @@ export async function activateConstraint(
 
       // Check if constraint exists
       const constraint = await knex('t_constraints')
-        .where('id', normalizedParams.constraint_id)
+        .where('id', normalizedParams.id)
         .where('project_id', projectId)
         .first();
 
       if (!constraint) {
-        throw new Error(`Constraint not found: ${normalizedParams.constraint_id}`);
+        throw new Error(`Constraint not found: ${normalizedParams.id}`);
       }
 
       if (constraint.active === 1) {
         return {
           success: true,
-          constraint_id: normalizedParams.constraint_id,
+          id: normalizedParams.id,
           message: 'Constraint already active',
         };
       }
 
       // Activate the constraint
       await knex('t_constraints')
-        .where('id', normalizedParams.constraint_id)
+        .where('id', normalizedParams.id)
         .where('project_id', projectId)
         .update({ active: SQLITE_TRUE });
 
       return {
         success: true,
-        constraint_id: normalizedParams.constraint_id,
+        id: normalizedParams.id,
         message: 'Constraint activated',
       };
     });

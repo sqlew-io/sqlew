@@ -1,11 +1,11 @@
 /**
- * Auto-initialize sqlew Rules on server startup
+ * Auto-initialize sqlew on server startup
  *
- * As of v5.0.0, Skills and Hooks are managed by the sqlew-plugin (Claude Code Plugin).
- * This module now only handles:
- * - Global Rules initialization (~/.claude/rules/sqlew/)
+ * As of v5.0.0, this module handles:
+ * - Global CLAUDE.md injection (~/.claude/CLAUDE.md)
  * - Project .gitignore updates
  *
+ * Skills and Hooks are managed by the sqlew-plugin (Claude Code Plugin).
  * @see https://github.com/sqlew-io/sqlew-plugin for Skills/Hooks/Agents
  */
 
@@ -27,29 +27,30 @@ function getAssetsPath(): string {
   return path.join(packageRoot, 'assets');
 }
 
-/**
- * Get the global Claude rules directory
- * @returns Path to ~/.claude/rules/sqlew/
- */
-function getGlobalRulesDir(): string {
-  const home = os.homedir();
-  return path.join(home, '.claude', 'rules', 'sqlew');
-}
+/** Marker for sqlew auto-injected section in CLAUDE.md */
+const CLAUDE_MD_MARKER_START = '<!-- sqlew:auto-injected:start -->';
+const CLAUDE_MD_MARKER_END = '<!-- sqlew:auto-injected:end -->';
 
 /**
- * Initialize all rules from claude-md-snippets in global ~/.claude/rules/sqlew/ directory
+ * Inject sqlew snippets into global ~/.claude/CLAUDE.md
  *
- * As of v5.0.0, rules are installed globally to apply across all projects.
- * This approach:
- * - Applies to all projects without per-project installation
- * - Survives plugin uninstall (user can manually delete if desired)
- * - No risk of corrupting user's CLAUDE.md content
+ * As of v5.0.0, snippets are injected directly into CLAUDE.md instead of
+ * being copied to ~/.claude/rules/sqlew/. This ensures higher priority
+ * and better compatibility with other CLI tools (Codex, Gemini CLI).
  *
- * Global rules location: ~/.claude/rules/sqlew/*.md
+ * The injected section is wrapped with HTML comment markers for:
+ * - Easy identification of auto-managed content
+ * - Safe updates (replace existing section)
+ * - No impact on Markdown rendering
+ *
+ * TODO: Add client detection to conditionally inject based on CLI type
+ * Use server.getClientVersion() after MCP initialization
  */
-export function initializeGlobalRules(): void {
+export function injectToGlobalClaudeMd(): void {
+  const home = os.homedir();
+  const claudeDir = path.join(home, '.claude');
+  const claudeMdPath = path.join(claudeDir, 'CLAUDE.md');
   const snippetsDir = path.join(getAssetsPath(), 'claude-md-snippets');
-  const globalRulesDir = getGlobalRulesDir();
 
   // Check if snippets directory exists
   if (!fs.existsSync(snippetsDir)) {
@@ -57,69 +58,91 @@ export function initializeGlobalRules(): void {
     return;
   }
 
-  // Create global rules directory if needed
-  try {
-    fs.mkdirSync(globalRulesDir, { recursive: true });
-  } catch (error) {
-    debugLog('WARN', 'Failed to create global rules directory', { error });
-    return;
+  // Create ~/.claude/ directory if needed
+  if (!fs.existsSync(claudeDir)) {
+    try {
+      fs.mkdirSync(claudeDir, { recursive: true });
+      debugLog('INFO', 'Created ~/.claude directory', { claudeDir });
+    } catch (error) {
+      debugLog('WARN', 'Failed to create ~/.claude directory', { error });
+      return;
+    }
+  }
+
+  // Read current CLAUDE.md content (or empty string if doesn't exist)
+  let content = '';
+  if (fs.existsSync(claudeMdPath)) {
+    content = fs.readFileSync(claudeMdPath, 'utf-8');
+  } else {
+    debugLog('INFO', 'Creating new ~/.claude/CLAUDE.md', { claudeMdPath });
   }
 
   // Find all .md files in snippets directory
   const snippetFiles = fs.readdirSync(snippetsDir).filter(f => f.endsWith('.md'));
 
-  let updated = 0;
-  let upToDate = 0;
-
-  for (const filename of snippetFiles) {
-    const snippetPath = path.join(snippetsDir, filename);
-    const targetPath = path.join(globalRulesDir, filename);
-
-    // Read snippet content
-    const snippetContent = fs.readFileSync(snippetPath, 'utf-8');
-
-    // Check if target already exists and is up-to-date
-    if (fs.existsSync(targetPath)) {
-      const currentContent = fs.readFileSync(targetPath, 'utf-8');
-      if (currentContent === snippetContent) {
-        upToDate++;
-        continue;
-      }
-    }
-
-    // Copy/update the rule file
-    try {
-      fs.writeFileSync(targetPath, snippetContent, 'utf-8');
-      updated++;
-      debugLog('INFO', 'Global rule initialized', { filename });
-    } catch (error) {
-      debugLog('WARN', 'Failed to initialize global rule', { filename, error });
-    }
+  if (snippetFiles.length === 0) {
+    debugLog('WARN', 'No snippet files found', { snippetsDir });
+    return;
   }
 
-  if (updated > 0) {
-    debugLog('INFO', 'Global rules initialized', { updated, upToDate });
+  // Concatenate all snippet contents
+  const snippetContent = snippetFiles
+    .map(f => fs.readFileSync(path.join(snippetsDir, f), 'utf-8'))
+    .join('\n\n');
+
+  // Build the injected section
+  const injectedSection = `${CLAUDE_MD_MARKER_START}\n${snippetContent}\n${CLAUDE_MD_MARKER_END}`;
+
+  // Check if section already exists
+  if (content.includes(CLAUDE_MD_MARKER_START)) {
+    // Check if content is the same (no update needed)
+    const regex = new RegExp(`${escapeRegex(CLAUDE_MD_MARKER_START)}[\\s\\S]*?${escapeRegex(CLAUDE_MD_MARKER_END)}`, 'g');
+    const existingMatch = content.match(regex);
+
+    if (existingMatch && existingMatch[0] === injectedSection) {
+      debugLog('DEBUG', 'CLAUDE.md sqlew section is up-to-date');
+      return;
+    }
+
+    // Replace existing section
+    content = content.replace(regex, injectedSection);
+    debugLog('INFO', 'Updated sqlew section in CLAUDE.md', { files: snippetFiles.length });
   } else {
-    debugLog('DEBUG', 'All global rules are up-to-date', { upToDate });
+    // Append new section
+    content = content.trimEnd() + '\n\n' + injectedSection + '\n';
+    debugLog('INFO', 'Injected sqlew section into CLAUDE.md', { files: snippetFiles.length });
+  }
+
+  // Write updated content
+  try {
+    fs.writeFileSync(claudeMdPath, content, 'utf-8');
+  } catch (error) {
+    debugLog('WARN', 'Failed to write CLAUDE.md', { error });
   }
 }
 
 /**
- * Initialize sqlew rules on MCP server startup
+ * Escape special regex characters in a string
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Initialize sqlew on MCP server startup
  *
- * As of v5.0.0, Skills and Hooks are managed by the sqlew-plugin.
- * This function now only handles:
- * - Global Rules initialization (~/.claude/rules/sqlew/)
- * - Project .gitignore updates
+ * As of v5.0.0:
+ * - Injects snippets into ~/.claude/CLAUDE.md (not rules/)
+ * - Updates project .gitignore
  *
  * @param projectRoot - Project root directory (for .gitignore updates)
  */
 export function initializeSqlewRules(projectRoot: string): void {
-  debugLog('DEBUG', 'Initializing sqlew rules', { projectRoot });
+  debugLog('DEBUG', 'Initializing sqlew', { projectRoot });
 
-  // Initialize global rules (~/.claude/rules/sqlew/)
-  // This applies Plan Mode Integration across all projects
-  initializeGlobalRules();
+  // Inject snippets into global ~/.claude/CLAUDE.md
+  // TODO: Add client detection to conditionally inject
+  injectToGlobalClaudeMd();
 
   // Initialize .gitignore entries for sqlew-generated files
   initializeGitignore(projectRoot);
@@ -130,7 +153,6 @@ export function initializeSqlewRules(projectRoot: string): void {
  *
  * As of v5.0.0:
  * - Skills and Hooks are managed by sqlew-plugin (not per-project)
- * - Rules are installed globally (~/.claude/rules/sqlew/)
  * - Gitignore is placed inside .sqlew/ directory
  *
  * Note: *.db* catches .db, .db-journal, .db-wal, .db-shm files

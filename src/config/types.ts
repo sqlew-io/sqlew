@@ -372,24 +372,56 @@ export interface ProjectConfig {
 export const CLOUD_ENV_VARS = {
   /** API key for authentication (required for cloud mode) */
   API_KEY: 'SQLEW_API_KEY',
-  /** Project ID (optional) */
-  PROJECT_ID: 'SQLEW_PROJECT_ID',
 } as const;
 
 /**
+ * Detected environment types for connection identification
+ * @since v5.0.0
+ */
+export type Environment =
+  | 'windows'
+  | 'macos'
+  | 'linux'
+  | 'wsl'
+  | 'docker'
+  | 'unknown';
+
+/**
+ * Connection identity for SaaS backend.
+ * Provides unique identification for each connection.
+ *
+ * @since v5.0.0
+ */
+export interface ConnectionIdentity {
+  /** SHA256 hash for internal identification (Base64URL, 43 chars) */
+  connectionHash: string;
+  /** Detected environment for display (windows, macos, linux, wsl, docker) */
+  environment: Environment;
+  /** Last two path segments for display (e.g., 'RustroverProjects/my-app') */
+  pathSuffix: string;
+  /** Full path (stored locally, not sent to server) */
+  fullPath: string;
+}
+
+/**
  * Cloud backend configuration.
- * Loaded from environment variables (.sqlew/.env).
+ * Loaded from ~/.sqlew.env (API key) and .sqlew/config.toml (project name).
  *
  * Note: API endpoint is NOT configurable here - it's hardcoded in the plugin.
  * This is intentional for security (no endpoint info in OSS).
  *
  * @since v4.4.0
+ * @since v5.0.0 Added connectionIdentity for seat-based billing
  */
 export interface CloudConfig {
   /** API key for authentication */
   apiKey: string;
-  /** Project ID (optional) */
+  /** Project name from .sqlew/config.toml [project].name */
+  projectName?: string;
+  /** Resolved project UUID (cached in ~/.sqlew.env) */
   projectId?: string;
+  /** Connection identity for SaaS mode (v5.0.0+) */
+  connectionIdentity?: ConnectionIdentity;
 }
 
 /**

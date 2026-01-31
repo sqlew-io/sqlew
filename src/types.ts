@@ -231,7 +231,7 @@ export interface UnreadMessagesByPriority {
 }
 
 export interface TaggedConstraint {
-  readonly id: number;
+  readonly id: number | string;  // number for SQLite, UUID string for SaaS (v5.0.0)
   readonly category: string;
   readonly layer: string | null;
   readonly constraint_text: string;
@@ -437,7 +437,7 @@ export interface GetConstraintsParams {
 }
 
 export interface DeactivateConstraintParams {
-  constraint_id: number;
+  id: number | string;  // number for SQLite, UUID string for SaaS
 }
 
 // ============================================================================
@@ -531,7 +531,7 @@ export interface SetDecisionResponse {
     layer?: string;
     tags?: string[];
   }>;
-  // Human-readable warnings from SaaS backend (v5.1.0)
+  // Human-readable warnings from SaaS backend (v5.0.0)
   warnings?: string[];
 }
 
@@ -546,7 +546,7 @@ export interface QuickSetDecisionResponse {
     scope?: string;
   };
   message?: string;
-  // Human-readable warnings from SaaS backend (v5.1.0)
+  // Human-readable warnings from SaaS backend (v5.0.0)
   warnings?: string[];
 }
 
@@ -568,7 +568,7 @@ export interface GetDecisionResponse {
     related_task_id: number | null;
     related_constraint_id: number | null;
   }>;
-  // Human-readable warnings from SaaS backend (v5.1.0)
+  // Human-readable warnings from SaaS backend (v5.0.0)
   warnings?: string[];
 }
 
@@ -632,16 +632,16 @@ export interface ExportDecisionResponse {
 
 export interface AddConstraintResponse {
   success: boolean;
-  constraint_id: number;
+  constraint_id: number | string;  // number for SQLite, UUID string for SaaS
   already_exists?: boolean;
-  // Human-readable warnings from SaaS backend (v5.1.0)
+  // Human-readable warnings from SaaS backend (v5.0.0)
   warnings?: string[];
 }
 
 export interface GetConstraintsResponse {
   constraints: TaggedConstraint[];
   count: number;
-  // Human-readable warnings from SaaS backend (v5.1.0)
+  // Human-readable warnings from SaaS backend (v5.0.0)
   warnings?: string[];
 }
 
