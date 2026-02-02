@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.0.1] - 2026-02-02
+
+### Changed
+
+**🔒 Security: saas-connector submodule integration (Issue #84)**
+
+- Integrated saas-connector submodule directly into `src/saas-connector/`
+- Removed `prebuild` script that triggered npm package scanner alerts
+- Converted saas-connector from CommonJS to ESM for unified tsc build
+- Eliminated separate esbuild step and `npm install` in subdirectory
+- No functional changes - same SaaS backend behavior
+
+**Rationale**: The `prebuild` script (`cd saas-connector && npm install && npm run build`) was flagged by npm security scanners as a potential risk. While the code itself was safe, the submodule architecture created unnecessary complexity and security perception issues.
+
+---
+
 ## [5.0.0] - 2026-01-31
 
 ### Added
