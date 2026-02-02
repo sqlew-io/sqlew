@@ -13,7 +13,7 @@ import { TransformingBackend } from './transforming-backend.js';
 import {
   createBackend as createSaaSBackend,
   resolveProject,
-} from '@sqlew/saas-connector';
+} from '../saas-connector/index.js';
 import { debugLog } from '../utils/debug-logger.js';
 import {
   loadCloudConfigFromGlobal,
