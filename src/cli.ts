@@ -473,8 +473,8 @@ export function isCliCommand(command: string): boolean {
     'db:dump', 'db:export', 'db:import', 'query',
     // Claude Code Hooks commands (v4.1.0+)
     'suggest', 'track-plan', 'save', 'check-completion', 'mark-done', 'init',
-    // New hook events (v4.2.0+)
-    'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan',
+    // Hook events (v4.2.0+, v5.0.0+)
+    'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start',
   ];
   return cliCommands.includes(command);
 }

@@ -12,6 +12,7 @@ description = "Context Management - Store decisions with metadata (tags, layers,
 [[actions]]
 name = "set"
 description = "Create or update a decision with full metadata support"
+note = "This action does NOT support rationale, alternatives, or tradeoffs parameters. To add decision context, use `add_decision_context` action as a separate call after setting the decision."
 
   [[actions.params]]
   name = "action"
@@ -90,6 +91,17 @@ description = "Create or update a decision with full metadata support"
 }
 '''
   explanation = "Store a numeric decision scoped to a specific service"
+
+  [[actions.examples]]
+  title = "Decision with rationale (two-step workflow)"
+  code = '''
+# Step 1: Set the decision
+{"action":"set","key":"auth/method","value":"JWT tokens","layer":"infrastructure","tags":["security"]}
+
+# Step 2: Add rationale (separate call required)
+{"action":"add_decision_context","key":"auth/method","rationale":"Stateless auth ideal for microservices"}
+'''
+  explanation = "To include rationale, alternatives, or tradeoffs, you MUST use add_decision_context as a separate step. The set action does not accept these parameters."
 
 # -----------------------------------------------------------------------------
 

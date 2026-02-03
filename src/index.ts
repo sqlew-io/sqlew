@@ -18,8 +18,8 @@ const firstArg = rawArgs[0] || '';
 const cliCommands = [
   'db:dump', 'db:export', 'db:import', 'query',
   'suggest', 'track-plan', 'save', 'check-completion', 'mark-done', 'init',
-  // New hook events (v4.2.0+)
-  'on-subagent-stop', 'on-stop', 'on-exit-plan',
+  // Hook events (v4.2.0+, v5.0.0+)
+  'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start',
 ];
 // CLI flags that should route to CLI (not MCP server)
 const cliFlags = ['--init', '--help', '--version'];
