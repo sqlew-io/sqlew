@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.0.2] - 2026-02-03
+
+### Fixed
+
+**🐛 on-session-start Hook CLI Routing Bug**
+
+- Fixed `on-session-start` command being incorrectly routed to MCP server instead of CLI handler
+- The command name was being interpreted as a database path argument, causing incorrect DB connections
+- Added `on-session-start` to CLI command lists in both `index.ts` and `cli.ts`
+- Also added missing `on-enter-plan` to `index.ts` for consistency
+
+**Root Cause**: When SessionStart hook executed `sqlew on-session-start`, the command was not recognized as a CLI command and fell through to MCP server mode. The argument parser then treated `on-session-start` as a legacy positional argument for `--db-path`, resulting in a database file named `on-session-start` being created and used.
+
+---
+
 ## [5.0.1] - 2026-02-02
 
 ### Changed
