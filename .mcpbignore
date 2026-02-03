@@ -1,0 +1,45 @@
+# Development files
+src/
+docker/
+.sqlew/
+.git/
+.github/
+.husky/
+.claude/
+
+# Test files and databases
+.tmp-test/
+dist/tests/
+*.test.ts
+*.test.js
+
+# Config and IDE files
+tsconfig.json
+jest.config.*
+.eslintrc.*
+.prettierrc.*
+.ast-grep/
+.zed/
+.idea/
+.vscode/
+
+# Build artifacts and caches
+node_modules/
+*.log
+*.tgz
+*.mcpb
+
+# Backup and temp files
+*.bak
+backup.json
+export.json
+sqlew-export.md
+manifest.json.bak
+
+# OS files
+nul
+Thumbs.db
+.DS_Store
+
+# Dev-only docs
+CLAUDE.md
