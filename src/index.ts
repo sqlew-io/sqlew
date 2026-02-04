@@ -54,6 +54,8 @@ async function startMcpServer(): Promise<void> {
   const { initializeServer } = await import('./server/setup.js');
   const { registerShutdownHandlers, performCleanup } = await import('./server/shutdown.js');
   const { handleInitializationError, safeConsoleError } = await import('./utils/error-handler.js');
+  const { stopQueueWatcher } = await import('./watcher/queue-watcher.js');
+  const { debugLog } = await import('./utils/debug-logger.js');
 
   // Parse command-line arguments
   const args = process.argv.slice(2);
@@ -70,8 +72,8 @@ async function startMcpServer(): Promise<void> {
   // Create MCP server
   const server = new Server(
     {
-      name: 'mcp-sqlew',
-      version: '4.2.0',
+      name: 'sqlew',
+      version: '5.0.3',
     },
     {
       capabilities: {
@@ -133,6 +135,20 @@ async function startMcpServer(): Promise<void> {
     }
 
     safeConsoleError(`  Project: ${setupResult.projectContext.getProjectName()} (ID: ${setupResult.projectContext.getProjectId()}, source: ${setupResult.detectionSource})`);
+
+    // Detect parent process exit (stdin pipe closed)
+    // StdioServerTransport only listens for 'data'/'error', not 'end'
+    // Without this, chokidar's persistent watcher keeps the process alive
+    process.stdin.on('end', async () => {
+      debugLog('INFO', 'Stdin closed - parent process exited, shutting down');
+      try {
+        await stopQueueWatcher();
+      } catch {
+        // Ignore - may not be initialized
+      }
+      performCleanup();
+      process.exit(0);
+    });
   } catch (error) {
     // If debug logger not initialized, write to stderr as fallback
     if (!debugLoggerInitialized) {
