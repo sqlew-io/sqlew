@@ -18,7 +18,7 @@ import { debugLog } from '../../utils/debug-logger.js';
 /**
  * Schema version enum
  */
-export type SchemaVersion = 'v4' | 'v3' | 'unknown';
+export type SchemaVersion = 'v5' | 'v4' | 'v3' | 'unknown';
 
 /**
  * Detailed schema version info
@@ -29,8 +29,8 @@ export interface SchemaVersionInfo {
   minorVersion: number;
   hasV4Tables: boolean;
   hasV3Tables: boolean;
-  tablePrefix: 'v4_' | 'm_' | '';
-  transactionPrefix: 'v4_' | 't_' | '';
+  tablePrefix: 'm_' | 'v4_' | '';
+  transactionPrefix: 't_' | 'v4_' | '';
   detectedAt: number;
 }
 
@@ -48,28 +48,40 @@ export async function detectSchemaVersion(knex: Knex): Promise<SchemaVersionInfo
 
   debugLog('INFO', 'Detecting database schema version...');
 
-  // Check for v4 tables (primary indicator of v4.x schema)
-  const hasV4Projects = await knex.schema.hasTable('m_projects');
-  const hasV4Decisions = await knex.schema.hasTable('t_decisions');
+  // Check core tables for version detection
+  const hasMProjects = await knex.schema.hasTable('m_projects');
+  const hasTDecisions = await knex.schema.hasTable('t_decisions');
+  const hasTConstraints = await knex.schema.hasTable('t_constraints');
+
+  // Check v4-specific table (dropped in v5.0)
   const hasV4Tasks = await knex.schema.hasTable('v4_tasks');
 
-  // Check for v3 tables (primary indicator of v3.x schema)
+  // Check v3-specific tables (dropped in v4.0/v5.0)
   const hasAgents = await knex.schema.hasTable('m_agents');
-  const hasV3Decisions = await knex.schema.hasTable('t_decisions');
   const hasV3Tasks = await knex.schema.hasTable('t_tasks');
 
-  // Determine schema version
-  const hasV4Tables = hasV4Projects && hasV4Decisions && hasV4Tasks;
-  const hasV3Tables = hasAgents && hasV3Decisions && hasV3Tasks;
+  // Determine schema version (v5 first, since migrations run before detection)
+  const hasV5Tables = hasMProjects && hasTDecisions && hasTConstraints && !hasV4Tasks;
+  const hasV4Tables = hasMProjects && hasTDecisions && hasV4Tasks;
+  const hasV3Tables = hasAgents && hasTDecisions && hasV3Tasks;
 
   let version: SchemaVersion;
   let majorVersion: number;
   let minorVersion: number;
-  let tablePrefix: 'v4_' | 'm_' | '';
-  let transactionPrefix: 'v4_' | 't_' | '';
+  let tablePrefix: 'm_' | 'v4_' | '';
+  let transactionPrefix: 't_' | 'v4_' | '';
 
-  if (hasV4Tables) {
-    // v4.x schema detected - use new tables
+  if (hasV5Tables) {
+    // v5.x schema detected - m_/t_ prefix (current)
+    version = 'v5';
+    majorVersion = 5;
+    minorVersion = 0;
+    tablePrefix = 'm_';
+    transactionPrefix = 't_';
+
+    debugLog('INFO', 'Schema version detected: v5.x (using m_/t_ tables)');
+  } else if (hasV4Tables) {
+    // v4.x schema detected - v4_ prefix (pre-migration)
     version = 'v4';
     majorVersion = 4;
     minorVersion = 0;
@@ -78,7 +90,7 @@ export async function detectSchemaVersion(knex: Knex): Promise<SchemaVersionInfo
 
     debugLog('INFO', 'Schema version detected: v4.x (using v4_ tables)');
   } else if (hasV3Tables) {
-    // v3.x schema detected - use old tables
+    // v3.x schema detected - legacy tables
     version = 'v3';
     majorVersion = 3;
     minorVersion = 0;
@@ -133,6 +145,13 @@ export function isSchemaVersionDetected(): boolean {
  */
 export function clearSchemaVersionCache(): void {
   cachedVersionInfo = null;
+}
+
+/**
+ * Check if using v5 schema
+ */
+export function isV5Schema(): boolean {
+  return cachedVersionInfo?.version === 'v5';
 }
 
 /**

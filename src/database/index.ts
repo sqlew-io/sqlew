@@ -25,6 +25,7 @@ export {
   getSchemaVersion,
   isSchemaVersionDetected,
   clearSchemaVersionCache,
+  isV5Schema,
   isV4Schema,
   isV3Schema,
   getTableName,

@@ -64,6 +64,5 @@ docker/data/*/
 test-two-step-git/
 test-vcs-staging/
 
-
-# for claude code tmp bug
-tmpclaude-*-cwd
+# MCPB Component
+*.mcpb

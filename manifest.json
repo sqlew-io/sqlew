@@ -1,0 +1,59 @@
+{
+  "manifest_version": "0.2",
+  "name": "sqlew",
+  "display_name": "sqlew - Context Manager for AI Agents",
+  "version": "5.0.3",
+  "description": "Token-efficient context management for AI coding agents. Record architectural decisions, constraints, and maintain project knowledge across sessions. Supports SQLite local storage and sqlew.io cloud backend.",
+  "author": {
+    "name": "sqlew.io",
+    "email": "support@sqlew.io",
+    "url": "https://github.com/sqlew-io/sqlew"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sqlew-io/sqlew"
+  },
+  "license": "Apache-2.0",
+  "tools": [
+    {
+      "name": "decision",
+      "description": "Manage architectural decisions with versioning, layers, and tags"
+    },
+    {
+      "name": "constraint",
+      "description": "Define and manage project constraints with priorities"
+    },
+    {
+      "name": "suggest",
+      "description": "Intelligent decision/constraint suggestion system"
+    },
+    {
+      "name": "help",
+      "description": "Query action documentation and workflow guidance"
+    },
+    {
+      "name": "example",
+      "description": "Browse and search code examples"
+    },
+    {
+      "name": "use_case",
+      "description": "Browse complete workflow scenarios"
+    },
+    {
+      "name": "queue",
+      "description": "Hook queue management for async processing"
+    }
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
+      "env": {}
+    }
+  },
+  "icon": "assets/sqlew-logo.png"
+}

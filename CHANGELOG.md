@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.0.3] - 2026-02-04
+
+### Fixed
+
+**🧟 Zombie Process on Parent Exit (Windows)**
+
+- MCP server processes remained alive after Claude Code exited, accumulating as zombie processes in Task Manager
+- Root cause: MCP SDK's `StdioServerTransport` only listens for stdin `data`/`error`, not `end`. When combined with chokidar's `persistent: true` file watcher (QueueWatcher), the Node.js event loop stayed alive indefinitely
+- Added `process.stdin.on('end')` handler to detect parent process exit and trigger graceful shutdown
+- Added `stopQueueWatcher()` to all shutdown handlers (`registerShutdownHandlers`, `performCleanup`) — the function existed since v4.1.0 but was never wired into the shutdown flow
+
+**🔍 Schema Version Detection for v5.0**
+
+- Fixed `[WARN] Unknown schema version detected` on every startup
+- `detectSchemaVersion()` checked for `v4_tasks` table (dropped in v5.0 migration), causing detection to always fail on v5 schema
+- Added v5 schema detection: checks `m_projects` + `t_decisions` + `t_constraints` with `v4_tasks` absence to distinguish from v4
+- Schema now correctly reports `v5.x (using m_/t_ tables)` with proper `tablePrefix='m_'` and `transactionPrefix='t_'`
+
+---
+
 ## [5.0.2] - 2026-02-03
 
 ### Fixed
