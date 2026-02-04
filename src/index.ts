@@ -70,10 +70,12 @@ async function startMcpServer(): Promise<void> {
   }
 
   // Create MCP server
+  // TODO: Migrate from deprecated `Server` to `McpServer` (high-level API)
+  // See: @modelcontextprotocol/sdk/server/mcp.js
   const server = new Server(
     {
       name: 'sqlew',
-      version: '5.0.3',
+      version: '5.0.4',
     },
     {
       capabilities: {

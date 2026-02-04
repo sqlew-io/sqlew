@@ -51,6 +51,9 @@ suggest { action: "by_context", target: "constraint", text: "<topic>" }
 - **Value**: Description of the decision
 - **Layer**: presentation | business | data | infrastructure | cross-cutting
 - **Tags**: tag1, tag2 (optional)
+- **Rationale**: Why this decision was made (optional)
+- **Alternatives**: Option A, Option B (optional, comma-separated)
+- **Tradeoffs**: Pros and cons description (optional)
 ```
 
 **Constraint format (REQUIRED when user specifies restrictions):**

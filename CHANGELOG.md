@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.0.4] - 2026-02-04
+
+### Added
+
+**📌 Decision Context Auto-Registration from Plan Mode**
+
+- Plan-to-ADR pipeline now automatically extracts and registers decision context (rationale, alternatives, tradeoffs) from plan files
+- New `decision_context` queue item type in `.sqlew/queue/pending.json`
+- `plan-pattern-extractor.ts`: Extracts `Rationale`, `Alternatives`, `Tradeoffs` fields from `📌 Decision` blocks
+- `plan-processor.ts`: Enqueues `decision_context` items after corresponding `decision` items (ordering guaranteed)
+- `hook-queue.ts`: New `enqueueDecisionContextCreate()` with duplicate prevention
+- `queue-watcher.ts`: New `processDecisionContextItem()` converts comma-separated alternatives to JSON array, routes through ToolBackend abstraction
+
+### SaaS Compatibility
+
+- `add_decision_context` action fully supported via SaaS backend (`/api/v1/decision/add_decision_context`)
+- `suggest/by_context` for constraints: improved text matching for long constraint texts (server-side Levenshtein fix)
+
+---
+
 ## [5.0.3] - 2026-02-04
 
 ### Fixed
