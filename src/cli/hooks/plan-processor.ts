@@ -12,7 +12,7 @@
 
 import { readFileSync } from 'fs';
 import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
-import { enqueueDecisionCreate, enqueueConstraintCreate } from '../../utils/hook-queue.js';
+import { enqueueDecisionCreate, enqueueConstraintCreate, enqueueDecisionContextCreate } from '../../utils/hook-queue.js';
 import {
   extractPatternsFromPlan,
   hasPatterns,
@@ -113,6 +113,16 @@ export function processPlanPatterns(projectPath: string): ProcessPlanResult {
       layer: decision.layer || 'cross-cutting',
       tags: allTags,
     });
+
+    // Enqueue decision context if rationale exists (after DecisionCreate for ordering)
+    if (decision.rationale) {
+      enqueueDecisionContextCreate(projectPath, {
+        key: decision.key,
+        rationale: decision.rationale,
+        alternatives: decision.alternatives,
+        tradeoffs: decision.tradeoffs,
+      });
+    }
   }
 
   for (const constraint of extracted.constraints) {

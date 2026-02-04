@@ -40,6 +40,12 @@ export interface ExtractedDecision {
   layer?: string;
   /** Tags for the decision (comma-separated) */
   tags?: string;
+  /** Why this decision was made (for decision context) */
+  rationale?: string;
+  /** Alternatives considered (comma-separated) */
+  alternatives?: string;
+  /** Tradeoffs description */
+  tradeoffs?: string;
 }
 
 /**
@@ -122,6 +128,9 @@ export function extractPatternsFromPlan(content: string): ExtractionResult {
       value,
       layer: normalizeLayer(extractField(body, 'Layer')),
       tags: extractField(body, 'Tags'),
+      rationale: extractField(body, 'Rationale') || undefined,
+      alternatives: extractField(body, 'Alternatives') || undefined,
+      tradeoffs: extractField(body, 'Tradeoffs') || undefined,
     });
   }
 
@@ -271,7 +280,15 @@ export function buildConfirmationMessage(extracted: ExtractionResult, planFile: 
   if (extracted.decisions.length > 0) {
     lines.push(`### ✅ Decisions (${extracted.decisions.length}) → auto-registered as draft`);
     for (const d of extracted.decisions) {
-      lines.push(`- **${d.key}**: ${d.value}`);
+      const contextParts: string[] = [];
+      if (d.rationale) contextParts.push('rationale');
+      if (d.alternatives) {
+        const count = d.alternatives.split(',').filter(s => s.trim()).length;
+        contextParts.push(`${count} alternative${count > 1 ? 's' : ''}`);
+      }
+      if (d.tradeoffs) contextParts.push('tradeoffs');
+      const contextSuffix = contextParts.length > 0 ? ` + context (${contextParts.join(', ')})` : '';
+      lines.push(`- **${d.key}**: ${d.value}${contextSuffix}`);
       if (d.layer) lines.push(`  - Layer: ${d.layer}`);
     }
     lines.push('');

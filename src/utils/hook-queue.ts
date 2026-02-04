@@ -129,8 +129,25 @@ export interface ConstraintQueueItem {
   };
 }
 
+/** Queue item for decision context operations */
+export interface DecisionContextQueueItem {
+  type: 'decision_context';
+  action: 'create';
+  timestamp: string;
+  data: {
+    /** Decision key to attach context to */
+    key: string;
+    /** Why this decision was made (required) */
+    rationale: string;
+    /** Alternatives considered (comma-separated) */
+    alternatives?: string;
+    /** Tradeoffs description */
+    tradeoffs?: string;
+  };
+}
+
 /** Union type for all queue items */
-export type QueueItem = DecisionQueueItem | ConstraintQueueItem;
+export type QueueItem = DecisionQueueItem | ConstraintQueueItem | DecisionContextQueueItem;
 
 /** Queue file structure */
 export interface QueueFile {
@@ -601,6 +618,63 @@ export function clearQueue(projectPath: string): void {
 export function hasQueueItems(projectPath: string): boolean {
   const queue = readQueue(projectPath);
   return queue.items.length > 0;
+}
+
+// ============================================================================
+// Decision Context Queue Operations (v5.0.4+)
+// ============================================================================
+
+/**
+ * Enqueue a decision context creation
+ *
+ * Must be enqueued AFTER the corresponding DecisionCreate item
+ * to ensure the decision exists when context is processed.
+ *
+ * @param projectPath - Project root path
+ * @param data - Decision context data
+ */
+export function enqueueDecisionContextCreate(
+  projectPath: string,
+  data: {
+    key: string;
+    rationale: string;
+    alternatives?: string;
+    tradeoffs?: string;
+  }
+): void {
+  writeQueueTrace(projectPath, 'INFO', 'enqueueDecisionContextCreate: START', { key: data.key });
+  const queue = readQueue(projectPath);
+  writeQueueTrace(projectPath, 'INFO', 'enqueueDecisionContextCreate: after readQueue', { existingItems: queue.items.length });
+
+  // Duplicate check: skip if same key + rationale prefix already in queue
+  const rationalePrefix = data.rationale.slice(0, 30);
+  const existingContext = queue.items.find(
+    i => i.type === 'decision_context'
+      && (i as DecisionContextQueueItem).data.key === data.key
+      && (i as DecisionContextQueueItem).data.rationale.slice(0, 30) === rationalePrefix
+  );
+  if (existingContext) {
+    writeQueueTrace(projectPath, 'WARN', 'enqueueDecisionContextCreate: SKIP duplicate', { key: data.key });
+    debugLog('INFO', '[hook-queue] Skipping duplicate decision context in queue', { key: data.key });
+    return;
+  }
+
+  const item: DecisionContextQueueItem = {
+    type: 'decision_context',
+    action: 'create',
+    timestamp: new Date().toISOString(),
+    data,
+  };
+  queue.items.push(item);
+  writeQueueTrace(projectPath, 'INFO', 'enqueueDecisionContextCreate: before writeQueue', { totalItems: queue.items.length });
+  debugLog('INFO', '[hook-queue] enqueueDecisionContextCreate', {
+    projectPath,
+    key: data.key,
+    rationalePreview: data.rationale?.slice(0, 30),
+    queueSizeAfter: queue.items.length,
+  });
+  writeQueue(projectPath, queue, 'enqueueDecisionContextCreate');
+  writeQueueTrace(projectPath, 'INFO', 'enqueueDecisionContextCreate: DONE');
 }
 
 // ============================================================================
