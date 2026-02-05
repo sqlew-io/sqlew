@@ -21,3 +21,5 @@ jobs:
           git checkout dev
           git reset --hard origin/main
           git push --force origin dev
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
