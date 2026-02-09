@@ -5,7 +5,7 @@
 
 import { DatabaseAdapter } from '../../../adapters/index.js';
 import { getAdapter } from '../../../database.js';
-import { validateCategory } from '../../../utils/validators.js';
+import { validateCategory, validatePriority } from '../../../utils/validators.js';
 import { validateActionParams } from '../../../utils/parameter-validator.js';
 import { parseStringArray } from '../../../utils/param-parser.js';
 import { getProjectContext } from '../../../utils/project-context.js';
@@ -66,13 +66,13 @@ export async function getConstraints(
         query = query.where('l.name', params.layer);
       }
 
-      // Filter by priority
+      // Filter by priority (accepts string or number)
       if (params.priority) {
-        // Convert priority string to integer for DB query
+        const priorityStr = validatePriority(params.priority as string | number);
         const priorityMap: Record<string, number> = {
           low: 1, medium: 2, high: 3, critical: 4
         };
-        const priorityInt = priorityMap[params.priority];
+        const priorityInt = priorityMap[priorityStr];
         if (priorityInt !== undefined) {
           query = query.where('c.priority', priorityInt);
         }

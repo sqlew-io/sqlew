@@ -20,6 +20,9 @@ const includePattern = /(✖|Error|FAIL)/;
 // Pattern matches: passing tests, test start markers (lines to EXCLUDE)
 const excludePattern = /(✔|✅|▶)/;
 
+// Pattern matches: TAP pass lines and subtest headers (never failures)
+const tapNonFailurePattern = /^\s*(ok \d|# Subtest:)/;
+
 // Pattern to detect final summary section (lines starting with ℹ)
 const summaryPattern = /^ℹ /;
 
@@ -49,7 +52,8 @@ rl.on('line', (line) => {
   }
 
   // Check if current line is a failure
-  const isFailure = includePattern.test(line) && !excludePattern.test(line);
+  // Exclude TAP pass lines (ok N) and subtest headers (# Subtest:) that may contain "Error" in test names
+  const isFailure = includePattern.test(line) && !excludePattern.test(line) && !tapNonFailurePattern.test(line);
 
   if (isFailure) {
     hasFailures = true; // Mark that we detected failures

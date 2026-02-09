@@ -19,7 +19,7 @@ export const CONSTRAINT_ACTION_SPECS: Record<string, ActionSpec> = {
       layer: 'business',
       tags: ['api', 'latency']
     },
-    hint: "Valid categories: performance, architecture, security, code-style. Valid priorities: low, medium, high, critical. Set active=false for draft constraints. NOTE: rationale is NOT supported - include it in tags or constraint_text if needed."
+    hint: "Valid categories: performance, architecture, security, code-style. Valid priorities: low, medium, high, critical (or 1-4). Set active=false for draft constraints. NOTE: rationale is NOT supported - include it in tags or constraint_text if needed."
   },
 
   get: {

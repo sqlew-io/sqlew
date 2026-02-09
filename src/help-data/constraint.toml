@@ -33,10 +33,10 @@ description = "Add a new constraint with priority"
 
   [[actions.params]]
   name = "priority"
-  type = "number"
+  type = "string"
   required = false
-  description = "Priority: 1=low, 2=medium, 3=high, 4=critical"
-  default = "2"
+  description = "Priority: low, medium, high, critical (or 1-4)"
+  default = "medium"
 
   [[actions.params]]
   name = "layer"
@@ -58,7 +58,7 @@ description = "Add a new constraint with priority"
   "action": "add",
   "constraint_text": "All API endpoints must require authentication",
   "category": "security",
-  "priority": 4,
+  "priority": "critical",
   "layer": "presentation"
 }
 '''
@@ -71,7 +71,7 @@ description = "Add a new constraint with priority"
   "action": "add",
   "constraint_text": "Use functional components with hooks instead of class components",
   "category": "code-style",
-  "priority": 2,
+  "priority": "medium",
   "tags": ["react", "frontend"]
 }
 '''
@@ -103,9 +103,9 @@ description = "Retrieve constraints with filtering"
 
   [[actions.params]]
   name = "priority"
-  type = "number"
+  type = "string"
   required = false
-  description = "Filter by minimum priority"
+  description = "Filter by priority: low, medium, high, critical (or 1-4)"
 
   [[actions.params]]
   name = "active_only"
@@ -129,10 +129,10 @@ description = "Retrieve constraints with filtering"
   code = '''
 {
   "action": "get",
-  "priority": 4
+  "priority": "critical"
 }
 '''
-  explanation = "Retrieve all critical (priority 4) constraints"
+  explanation = "Retrieve all critical constraints"
 
 # -----------------------------------------------------------------------------
 
