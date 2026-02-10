@@ -419,7 +419,7 @@ export interface ExportBlocks {
 export interface AddConstraintParams {
   category: string;
   constraint_text: string;
-  priority?: 'low' | 'medium' | 'high' | 'critical';
+  priority?: 'low' | 'medium' | 'high' | 'critical' | number;
   layer?: string;
   tags?: string[];
   created_by?: string;
@@ -430,7 +430,7 @@ export interface AddConstraintParams {
 export interface GetConstraintsParams {
   category?: string;
   layer?: string;
-  priority?: 'low' | 'medium' | 'high' | 'critical';
+  priority?: 'low' | 'medium' | 'high' | 'critical' | number;
   tags?: string[];
   include_inactive?: boolean;
   limit?: number;

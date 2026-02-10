@@ -54,9 +54,8 @@ export async function addConstraint(
       // Validate category
       validateCategory(normalizedParams.category);
 
-      // Validate priority if provided
-      const priorityStr = normalizedParams.priority || 'medium';
-      validatePriority(priorityStr);
+      // Validate priority if provided (accepts string or number)
+      const priorityStr = validatePriority(normalizedParams.priority || 'medium');
       const priority = STRING_TO_PRIORITY[priorityStr] || DEFAULT_PRIORITY;
 
       // Validate and get layer ID if provided

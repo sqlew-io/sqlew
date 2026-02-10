@@ -43,13 +43,21 @@ export function validateStatus(status: string): 'active' | 'deprecated' | 'draft
 }
 
 /**
- * Validates priority string (low/medium/high/critical)
+ * Validates priority string or number (low/medium/high/critical or 1-4)
+ * Accepts numeric priorities for backward compatibility with TOML docs
  * @throws Error if priority is not valid
  */
-export function validatePriority(priority: string): 'low' | 'medium' | 'high' | 'critical' {
+export function validatePriority(priority: string | number): 'low' | 'medium' | 'high' | 'critical' {
+  // Accept numeric priorities (backward compat)
+  if (typeof priority === 'number') {
+    const numToStr: Record<number, string> = { 1: 'low', 2: 'medium', 3: 'high', 4: 'critical' };
+    const converted = numToStr[priority];
+    if (converted) return converted as 'low' | 'medium' | 'high' | 'critical';
+    throw new Error('Invalid priority number. Must be 1-4 (1=low, 2=medium, 3=high, 4=critical)');
+  }
   const validPriorities = ['low', 'medium', 'high', 'critical'];
   if (!validPriorities.includes(priority)) {
-    throw new Error(`Invalid priority. Must be one of: ${validPriorities.join(', ')}`);
+    throw new Error(`Invalid priority. Must be one of: ${validPriorities.join(', ')} (or 1-4)`);
   }
   return priority as 'low' | 'medium' | 'high' | 'critical';
 }
