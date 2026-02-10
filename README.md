@@ -20,13 +20,8 @@ npm install -g sqlew
 In Claude Code, run the following commands:
 
 ```bash
-# 1. Add the marketplace
-/plugin marketplace add sqlew-io/sqlew-plugin
-
-# 2. Install the plugin (user-level recommended)
-/plugin install sqlew-plugin
-
-# 3. Restart Claude Code to apply changes
+claude plugin marketplace add sqlew-io/sqlew-plugin
+claude plugin install sqlew
 ```
 
 **That's it!** The plugin automatically sets up everything:
