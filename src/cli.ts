@@ -15,12 +15,13 @@ import { trackPlanCommand } from './cli/hooks/track-plan.js';
 import { saveCommand } from './cli/hooks/save.js';
 import { checkCompletionCommand } from './cli/hooks/check-completion.js';
 import { markDoneCommand } from './cli/hooks/mark-done.js';
-import { injectToGlobalClaudeMd, initializeGitignore } from './init-rules.js';
+import { cleanupGlobalClaudeMd, initializeGitignore } from './init-rules.js';
 import { onSubagentStopCommand } from './cli/hooks/on-subagent-stop.js';
 import { onStopCommand } from './cli/hooks/on-stop.js';
 import { onEnterPlanCommand } from './cli/hooks/on-enter-plan.js';
 import { onExitPlanCommand } from './cli/hooks/on-exit-plan.js';
 import { onSessionStartCommand } from './cli/hooks/on-session-start.js';
+import { onPromptCommand } from './cli/hooks/on-prompt.js';
 import type {
   GetContextParams,
   SearchAdvancedParams,
@@ -179,6 +180,7 @@ LEGACY COMMANDS:
     on-exit-plan     Prompt TOML documentation (PostToolUse hook for ExitPlanMode)
     on-subagent-stop Process Plan agent completion (SubagentStop hook)
     on-stop          Process main agent stop (Stop hook)
+    on-prompt        Plan mode enforcement (UserPromptSubmit hook)
 
 OPTIONS:
   --init                   Legacy initialization
@@ -289,13 +291,13 @@ async function initAllCommand(): Promise<void> {
   console.log(`[sqlew --init] Project root: ${projectPath}`);
   console.log('');
 
-  // 1. Inject snippets into ~/.claude/CLAUDE.md
-  console.log('[1/2] Injecting sqlew snippets into ~/.claude/CLAUDE.md...');
+  // 1. Clean up legacy CLAUDE.md injection
+  console.log('[1/2] Cleaning up legacy CLAUDE.md injection...');
   try {
-    injectToGlobalClaudeMd();
-    console.log('      ✓ Plan mode integration injected into CLAUDE.md');
+    cleanupGlobalClaudeMd();
+    console.log('      ✓ Legacy injection cleaned up (plan mode now enforced via Hooks)');
   } catch (error) {
-    console.log(`      ✗ CLAUDE.md injection failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.log(`      ✗ CLAUDE.md cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   // 2. Initialize gitignore
@@ -402,6 +404,12 @@ export async function runCli(rawArgs: string[]): Promise<void> {
     return;
   }
 
+  // UserPromptSubmit hook (v5.0.6+) - plan mode enforcement
+  if (args.command === 'on-prompt') {
+    await onPromptCommand();
+    return;
+  }
+
   // --init flag: comprehensive initialization (Skills + CLAUDE.md + Hooks + gitignore)
   if (args.init) {
     await initAllCommand();
@@ -474,7 +482,7 @@ export function isCliCommand(command: string): boolean {
     // Claude Code Hooks commands (v4.1.0+)
     'suggest', 'track-plan', 'save', 'check-completion', 'mark-done', 'init',
     // Hook events (v4.2.0+, v5.0.0+)
-    'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start',
+    'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start', 'on-prompt',
   ];
   return cliCommands.includes(command);
 }

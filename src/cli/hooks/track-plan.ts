@@ -18,6 +18,7 @@
  */
 
 import { readStdinJson, sendContinue, isPlanFile, getProjectPath } from './stdin-parser.js';
+import { PLAN_MODE_ENFORCEMENT } from './on-prompt.js';
 import { extractPlanFileName, parseFrontmatter, generatePlanId, getPlanId } from './plan-id-utils.js';
 import {
   saveCurrentPlan,
@@ -78,7 +79,7 @@ export async function trackPlanCommand(): Promise<void> {
         clearPlanCache(projectPath);
         clearCurrentPlan(projectPath);
       }
-      sendContinue('[sqlew] Plan mode entered. Waiting for plan file...');
+      sendContinue(PLAN_MODE_ENFORCEMENT);
       return;
     }
 

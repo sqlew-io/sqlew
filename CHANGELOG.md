@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.0.6] - 2026-02-14
+
+### Changed
+
+**🧹 CLAUDE.md Injection Removed — Hook-based Plan Mode Enforcement**
+
+Plan mode enforcement migrated from `~/.claude/CLAUDE.md` injection (~193 lines always loaded) to `UserPromptSubmit` hook with `permission_mode` check (~5 lines, plan mode only).
+
+- New `on-prompt` CLI command: `UserPromptSubmit` hook handler that detects `permission_mode === "plan"` and injects enforcement context via plain text stdout
+- `track-plan` hook (EnterPlanMode): shares same enforcement context for agent-initiated plan mode coverage
+- Legacy `injectToGlobalClaudeMd()` replaced with `cleanupGlobalClaudeMd()` — auto-removes `<!-- sqlew:auto-injected -->` markers from `~/.claude/CLAUDE.md` on MCP startup
+- Removed `assets/claude-md-snippets/` directory (`plan-mode-integration.md`, `queue-monitoring.md`)
+
+### Plugin Changes (sqlew-plugin)
+
+- Added `UserPromptSubmit` hook entry in `hooks.json` (`sqlew on-prompt`, timeout: 10s)
+- Skills descriptions strengthened to REQUIRED/MUST tone (`sqlew-decision-format`, `sqlew-plan-guidance`)
+- `sqlew-plan-guidance` expanded: suggest search steps, Related Context template, queue monitoring, failed queue resolution
+
+### Technical Notes
+
+- `UserPromptSubmit` hook requires **plain text stdout** (not JSON `additionalContext` format). This is different from `SessionStart`/`PostToolUse` hooks which use JSON format.
+- Non-plan mode: hook outputs nothing and exits 0 (transparent, no system-reminder shown)
+
+---
+
 ## [5.0.4] - 2026-02-04
 
 ### Added

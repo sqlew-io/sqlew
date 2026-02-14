@@ -20,13 +20,8 @@ npm install -g sqlew
 In Claude Code, run the following commands:
 
 ```bash
-# 1. Add the marketplace
-/plugin marketplace add sqlew-io/sqlew-plugin
-
-# 2. Install the plugin (user-level recommended)
-/plugin install sqlew-plugin
-
-# 3. Restart Claude Code to apply changes
+claude plugin marketplace add sqlew-io/sqlew-plugin
+claude plugin install sqlew
 ```
 
 **That's it!** The plugin automatically sets up everything:
@@ -35,7 +30,7 @@ In Claude Code, run the following commands:
 - ✅ Claude Code Skills (Plan Mode guidance)
 - ✅ Claude Code Hooks (automatic decision capture)
 
-> **Note:** Global Rules are automatically created at `~/.claude/rules/sqlew/` when the MCP server starts.
+> **Note:** Plan mode enforcement is handled by the plugin's `UserPromptSubmit` hook — no manual configuration needed.
 
 ### 3. Connect to sqlew.io (For Teams) 🌐
 
@@ -74,7 +69,6 @@ For offline or single-developer use, **no setup required**:
 
 - Database (`.sqlew/sqlew.db`) is auto-created on first MCP server start
 - Config file (`.sqlew/config.toml`) is auto-generated with detected project name
-- Global rules (`~/.claude/rules/sqlew/`) are auto-installed
 
 Just start using Claude Code - everything initializes automatically!
 
@@ -300,15 +294,15 @@ Support development via [GitHub Sponsors](https://github.com/sponsors/sqlew-io) 
 
 ## Version
 
-Current version: **5.0.0**
+Current version: **5.0.6**
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
-**What's New in v5.0.0:**
+**What's New in v5.0.6:**
 
+- 🧹 **CLAUDE.md injection removed** - Plan mode enforcement via `UserPromptSubmit` hook (no more global file pollution)
+- 🔌 **Plugin-first Architecture** - Simplified setup via sqlew-plugin
 - 🌐 **SaaS Backend** - Connect to [sqlew.io](https://sqlew.io) for team-shared decisions
 - 🌳 **Git Worktree Support** - Seamless multi-branch development
-- 🔌 **Plugin-first Architecture** - Simplified setup via sqlew-plugin
-- 🔧 **Queue Tool** - Hook queue management (list, remove, clear)
 
 See [docs/HOOKS_GUIDE.md](docs/HOOKS_GUIDE.md) for Claude Code Hooks details.
 
