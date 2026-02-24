@@ -42,7 +42,7 @@ if (isCliCommand) {
 // MCP Server
 // ============================================================================
 async function startMcpServer(): Promise<void> {
-  const { Server } = await import('@modelcontextprotocol/sdk/server/index.js');
+  const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js');
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js');
   const {
     CallToolRequestSchema,
@@ -69,13 +69,11 @@ async function startMcpServer(): Promise<void> {
     process.exit(1);
   }
 
-  // Create MCP server
-  // TODO: Migrate from deprecated `Server` to `McpServer` (high-level API)
-  // See: @modelcontextprotocol/sdk/server/mcp.js
-  const server = new Server(
+  // Create MCP server (McpServer wraps the low-level Server)
+  const mcpServer = new McpServer(
     {
       name: 'sqlew',
-      version: '5.0.4',
+      version: '5.0.7',
     },
     {
       capabilities: {
@@ -84,8 +82,8 @@ async function startMcpServer(): Promise<void> {
     }
   );
 
-  // Handle tool listing
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
+  // Handle tool listing (via underlying Server for existing handler pattern)
+  mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
       tools: getToolRegistry(),
     };
@@ -95,11 +93,11 @@ async function startMcpServer(): Promise<void> {
   let agentNameInitialized = false;
 
   // Handle tool execution
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Lazy initialization of agent name (after MCP handshake is complete)
     if (!agentNameInitialized) {
       agentNameInitialized = true;
-      const clientVersion = server.getClientVersion();
+      const clientVersion = mcpServer.server.getClientVersion();
       if (clientVersion?.name) {
         const { getBackend } = await import('./backend/backend-factory.js');
         const backend = getBackend();
@@ -125,7 +123,7 @@ async function startMcpServer(): Promise<void> {
     // Connect MCP server transport FIRST (before any stderr writes)
     // This prevents EPIPE errors with clients expecting pure JSON-RPC protocol
     const transport = new StdioServerTransport();
-    await server.connect(transport);
+    await mcpServer.connect(transport);
 
     // NOW safe to write diagnostic messages (using EPIPE-safe wrapper)
     safeConsoleError('✓ MCP Shared Context Server running on stdio');

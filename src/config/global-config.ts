@@ -261,6 +261,8 @@ export interface CurrentPlanInfo {
   recorded: boolean;
   /** Whether decision needs to be created in DB (lazy registration) */
   decision_pending?: boolean;
+  /** ISO 8601 timestamp of when full enforcement message was first shown */
+  enforcement_shown_at?: string;
 }
 
 /**
