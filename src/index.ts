@@ -42,15 +42,10 @@ if (isCliCommand) {
 // MCP Server
 // ============================================================================
 async function startMcpServer(): Promise<void> {
-  const { Server } = await import('@modelcontextprotocol/sdk/server/index.js');
+  const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js');
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js');
-  const {
-    CallToolRequestSchema,
-    ListToolsRequestSchema,
-  } = await import('@modelcontextprotocol/sdk/types.js');
   const { parseArgs, validateArgs } = await import('./server/arg-parser.js');
-  const { getToolRegistry } = await import('./server/tool-registry.js');
-  const { handleToolCall } = await import('./server/tool-handlers.js');
+  const { registerAllTools } = await import('./server/tool-registration.js');
   const { initializeServer } = await import('./server/setup.js');
   const { registerShutdownHandlers, performCleanup } = await import('./server/shutdown.js');
   const { handleInitializationError, safeConsoleError } = await import('./utils/error-handler.js');
@@ -69,13 +64,11 @@ async function startMcpServer(): Promise<void> {
     process.exit(1);
   }
 
-  // Create MCP server
-  // TODO: Migrate from deprecated `Server` to `McpServer` (high-level API)
-  // See: @modelcontextprotocol/sdk/server/mcp.js
-  const server = new Server(
+  // Create MCP server (McpServer wraps the low-level Server)
+  const mcpServer = new McpServer(
     {
       name: 'sqlew',
-      version: '5.0.4',
+      version: '5.0.7',
     },
     {
       capabilities: {
@@ -84,32 +77,9 @@ async function startMcpServer(): Promise<void> {
     }
   );
 
-  // Handle tool listing
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: getToolRegistry(),
-    };
-  });
-
-  // Flag for one-time agent name initialization
-  let agentNameInitialized = false;
-
-  // Handle tool execution
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    // Lazy initialization of agent name (after MCP handshake is complete)
-    if (!agentNameInitialized) {
-      agentNameInitialized = true;
-      const clientVersion = server.getClientVersion();
-      if (clientVersion?.name) {
-        const { getBackend } = await import('./backend/backend-factory.js');
-        const backend = getBackend();
-        if (backend.setAgentName) {
-          backend.setAgentName(clientVersion.name);
-        }
-      }
-    }
-    return await handleToolCall(request);
-  });
+  // Register all tools via McpServer.registerTool() API
+  // Handles ListTools + CallTool automatically (no manual setRequestHandler needed)
+  registerAllTools(mcpServer);
 
   // Setup centralized global error handlers
   registerShutdownHandlers();
@@ -125,7 +95,7 @@ async function startMcpServer(): Promise<void> {
     // Connect MCP server transport FIRST (before any stderr writes)
     // This prevents EPIPE errors with clients expecting pure JSON-RPC protocol
     const transport = new StdioServerTransport();
-    await server.connect(transport);
+    await mcpServer.connect(transport);
 
     // NOW safe to write diagnostic messages (using EPIPE-safe wrapper)
     safeConsoleError('✓ MCP Shared Context Server running on stdio');

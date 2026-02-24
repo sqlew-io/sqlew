@@ -6,22 +6,22 @@
  * All tool execution logic is delegated to the active backend.
  */
 
-import { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { debugLogToolCall, debugLogToolResponse } from '../utils/debug-logger.js';
 import { handleToolError } from '../utils/error-handler.js';
 import { getBackend, getBackendType } from '../backend/index.js';
-import { LocalBackend } from '../backend/local-backend.js';
+import { LocalBackend } from '../backend/index.js';
 
 /**
- * Handle CallToolRequest - dispatch to appropriate tool action
+ * Handle tool call - dispatch to appropriate tool action
  *
  * Routes requests through the ToolBackend abstraction layer:
  * - LocalBackend: Executes against local database via Knex
  * - Plugin backends: Execute via plugin implementation (e.g., HTTP API)
  */
-export async function handleToolCall(request: CallToolRequest): Promise<CallToolResult> {
-  const { name, arguments: args } = request.params;
-  const params = args as Record<string, unknown>;
+export async function handleToolCall(toolName: string, args: Record<string, unknown>): Promise<CallToolResult> {
+  const name = toolName;
+  const params = args;
   const action = (params.action as string) || 'N/A';
 
   // Debug logging: Tool call

@@ -260,6 +260,27 @@ export function sendUpdatedInput(originalInput: ToolInput, modifications: Partia
 }
 
 // ============================================================================
+// Plan Mode Detection
+// ============================================================================
+
+/**
+ * Plan mode detection - single source of truth for all hooks
+ *
+ * Centralizes the plan mode check so that when future environments
+ * (Codex, Cursor, etc.) support equivalent functionality,
+ * only this function needs to change.
+ *
+ * @param input - Hook input from Claude Code
+ * @returns true if the current session is in plan mode
+ */
+export function isPlanMode(input: HookInput): boolean {
+  // Claude Code
+  if (input.permission_mode === 'plan') return true;
+  // Future: Codex, Cursor, etc.
+  return false;
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
