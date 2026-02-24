@@ -44,13 +44,8 @@ if (isCliCommand) {
 async function startMcpServer(): Promise<void> {
   const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js');
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js');
-  const {
-    CallToolRequestSchema,
-    ListToolsRequestSchema,
-  } = await import('@modelcontextprotocol/sdk/types.js');
   const { parseArgs, validateArgs } = await import('./server/arg-parser.js');
-  const { getToolRegistry } = await import('./server/tool-registry.js');
-  const { handleToolCall } = await import('./server/tool-handlers.js');
+  const { registerAllTools } = await import('./server/tool-registration.js');
   const { initializeServer } = await import('./server/setup.js');
   const { registerShutdownHandlers, performCleanup } = await import('./server/shutdown.js');
   const { handleInitializationError, safeConsoleError } = await import('./utils/error-handler.js');
@@ -82,32 +77,9 @@ async function startMcpServer(): Promise<void> {
     }
   );
 
-  // Handle tool listing (via underlying Server for existing handler pattern)
-  mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: getToolRegistry(),
-    };
-  });
-
-  // Flag for one-time agent name initialization
-  let agentNameInitialized = false;
-
-  // Handle tool execution
-  mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    // Lazy initialization of agent name (after MCP handshake is complete)
-    if (!agentNameInitialized) {
-      agentNameInitialized = true;
-      const clientVersion = mcpServer.server.getClientVersion();
-      if (clientVersion?.name) {
-        const { getBackend } = await import('./backend/backend-factory.js');
-        const backend = getBackend();
-        if (backend.setAgentName) {
-          backend.setAgentName(clientVersion.name);
-        }
-      }
-    }
-    return await handleToolCall(request);
-  });
+  // Register all tools via McpServer.registerTool() API
+  // Handles ListTools + CallTool automatically (no manual setRequestHandler needed)
+  registerAllTools(mcpServer);
 
   // Setup centralized global error handlers
   registerShutdownHandlers();
