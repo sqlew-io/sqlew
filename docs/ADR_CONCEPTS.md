@@ -1,12 +1,46 @@
-# ADR (Architecture Decision Record) Concepts
+# Decisions & Constraints for AI Development
 
-**Architecture Decision Records (ADR)** document the architectural decisions made on a project, including context, consequences, and alternatives considered. sqlew extends this proven pattern to AI agents.
+Persistent design context — decisions and constraints recorded as structured data — gives AI agents architectural memory across sessions. sqlew makes this zero-effort: plan normally, and hooks capture your decisions automatically.
 
-## Plan-to-ADR (v4.3.0+)
+## Why Persistent Design Context Matters
 
-**Plan-to-ADR** is sqlew's automatic ADR generation feature. Write decisions in your plan files using Markdown patterns (`📌 Decision` / `🚫 Constraint`), and they're automatically extracted and registered as structured ADR entries.
+Research shows that recording design intent dramatically improves LLM code generation:
 
-## How It Works
+- **22.4% reduction** in overall development time
+- **80% of tasks** completed faster with design intent available
+- **50%+ improvement** in feature-addition and architectural-change tasks
+- **137% increase** in design decision references by final tasks — AI learns to leverage past context more over time
+
+> Kitayama, S. (2026). *Rediscovering Architectural Decision Records: How Persistent Design Context Improves LLM Code Generation*. [DOI](https://doi.org/10.36227/techrxiv.177205025.54351571/v1)
+>
+> Blog post: [Recording Design Intent for AI Efficiency](https://blog.sqlew.io/recording-design-intent-for-ai-efficiency)
+
+## Key Benefits for AI-Driven Development
+
+### Persistent Architectural Memory
+- **Zero context loss** – AI agents remember every architectural decision across sessions
+- **Rationale preservation** – Never forget WHY a decision was made, not just WHAT
+- **Alternative tracking** – Document rejected options to prevent circular debates
+- **Evolution history** – See how decisions changed over time with full version history
+
+### Prevent Architectural Drift
+- **Constraint enforcement** – Define architectural rules once, AI follows them forever
+- **Pattern consistency** – AI generates code matching established patterns automatically
+- **Anti-pattern prevention** – Document "what NOT to do" as enforceable constraints
+- **Regression prevention** – AI won't reintroduce previously rejected approaches
+
+### Intelligent Decision Discovery
+- **Three-tier duplicate detection** – Gentle nudge (35-44), hard block (45-59), or auto-update (60+) based on similarity score
+- **Similarity detection** – AI identifies duplicate or related decisions before creating new ones
+- **Context-aware search** – Query by layer, tags, or relationships to find relevant decisions
+- **Conflict detection** – Find decisions that contradict or supersede each other
+
+### Extreme Efficiency
+- **60-75% token reduction** – Query only relevant decisions instead of reading full files
+- **Millisecond queries** – 2-50ms response times even with thousands of decisions
+- **Scalable architecture** – Perform well with large decision histories
+
+## How sqlew Works
 
 ```mermaid
 flowchart LR
@@ -31,7 +65,7 @@ flowchart LR
 2. Hooks automatically capture decisions
 3. Next session, AI queries past decisions via SQL
 
-## Core ADR Concepts in sqlew
+## Core Concepts
 
 **Decisions** capture architectural choices with full context:
 - **What** was decided (the decision itself)
@@ -45,15 +79,13 @@ flowchart LR
 - **Coding standards** ("async/await only", "no any types")
 - **Security policies** (authentication patterns, data handling rules)
 
-**Implementation tracking** connects decisions to reality:
-- **File tracking** shows which code was affected by decisions
+**Lifecycle tracking:**
 - **Status evolution** tracks decision lifecycle (draft → active → deprecated)
 - **Auto-capture via Hooks** records decisions automatically from Plan Mode
 
 ```mermaid
 erDiagram
     DECISION ||--o{ TAG : has
-    DECISION ||--o{ FILE : affects
     DECISION {
         string key
         string value
@@ -70,75 +102,51 @@ erDiagram
     TAG {
         string name
     }
-    FILE {
-        string path
-        string action
-    }
 ```
 
-## Why SQL for ADR?
+## SQL vs Markdown
 
-Traditional text-based ADR forces AI to:
-- Read complete files even for simple queries
-- Parse unstructured text to find relationships
-- Manually detect duplicate or conflicting decisions
-
-sqlew's **SQL-backed ADR repository** enables AI to:
-- Query by layer, tags, status in milliseconds (2-50ms)
-- Join decisions with constraints and files
-- Leverage similarity algorithms to prevent duplicates
-- Scale to thousands of decisions without context explosion
-
-**Token efficiency**: 60-75% reduction compared to reading Markdown ADRs
-
-## Why RDBMS + MCP for ADR?
-
-**RDBMS (Relational Database)** provides efficient structured queries:
-- **Indexed searches** – Find decisions by tags/layers in milliseconds, not seconds
-- **JOIN operations** – Query related decisions and constraints in a single operation
-- **Transaction support** – ACID guarantees ensure data integrity across concurrent AI agents
-- **Scalability** – Handle thousands of ADRs without performance degradation
-
-**MCP (Model Context Protocol)** enables seamless AI integration:
-- **Direct tool access** – AI agents call ADR operations as native functions
-- **Token efficiency** – Retrieve only required data, avoiding full-file reads
-- **Type safety** – Structured parameters prevent errors and guide correct usage
-- **Cross-session persistence** – ADRs survive beyond individual chat sessions
-
-**Together**: AI agents gain SQL-powered ADR capabilities without managing databases directly.
-
-## Traditional vs sqlew ADR
-
-| Traditional ADR (Markdown) | sqlew ADR (SQL) |
-|---------------------------|-----------------|
+| Traditional approach (Markdown) | sqlew approach (SQL) |
+|--------------------------------|---------------------|
 | Read entire files | Query specific decisions |
 | Manual duplicate checking | Automatic similarity detection |
 | Text parsing required | Structured, typed data |
 | Linear token scaling | Constant-time lookups |
 | File-based organization | Relational queries with JOINs |
 
-## Key Benefits for AI-Driven Development
+### Why SQL?
 
-### 📚 Persistent Architectural Memory
-- **Zero context loss** – AI agents remember every architectural decision across sessions
-- **Rationale preservation** – Never forget WHY a decision was made, not just WHAT
-- **Alternative tracking** – Document rejected options to prevent circular debates
-- **Evolution history** – See how decisions changed over time with full version history
+Traditional text-based records force AI to:
+- Read complete files even for simple queries
+- Parse unstructured text to find relationships
+- Manually detect duplicate or conflicting decisions
 
-### 🛡️ Prevent Architectural Drift
-- **Constraint enforcement** – Define architectural rules once, AI follows them forever
-- **Pattern consistency** – AI generates code matching established patterns automatically
-- **Anti-pattern prevention** – Document "what NOT to do" as enforceable constraints
-- **Regression prevention** – AI won't reintroduce previously rejected approaches
+sqlew's **SQL-backed decision repository** enables AI to:
+- Query by layer, tags, status in milliseconds (2-50ms)
+- Join decisions with constraints
+- Leverage similarity algorithms to prevent duplicates
+- Scale to thousands of decisions without context explosion
 
-### 🔍 Intelligent Decision Discovery
-- **Three-tier duplicate detection** – Gentle nudge (35-44), hard block (45-59), or auto-update (60+) based on similarity score
-- **Similarity detection** – AI identifies duplicate or related decisions before creating new ones
-- **Context-aware search** – Query by layer, tags, or relationships to find relevant decisions
-- **Impact analysis** – Trace which files are affected by each decision
-- **Conflict detection** – Find decisions that contradict or supersede each other
+**Token efficiency**: 60-75% reduction compared to reading Markdown files
 
-### ⚡ Extreme Efficiency
-- **60-75% token reduction** – Query only relevant decisions instead of reading all ADRs
-- **Millisecond queries** – 2-50ms response times even with thousands of decisions
-- **Scalable architecture** – Perform well with large decision histories
+### Why RDBMS + MCP?
+
+**RDBMS (Relational Database)** provides efficient structured queries:
+- **Indexed searches** – Find decisions by tags/layers in milliseconds, not seconds
+- **JOIN operations** – Query related decisions and constraints in a single operation
+- **Transaction support** – ACID guarantees ensure data integrity across concurrent AI agents
+- **Scalability** – Handle thousands of decisions without performance degradation
+
+**MCP (Model Context Protocol)** enables seamless AI integration:
+- **Seamless DB connection** – AI agents access the database through a standardized protocol without direct DB setup
+- **Self-documenting tools** – Tool descriptions teach AI how to use each operation, no manual onboarding needed
+- **Type safety** – Structured parameters prevent errors and guide correct usage
+- **Cross-session persistence** – Decisions survive beyond individual chat sessions
+
+**Together**: AI agents gain SQL-powered decision capabilities without managing databases directly.
+
+## References
+
+- Kitayama, S. (2026). *Rediscovering Architectural Decision Records: How Persistent Design Context Improves LLM Code Generation*. [DOI](https://doi.org/10.36227/techrxiv.177205025.54351571/v1)
+- Blog: [Recording Design Intent for AI Efficiency](https://blog.sqlew.io/recording-design-intent-for-ai-efficiency)
+- The concept of Architecture Decision Records was originally proposed by Michael Nygard in 2011.
