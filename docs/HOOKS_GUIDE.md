@@ -1,139 +1,67 @@
-# Claude Code Hooks Guide
+# Plugin Installation
 
-Integration guide for sqlew with Claude Code hooks.
+sqlew integrates with AI coding assistants through plugins.
 
-## Overview
+## Prerequisites
 
-sqlew integrates with Claude Code through PreToolUse and PostToolUse hooks, enabling **Plan-to-ADR** (v4.3.0+): automatic Architecture Decision Record generation during AI-assisted development.
-
-## Architecture
-
-```
-Claude Code                    sqlew
-    │                            │
-    ├─ PreToolUse ──────────────►│ suggest (related decisions)
-    │                            │
-    ├─ Tool Execution            │
-    │                            │
-    ├─ PostToolUse ─────────────►│ track-plan, save, check-completion
-    │                            │
-    └─ (Git hooks) ─────────────►│ mark-done (post-merge, post-rewrite)
-```
-
-## File Queue Architecture
-
-Hooks use a file-based queue for async operations:
-
-1. **Hook writes to queue** (fast, <100ms)
-   - Location: `.sqlew/queue/pending.json`
-2. **QueueWatcher detects change** (MCP server)
-3. **Decisions registered in DB** (async)
-
-This architecture ensures zero latency on code edits.
-
-## Installation
-
-As of v5.0.0, hooks are managed by the **sqlew-plugin** (Claude Code Plugin).
+Install the sqlew MCP server globally:
 
 ```bash
-# 1. Add the marketplace
-/plugin marketplace add sqlew-io/sqlew-plugin
+npm i -g sqlew
+```
 
-# 2. Install the plugin (user-level recommended)
-/plugin install sqlew-plugin
+## Claude Code
 
-# 3. Restart Claude Code to apply changes
+Two commands to install:
+
+```bash
+claude plugin marketplace add sqlew-io/sqlew-plugin
+claude plugin install sqlew
 ```
 
 The plugin automatically configures:
-- ✅ MCP server settings (`.mcp.json`)
-- ✅ Claude Code Hooks (PreToolUse/PostToolUse)
-- ✅ Claude Code Skills (Plan Mode guidance)
+- MCP server settings (`.mcp.json`)
+- Claude Code Hooks (plan tracking, decision extraction)
+- Claude Code Skills (plan mode guidance, PR enrichment)
 
-> **Note:** Global Rules are automatically created at `~/.claude/rules/sqlew/` when the MCP server starts.
+To uninstall:
 
-## Hook Commands
-
-### PreToolUse Hooks
-
-| Trigger | Command | Purpose |
-|---------|---------|---------|
-| Task | `sqlew suggest` | Suggest related decisions before Task creation |
-| Write | `sqlew track-plan` | Track plan ID during planning |
-
-### PostToolUse Hooks
-
-| Trigger | Command | Purpose |
-|---------|---------|---------|
-| Edit, Write | `sqlew save` | Enqueue decision updates |
-| TodoWrite | `sqlew check-completion` | Check task completion status |
-| ExitPlanMode | `sqlew save` | Save plan state on exit |
-
-### Git Hooks
-
-| Trigger | Command | Purpose |
-|---------|---------|---------|
-| post-merge | `sqlew mark-done` | Mark decisions as complete after merge |
-| post-rewrite | `sqlew mark-done` | Mark decisions as complete after rebase |
-
-## Queue File Format
-
-`.sqlew/queue/pending.json`:
-
-```json
-{
-  "items": [
-    {
-      "type": "decision",
-      "action": "update",
-      "key": "plan/my-feature",
-      "timestamp": 1703404800000,
-      "data": {
-        "value": "in_progress",
-        "layer": "planning"
-      }
-    }
-  ]
-}
+```bash
+claude plugin remove sqlew
 ```
 
-## Troubleshooting
+Source: https://github.com/sqlew-io/sqlew-plugin
 
-### Hooks not triggering
+## Codex
 
-1. Verify plugin is installed: `/plugin list`
-2. Check plugin status for errors
-3. Restart Claude Code to reload hooks
+```bash
+git clone https://github.com/sqlew-io/sqlew-codex.git
+cp -r sqlew-codex/copy_to_codex_dir/* ~/.codex/
+```
 
-### Queue not processing
-
-1. Ensure MCP server is running
-2. Use `queue { action: "list" }` to check pending items
-3. Verify QueueWatcher is active (check debug logs)
-
-### Items stuck in queue (High Similarity)
-
-Items may remain in queue if they have 60%+ similarity to existing decisions:
-
-1. **Check queue**: `queue { action: "list" }`
-2. **Search existing**: `/sqlew search for <topic>`
-3. **Remove if duplicate**: `queue { action: "remove", index: N }`
-4. **Or clear all**: `queue { action: "clear" }`
-
-See `~/.claude/rules/sqlew/queue-monitoring.md` for details.
-
-### Debug logging
-
-Enable debug logging in `.sqlew/config.toml`:
+Then add to `~/.codex/config.toml`:
 
 ```toml
-[debug]
-log_path = ".sqlew/debug.log"
-log_level = "debug"
+[mcp_servers.sqlew]
+command = "sqlew"
+args = []
 ```
+
+To uninstall, remove the copied skill directories and config entries.
+
+Source: https://github.com/sqlew-io/sqlew-codex
+
+## What Gets Configured
+
+| Feature | Claude Code | Codex |
+|---------|-------------|-------|
+| MCP server | Auto-configured | Manual (config.toml) |
+| Plan-to-ADR | Skills + Hooks | Skills + System prompt |
+| PR enrichment | Skill (sqlew-pr-adr) | Skill (sqlew-pr-adr) |
+| Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) |
 
 ## Version History
 
-- **v5.0.0**: Hooks managed by sqlew-plugin (Claude Code Plugin)
+- **v5.0.0**: Plugin-first architecture (sqlew-plugin for Claude Code, sqlew-codex for Codex)
 - **v4.3.0**: Plan-to-ADR - Automatic ADR from Plan Mode
-- **v4.1.0**: Initial Claude Code Hooks integration with File Queue Architecture
+- **v4.1.0**: Initial Claude Code Hooks integration

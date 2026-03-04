@@ -8,9 +8,6 @@ This document describes the authentication configuration for multi-database supp
 |--------|--------|-------------|
 | **Direct (Password)** | ✅ Supported | Standard username/password authentication |
 | **SSH Tunnel** | ✅ Manual | User-managed SSH port forwarding |
-| SSL/TLS Certificates | 🔮 Planned | Client certificate authentication |
-| AWS RDS IAM | 🔮 Planned | Token-based authentication for AWS RDS |
-| GCP Cloud SQL IAM | 🔮 Planned | Token-based authentication for GCP Cloud SQL |
 
 ## Configuration Structure
 
@@ -57,6 +54,30 @@ user = "mysql_user"
 password = "your-password"
 ```
 
+## Managed Database (Recommended)
+
+For environments that require SSL/TLS encryption, IAM authentication, or managed scaling, use the sqlew cloud backend instead of configuring these locally.
+
+The cloud backend handles authentication, encryption, and scaling — no local database administration needed.
+
+### Setup
+
+1. Obtain an API key from the [sqlew dashboard](https://sqlew.io)
+
+2. Save the key to `~/.sqlew.env`:
+   ```bash
+   echo 'SQLEW_API_KEY=sk-your-api-key' >> ~/.sqlew.env
+   chmod 600 ~/.sqlew.env   # Unix only
+   ```
+
+3. Set database type in `.sqlew/config.toml`:
+   ```toml
+   [database]
+   type = "cloud"
+   ```
+
+See [Configuration Guide](./CONFIGURATION.md) for full environment variable details.
+
 ## SSH Tunnel (Manual Setup)
 
 **SSH tunneling is NOT built into sqlew.** Set up tunnels manually before connecting.
@@ -100,55 +121,11 @@ password = "db-password"
 - `user`: Required
 - `password`: Required
 
-## Error Handling
-
-```
-⚠️  Configuration validation failed: .sqlew/config.toml
-   - database.connection.host is required
-   - database.auth.user is required for direct authentication
-   Using default configuration
-```
-
 ## Security Best Practices
 
 1. **Never commit passwords** - Don't commit config.toml with passwords to git
 2. **Use SSH tunnels** - For databases behind firewalls
 3. **Restrict access** - Limit database user permissions
-
----
-
-## Future Authentication Methods
-
-> **Status**: Planned for future releases. If you need these features, please [open an issue](https://github.com/sqlew-io/sqlew/issues) - we'll prioritize based on demand!
-
-### SSL/TLS Client Certificates
-
-```toml
-# PLANNED - Not yet implemented
-[database.auth.ssl]
-ca = "/path/to/ca-cert.pem"
-cert = "/path/to/client-cert.pem"
-key = "/path/to/client-key.pem"
-rejectUnauthorized = true
-```
-
-### AWS RDS IAM Authentication
-
-```toml
-# PLANNED - Not yet implemented
-[database.auth]
-type = "aws-iam"
-region = "us-east-1"
-```
-
-### GCP Cloud SQL IAM Authentication
-
-```toml
-# PLANNED - Not yet implemented
-[database.auth]
-type = "gcp-iam"
-project = "my-project"
-```
 
 ---
 

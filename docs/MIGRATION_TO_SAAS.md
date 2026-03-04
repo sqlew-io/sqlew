@@ -173,4 +173,4 @@ There's a known limitation where constraint-to-tag relationships may not be full
 
 - [Configuration Guide](CONFIGURATION.md) - SaaS connection setup
 - [CLI Reference](cli/README.md) - All export/import commands
-- [Upgrade from v4 to v5](MIGRATION_CLEANUP_GUIDE.md) - Plugin migration guide
+
