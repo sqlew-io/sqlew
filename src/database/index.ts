@@ -36,16 +36,6 @@ export type { SchemaVersion, SchemaVersionInfo } from './initialization/schema-v
 // Adapter factory
 export { getAdapter, getDatabase } from './config/adapter-factory.js';
 
-// Configuration operations (v4.0: in-memory store, no database dependency)
-export {
-  getConfigValue,
-  setConfigValue,
-  getConfigBool,
-  getConfigInt,
-  getAllConfig,
-  clearConfig,
-} from './config/config-ops.js';
-
 // Query operations
 export {
   getLayerId,

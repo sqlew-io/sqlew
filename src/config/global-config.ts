@@ -15,14 +15,6 @@ import { parse as parseTOML, stringify as stringifyTOML } from 'smol-toml';
 // ============================================================================
 
 /**
- * Hooks configuration for Claude Code integration
- */
-export interface HooksConfig {
-  /** Enable Git hooks installation (post-merge, post-rewrite) */
-  git_hooks_enabled?: boolean;
-}
-
-/**
  * Database configuration for global settings
  */
 export interface GlobalDatabaseConfig {
@@ -57,16 +49,6 @@ export interface GlobalAutodeleteConfig {
 }
 
 /**
- * Tasks configuration
- */
-export interface GlobalTasksConfig {
-  auto_archive_done_days?: number;
-  stale_hours_in_progress?: number;
-  stale_hours_waiting_review?: number;
-  auto_stale_enabled?: boolean;
-}
-
-/**
  * Debug configuration
  */
 export interface GlobalDebugConfig {
@@ -75,50 +57,22 @@ export interface GlobalDebugConfig {
 }
 
 /**
- * Agents configuration
- */
-export interface GlobalAgentsConfig {
-  scrum_master?: boolean;
-  researcher?: boolean;
-  architect?: boolean;
-}
-
-/**
- * Commands configuration
- */
-export interface GlobalCommandsConfig {
-  // Reserved for future use
-}
-
-/**
  * Global configuration structure
  * Stored in user's home directory, applies to all projects
  */
 export interface GlobalConfig {
-  /** Hooks settings */
-  hooks?: HooksConfig;
   /** Database settings (for global install) */
   database?: GlobalDatabaseConfig;
   /** Autodelete settings */
   autodelete?: GlobalAutodeleteConfig;
-  /** Tasks settings */
-  tasks?: GlobalTasksConfig;
   /** Debug settings */
   debug?: GlobalDebugConfig;
-  /** Agents settings */
-  agents?: GlobalAgentsConfig;
-  /** Commands settings */
-  commands?: GlobalCommandsConfig;
 }
 
 /**
  * Default global configuration values
  */
-export const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
-  hooks: {
-    git_hooks_enabled: true,
-  },
-};
+export const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {};
 
 // ============================================================================
 // Path Resolution
@@ -200,16 +154,9 @@ export function loadGlobalConfig(): GlobalConfig {
 
     // Merge with defaults (preserve all parsed fields)
     return {
-      hooks: {
-        ...DEFAULT_GLOBAL_CONFIG.hooks,
-        ...parsed.hooks,
-      },
       database: parsed.database,
       autodelete: parsed.autodelete,
-      tasks: parsed.tasks,
       debug: parsed.debug,
-      agents: parsed.agents,
-      commands: parsed.commands,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -231,16 +178,6 @@ export function saveGlobalConfig(config: GlobalConfig): void {
 
   const toml = stringifyTOML(config as Record<string, unknown>);
   writeFileSync(configPath, toml, 'utf-8');
-}
-
-/**
- * Check if Git hooks should be installed
- *
- * @returns true if git_hooks_enabled is true (default)
- */
-export function isGitHooksEnabled(): boolean {
-  const config = loadGlobalConfig();
-  return config.hooks?.git_hooks_enabled ?? true;
 }
 
 // ============================================================================
