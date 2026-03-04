@@ -38,6 +38,16 @@ describe('UniversalKnex', () => {
   });
 
   describe('timestampColumn()', () => {
+    // Clean up stale tables from previous failed runs
+    before(async () => {
+      if (await sqliteDb.schema.hasTable('test_timestamp')) {
+        await sqliteDb.schema.dropTable('test_timestamp');
+      }
+      if (await sqliteDb.schema.hasTable('test_timestamp_nullable')) {
+        await sqliteDb.schema.dropTable('test_timestamp_nullable');
+      }
+    });
+
     it('should create timestamp column with default', async () => {
       await sqliteDb.schema.createTable('test_timestamp', (table) => {
         table.increments('id').primary();

@@ -1,11 +1,6 @@
 /**
- * Parameter Validation Types
- * Validation error types for MCP tool parameter validation
+ * Parameter validation error types
  */
-
-// ============================================================================
-// Parameter Validation Types
-// ============================================================================
 
 /**
  * Concise validation error for MCP tool parameter validation
@@ -18,23 +13,8 @@ export interface ValidationError {
   action: string;                  // Action name (e.g., "set")
   reference: string;               // Reference ID for full docs (e.g., "decision.set")
   missing?: string[];              // Missing required params (only if present)
-  typos?: Record<string, string>;  // Typo suggestions: provided � correct (only if detected)
+  typos?: Record<string, string>;  // Typo suggestions: provided → correct (only if detected)
   hint?: string;                   // Short actionable hint from spec
-}
-
-/**
- * Batch validation error for batch operations
- * Reports validation failures across multiple items
- */
-export interface BatchValidationError {
-  error: string;
-  batch_param: string;
-  item_errors: Array<{
-    index: number;
-    error: string | ValidationError;
-  }>;
-  total_items: number;
-  failed_items: number;
 }
 
 /**

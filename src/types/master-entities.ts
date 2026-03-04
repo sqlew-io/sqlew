@@ -1,17 +1,6 @@
 /**
- * Master table entity interfaces
- * These represent the master/reference data tables (m_* tables)
+ * Master table entity interfaces (m_ prefix tables)
  */
-
-export interface Agent {
-  readonly id: number;
-  readonly name: string;
-}
-
-export interface File {
-  readonly id: number;
-  readonly path: string;
-}
 
 export interface ContextKey {
   readonly id: number;

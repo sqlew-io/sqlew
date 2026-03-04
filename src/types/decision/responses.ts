@@ -3,6 +3,7 @@
  */
 
 import type { TaggedDecision } from '../view-entities.js';
+import type { ExportBlocks, ExportFormat } from './export.js';
 
 export interface SetDecisionResponse {
   success: boolean;
@@ -11,44 +12,44 @@ export interface SetDecisionResponse {
   version: string;
   version_action?: 'initial' | 'explicit' | 'auto_increment_major' | 'auto_increment_minor' | 'auto_increment_patch';
   message?: string;
-  // Duplicate risk warning (v3.9.0 - Tier 1: score 50-84)
-  duplicate_risk?: {
-    severity: 'MODERATE';
-    max_score: number;
-    recommended_action: 'UPDATE_EXISTING' | 'REVIEW_MANUALLY' | 'CREATE_NEW';
-    confidence: {
-      is_duplicate: number;     // 0-1 scale: confidence this is a duplicate
-      should_update: number;    // 0-1 scale: confidence update is correct action
-    };
+  value?: string | number; // Added for auto-update responses
+  policy_validation?: {
+    matched_policy?: string;
+    violations?: string[];
+  };
+  suggestions?: {
+    triggered_by: string;
+    reason: string;
     suggestions: Array<{
       key: string;
-      value: string | number;
+      value: string;
       score: number;
-      recommended: boolean;     // True for best match
-      matches: {
-        tags: string[];         // Overlapping tags
-        layer?: string;         // Layer match
-        key_pattern?: string;   // Key pattern similarity
-      };
-      differs?: {
-        tags?: string;          // Different tags (existing vs proposed)
-      };
-      last_updated: string;     // Human-readable time (e.g., "2h ago")
-      version_info: {
-        current: string;
-        next_suggested: string;
-        recent_changes: string[];  // Last N version changes
-      };
-      reasoning: string;        // Why this suggestion is relevant
-      update_command: {         // Copy-paste ready command
-        key: string;
-        value: string | number;
-        version: string;
-        layer?: string;
-        tags?: string[];
-      };
+      reason: string;
     }>;
   };
+  // Auto-update metadata (v3.9.1 Tier 3)
+  auto_updated?: boolean;
+  requested_key?: string;
+  actual_key?: string;
+  similarity_score?: number;
+  duplicate_reason?: {
+    similarity: string;
+    matched_tags: string[];
+    layer?: string;
+    key_pattern?: string;
+  };
+  // Related constraints (v4.1.0)
+  related_constraints?: Array<{
+    id: number;
+    constraint_text: string;
+    category: string;
+    score: number;
+    reason: string;
+    layer?: string;
+    tags?: string[];
+  }>;
+  // Human-readable warnings from SaaS backend (v5.0.0)
+  warnings?: string[];
 }
 
 export interface QuickSetDecisionResponse {
@@ -62,6 +63,8 @@ export interface QuickSetDecisionResponse {
     scope?: string;
   };
   message?: string;
+  // Human-readable warnings from SaaS backend (v5.0.0)
+  warnings?: string[];
 }
 
 export interface GetContextResponse {
@@ -82,6 +85,8 @@ export interface GetDecisionResponse {
     related_task_id: number | null;
     related_constraint_id: number | null;
   }>;
+  // Human-readable warnings from SaaS backend (v5.0.0)
+  warnings?: string[];
 }
 
 export interface HardDeleteDecisionResponse {
@@ -100,7 +105,7 @@ export interface GetVersionsResponse {
   history: Array<{
     version: string;
     value: string;
-    agent: string | null;
+    // Note: agent field removed in v4.0 (agent tracking eliminated)
     timestamp: string;
   }>;
   count: number;
@@ -115,14 +120,31 @@ export interface SearchByLayerResponse {
 export interface SearchAdvancedResponse {
   decisions: TaggedDecision[];
   count: number;
-  total_count: number;
+  total_count: number;  // Total matching records (for pagination)
 }
 
 export interface HasUpdatesResponse {
   has_updates: boolean;
   counts: {
     decisions: number;
-    messages: number;
-    files: number;
   };
+}
+
+export interface GetStatsResponse {
+  agents: number;
+  context_keys: number;
+  active_decisions: number;
+  total_decisions: number;
+  active_constraints: number;
+  total_constraints: number;
+  tags: number;
+  scopes: number;
+  layers: number;
+}
+
+export interface FlushWALResponse {
+  success: boolean;
+  mode: string;  // 'TRUNCATE'
+  pages_flushed: number;
+  message: string;
 }

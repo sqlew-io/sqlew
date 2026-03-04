@@ -17,11 +17,8 @@ import { levenshteinDistance } from './levenshtein.js';
 import type { ValidationError } from '../types.js';
 import type {
   DecisionAction,
-  TaskAction,
-  FileAction,
   ConstraintAction,
-  StatsAction
-} from '../types/actions.js';
+} from '../types.js';
 
 /**
  * Common abbreviation patterns for AI parameter typos
@@ -152,7 +149,7 @@ function findTypoSuggestions(
  */
 export function validateActionParams(
   tool: string,
-  action: DecisionAction | TaskAction | FileAction | ConstraintAction | StatsAction | string,
+  action: DecisionAction | ConstraintAction | string,
   params: any
 ): void {
   // Skip validation for help actions
