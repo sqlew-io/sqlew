@@ -163,14 +163,14 @@ Support development via [GitHub Sponsors](https://github.com/sponsors/sqlew-io).
 
 ## Version
 
-Current version: **5.0.7**
+Current version: **5.0.8**
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
-**What's New in v5.0.7:**
+**What's New in v5.0.8:**
 
+- **PR ADR enforcement** — PreToolUse Hook blocks `gh pr create` without ADR markers, file-grouped format
 - **Codex CLI support** — Works beyond Claude Code via [sqlew-codex](https://github.com/sqlew-io/sqlew-codex)
-- **Hook message optimization** — ~80% token reduction in plan mode enforcement
 - **Plugin-first architecture** — Simplified setup via sqlew-plugin
 - **Cloud backend** — Connect to [sqlew.io](https://sqlew.io) for team-shared decisions
 
