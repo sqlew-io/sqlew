@@ -49,7 +49,6 @@ export {
 // Query operations
 export {
   getLayerId,
-  getCategoryId,
   getDecisionWithContext,
   listDecisionContexts,
 } from './operations/queries.js';
