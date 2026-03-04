@@ -67,13 +67,6 @@ export type {
 // Decision batch
 export type { SetDecisionBatchParams, SetDecisionBatchResponse } from './decision/batch.js';
 
-// Decision export
-export type {
-  ExportFormat, ExportDecisionParams,
-  ExportBlockItem, ExportBlockSection, ExportBlockConstraint,
-  ExportBlocks, ExportDecisionResponse,
-} from './decision/export.js';
-
 // Constraint params
 export type {
   AddConstraintParams, GetConstraintsParams, DeactivateConstraintParams,

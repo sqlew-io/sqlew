@@ -14,7 +14,6 @@ export type DecisionAction =
   | 'list_decision_contexts'
   | 'create_policy' | 'list_policies' | 'set_from_policy'  // v3.9.0 policy actions
   | 'analytics'  // v3.9.0 analytics action
-  | 'export'  // v5.0.0 SaaS-only document export
   | 'help' | 'example' | 'use_case';
 
 /**

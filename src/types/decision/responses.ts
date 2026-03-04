@@ -3,7 +3,6 @@
  */
 
 import type { TaggedDecision } from '../view-entities.js';
-import type { ExportBlocks, ExportFormat } from './export.js';
 
 export interface SetDecisionResponse {
   success: boolean;

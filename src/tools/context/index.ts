@@ -26,13 +26,6 @@ export { handleAnalytics } from './actions/analytics.js';
 export { createPolicy } from './actions/create-policy.js';
 export { listPolicies } from './actions/list-policies.js';
 export { setFromPolicy } from './actions/set-from-policy.js';
-// Export action (v5.0.0 - SaaS-only)
-export {
-  formatExportBlocks,
-  validateExportParams,
-  EXPORT_SAAS_ONLY_ERROR
-} from './actions/export.js';
-
 // Help exports
 export { decisionHelp } from './help/help.js';
 export { decisionExample } from './help/example.js';
