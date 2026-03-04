@@ -19,7 +19,7 @@ const cliCommands = [
   'db:dump', 'db:export', 'db:import', 'query',
   'suggest', 'track-plan', 'save', 'check-completion', 'mark-done', 'init',
   // Hook events (v4.2.0+, v5.0.0+)
-  'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start', 'on-prompt',
+  'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start', 'on-prompt', 'pr-adr',
 ];
 // CLI flags that should route to CLI (not MCP server)
 const cliFlags = ['--init', '--help', '--version'];
@@ -68,7 +68,7 @@ async function startMcpServer(): Promise<void> {
   const mcpServer = new McpServer(
     {
       name: 'sqlew',
-      version: '5.0.7',
+      version: '5.0.8',
     },
     {
       capabilities: {
