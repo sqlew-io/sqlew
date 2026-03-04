@@ -18,7 +18,6 @@ import assert from 'node:assert';
 import type { Knex } from 'knex';
 import { initDatabase, teardownDatabase } from './db-init.js';
 import { type DatabaseType } from '../../database/testing-config.js';
-import { generateSqlDump, type DatabaseFormat } from '../../../utils/sql-dump/index.js';
 
 // ============================================================================
 // Parameterized Test Runner
@@ -329,11 +328,6 @@ export async function getScopeId(db: Knex, scopeName: string): Promise<number> {
 export type CrossDbSourceType = 'sqlite' | DatabaseType;
 
 /**
- * Target database formats for SQL dump output
- */
-export type CrossDbTargetFormat = DatabaseFormat;
-
-/**
  * Seed rich test data covering all v4 tables for migration testing
  *
  * Creates comprehensive test data including:
@@ -398,26 +392,6 @@ export async function seedRichTestData(db: Knex, projectId: number = 1): Promise
 
   // Note: Task and file table seeding removed in v5.0 (deprecated)
 }
-
-/**
- * Execute SQL dump generation from a database
- *
- * @param db - Source Knex database connection
- * @param targetFormat - Target database format (mysql, postgresql, sqlite)
- * @returns Generated SQL dump string
- */
-export async function executeSqlDump(
-  db: Knex,
-  targetFormat: CrossDbTargetFormat
-): Promise<string> {
-  return generateSqlDump(db, targetFormat, {
-    includeHeader: true,
-    includeSchema: true,
-    chunkSize: 100,
-    conflictMode: 'replace',
-  });
-}
-
 
 /**
  * Verify sqlew access by checking row counts and basic CRUD operations

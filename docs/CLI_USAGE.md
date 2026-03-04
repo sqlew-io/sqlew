@@ -7,7 +7,6 @@
 sqlew provides CLI commands for database operations that complement the main MCP server. The primary use of sqlew is as an **MCP server** (integrated via `.mcp.json`), but these CLI commands handle:
 
 - **Data Export/Import** — JSON-based project data migration (cross-database supported)
-- **SQL Dump** — Full database backup with schema (same-database-type only)
 
 ## Commands
 
@@ -15,7 +14,6 @@ sqlew provides CLI commands for database operations that complement the main MCP
 |---------|---------|----------|
 | `db:export` | JSON export (recommended for migration) | ✅ |
 | `db:import` | JSON import (recommended for migration) | ✅ |
-| `db:dump` | SQL dump (backup/restore) | ❌ Same-DB only |
 
 ### Running CLI Commands
 
@@ -23,15 +21,9 @@ sqlew provides CLI commands for database operations that complement the main MCP
 # Direct use (global install or npx)
 sqlew db:export backup.json
 sqlew db:import backup.json
-sqlew db:dump sqlite backup.sql
-
-# Via npm scripts (within mcp-sqlew project)
-npm run db:export -- backup.json
-npm run db:import -- backup.json
-npm run db:dump -- sqlite backup.sql
 ```
 
-**Note**: The first argument determines the mode — `db:export`, `db:import`, `db:dump` enter CLI mode; no argument starts the MCP server.
+**Note**: The first argument determines the mode — `db:export`, `db:import` enter CLI mode; no argument starts the MCP server.
 
 ---
 
@@ -119,7 +111,7 @@ sqlew db:import backup.json project-name=new-name
 sqlew db:import backup.json dry-run=true
 ```
 
-**⚠️ Important**: Import uses `skip-if-exists=true` by default — it skips if the project name already exists. This is **NOT a backup/restore solution**. Use `db:dump` for backup/restore.
+**⚠️ Important**: Import uses `skip-if-exists=true` by default — it skips if the project name already exists. For full backup/restore, use a file copy of the SQLite database.
 
 ---
 
@@ -293,96 +285,6 @@ Update `.mcp.json` to use the new database:
 
 ---
 
-## SQL Dump (`db:dump`) — Same-Database Only
-
-> **v4.0.2+**: `db:dump` supports **same-database-type backup/restore only**. For cross-database migration, use JSON export/import above.
-
-### Syntax
-
-```bash
-sqlew db:dump <format> [output-file] [key=value ...]
-```
-
-### Options
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `<format>` | Target SQL format: sqlite, mysql, postgresql | **Required** |
-| `[output-file]` | Output file path | stdout |
-| `from=<source>` | Source database type | sqlite |
-| `tables=<list>` | Comma-separated table names | All tables |
-| `chunk-size=<n>` | Rows per INSERT statement | 100 |
-| `on-conflict=<mode>` | error, ignore, replace | error |
-| `exclude-schema=true` | Data-only dump (no CREATE TABLE) | false |
-| `db-path=<path>` | SQLite database path | .sqlew/sqlew.db |
-
-### Supported Operations
-
-| Source | Target | Supported |
-|--------|--------|-----------|
-| SQLite | SQLite | ✅ |
-| MySQL | MySQL | ✅ |
-| PostgreSQL | PostgreSQL | ✅ |
-| Cross-database | Any | ❌ Use JSON |
-
-### Examples
-
-```bash
-# SQLite backup
-sqlew db:dump sqlite backup.sql
-
-# MySQL backup
-sqlew db:dump mysql backup.sql from=mysql
-
-# PostgreSQL backup
-sqlew db:dump postgresql backup.sql from=postgresql
-
-# Selective table export
-sqlew db:dump sqlite partial.sql tables=m_projects,t_decisions
-
-# Ignore duplicates on import
-sqlew db:dump sqlite dump.sql on-conflict=ignore
-```
-
-### Importing SQL Dumps
-
-```bash
-# SQLite
-sqlite3 your-database.db < dump-sqlite.sql
-
-# MySQL
-mysql -e "CREATE DATABASE mydb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql mydb < dump-mysql.sql
-
-# PostgreSQL
-createdb mydb
-psql -d mydb -f dump-pg.sql
-```
-
-### Conflict Resolution
-
-| Mode | Behavior |
-|------|----------|
-| `error` (default) | Fails on duplicate keys |
-| `ignore` | Skips duplicate rows |
-| `replace` | Updates existing rows with new values |
-
----
-
-## Comparison: JSON vs SQL Dump
-
-| Feature | db:export (JSON) | db:dump (SQL) |
-|---------|-----------------|---------------|
-| Format | JSON data only | SQL DDL + data |
-| Schema | Not included | Full schema |
-| Cross-DB | ✅ Yes | ❌ Same-DB only |
-| Use Case | Migration, sharing | Backup/restore |
-| Size | Smaller (~40% reduction) | Larger |
-| Conflict Handling | Smart deduplication | Overwrite or fail |
-| Restore | Skips if exists | Full restore |
-
----
-
 ## Use Cases
 
 ### Project Sharing
@@ -410,11 +312,11 @@ sqlew db:import /tmp/b.json
 ### Full Database Backup
 
 ```bash
-# SQL dump (same-DB restore)
-sqlew db:dump sqlite backup-$(date +%Y%m%d).sql
-
-# Or simple file copy (SQLite only)
+# Simple file copy (SQLite)
 cp .sqlew/sqlew.db .sqlew/backup-$(date +%Y%m%d).db
+
+# Or JSON export (cross-database compatible)
+sqlew db:export backup-$(date +%Y%m%d).json
 ```
 
 ---
