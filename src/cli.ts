@@ -181,6 +181,7 @@ LEGACY COMMANDS:
     on-subagent-stop Process Plan agent completion (SubagentStop hook)
     on-stop          Process main agent stop (Stop hook)
     on-prompt        Plan mode enforcement (UserPromptSubmit hook)
+    pr-adr           PR ADR enforcement (PreToolUse hook for Bash)
 
 OPTIONS:
   --init                   Legacy initialization
@@ -410,6 +411,13 @@ export async function runCli(rawArgs: string[]): Promise<void> {
     return;
   }
 
+  // PreToolUse hook (v5.0.8+) - PR ADR enforcement
+  if (args.command === 'pr-adr') {
+    const { prAdrCommand } = await import('./cli/hooks/pr-adr.js');
+    await prAdrCommand();
+    return;
+  }
+
   // --init flag: comprehensive initialization (Skills + CLAUDE.md + Hooks + gitignore)
   if (args.init) {
     await initAllCommand();
@@ -482,7 +490,7 @@ export function isCliCommand(command: string): boolean {
     // Claude Code Hooks commands (v4.1.0+)
     'suggest', 'track-plan', 'save', 'check-completion', 'mark-done', 'init',
     // Hook events (v4.2.0+, v5.0.0+)
-    'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start', 'on-prompt',
+    'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start', 'on-prompt', 'pr-adr',
   ];
   return cliCommands.includes(command);
 }
