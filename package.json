@@ -33,7 +33,9 @@
     "migrate:make": "npm run knex migrate:make",
     "migrate:latest": "npm run knex migrate:latest",
     "migrate:rollback": "npm run knex migrate:rollback",
-    "migrate:status": "npm run knex migrate:status"
+    "test:backend": "node --test --test-force-exit --import tsx \"src/tests/backend/**/*.test.ts\" | node scripts/filter-test-output.js",
+    "test:backend:verbose": "node --test --test-force-exit --import tsx \"src/tests/backend/**/*.test.ts\"",
+"migrate:status": "npm run knex migrate:status"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -67,7 +69,6 @@
     "@modelcontextprotocol/sdk": "^1.21.1",
     "better-sqlite3": "^12.4.1",
     "chokidar": "^4.0.3",
-    "ignore": "^7.0.5",
     "knex": "^3.1.0",
     "knex-schema-inspector": "^3.1.0",
     "mysql2": "^3.15.3",

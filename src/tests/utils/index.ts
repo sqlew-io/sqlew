@@ -26,6 +26,3 @@ export * from './db-import.js';
 
 // Test lifecycle
 export * from './test-lifecycle.js';
-
-// Task utilities
-export * from './task-helpers.js';

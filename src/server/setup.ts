@@ -134,10 +134,7 @@ async function loadConfigWithPriority(
       ...DEFAULT_CONFIG,
       database: mergedDatabase,
       autodelete: { ...DEFAULT_CONFIG.autodelete, ...globalConfig.autodelete },
-      tasks: { ...DEFAULT_CONFIG.tasks, ...globalConfig.tasks },
       debug: { ...DEFAULT_CONFIG.debug, ...globalConfig.debug },
-      agents: { ...DEFAULT_CONFIG.agents, ...globalConfig.agents },
-      commands: { ...DEFAULT_CONFIG.commands, ...globalConfig.commands },
     };
     return {
       config,

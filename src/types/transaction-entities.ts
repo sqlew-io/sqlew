@@ -1,8 +1,8 @@
 /**
- * Transaction table entity interfaces
+ * Transaction table entity interfaces (t_ prefix tables)
  */
 
-import { Status, MessageType, Priority, ChangeType } from './enums.js';
+import { MessageType, Priority, Status } from './enums.js';
 
 export interface Decision {
   readonly key_id: number;
@@ -41,27 +41,6 @@ export interface DecisionTag {
 export interface DecisionScope {
   readonly decision_key_id: number;
   readonly scope_id: number;
-}
-
-export interface AgentMessage {
-  readonly id: number;
-  readonly from_agent_id: number;
-  readonly to_agent_id: number | null;  // NULL = broadcast
-  readonly msg_type: MessageType;
-  readonly priority: Priority;
-  readonly payload: string | null;  // JSON string
-  readonly ts: number;
-  readonly read: number;  // SQLite boolean: 0 or 1
-}
-
-export interface FileChange {
-  readonly id: number;
-  readonly file_id: number;
-  readonly agent_id: number;
-  readonly layer_id: number | null;
-  readonly change_type: ChangeType;
-  readonly description: string | null;
-  readonly ts: number;
 }
 
 export interface Constraint {

@@ -1,26 +1,14 @@
 /**
- * Suggest Tool (v3.9.0) - Native RDBMS Integration Tests (Refactored)
+ * Suggest Tool - Native RDBMS Integration Tests
  *
- * Tests Decision Intelligence tag index (t_tag_index), similarity calculations,
- * and three-tier detection on fresh MySQL, MariaDB, and PostgreSQL installations.
- *
- * Task #533: Refactor to use direct Knex operations instead of MCP tool functions
- *
- * REFACTORING PATTERN:
- * - Direct database operations via Knex for all data setup
- * - Manual tag index population (t_tag_index inserts)
- * - Manual similarity score calculation (Levenshtein, Jaccard)
- * - No MCP tool function calls (no handleSuggestAction, no setDecision)
+ * Tests tag index (t_tag_index), similarity calculations (Levenshtein, Jaccard),
+ * and three-tier detection via direct Knex operations on MySQL, MariaDB, and PostgreSQL.
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import type { Knex } from 'knex';
 import { runTestsOnAllDatabases } from './test-harness.js';
-
-// ============================================================================
-// Similarity Calculation Helpers (Manual Implementation)
-// ============================================================================
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -135,10 +123,6 @@ function calculatePriorityScore(priority: number): number {
   return Math.min(priority + 1, 5);
 }
 
-// ============================================================================
-// Database Helper Functions
-// ============================================================================
-
 /**
  * Create a decision with tags (manual insert)
  */
@@ -156,7 +140,6 @@ async function createDecisionWithTags(
 ): Promise<number> {
   const { key, value, layer, tags = [], priority = 2, version = '1.0.0', projectId } = params;
 
-  // Get or create context key
   let keyRecord = await db('m_context_keys').where({ key_name: key }).first();
   if (!keyRecord) {
     await db('m_context_keys').insert({ key_name: key });
@@ -164,7 +147,6 @@ async function createDecisionWithTags(
   }
   const keyId = keyRecord.id;
 
-  // Get layer ID
   const layerRecord = await db('m_layers').where({ name: layer }).first();
   if (!layerRecord) {
     throw new Error(`Layer "${layer}" not found`);
@@ -173,7 +155,6 @@ async function createDecisionWithTags(
 
   const ts = Math.floor(Date.now() / 1000);
 
-  // Insert decision
   const existingDecision = await db('t_decisions')
     .where({ key_id: keyId, project_id: projectId })
     .first();
@@ -194,10 +175,8 @@ async function createDecisionWithTags(
       .update({ value, version, layer_id: layerId, ts });
   }
 
-  // Insert tags and populate tag index
   if (tags.length > 0) {
     for (const tagName of tags) {
-      // Get or create tag
       let tagRecord = await db('m_tags').where({ name: tagName }).first();
       if (!tagRecord) {
         await db('m_tags').insert({ name: tagName });
@@ -205,7 +184,6 @@ async function createDecisionWithTags(
       }
       const tagId = tagRecord.id;
 
-      // Insert decision tag
       const existingTag = await db('t_decision_tags')
         .where({ decision_key_id: keyId, tag_id: tagId, project_id: projectId })
         .first();
@@ -283,7 +261,6 @@ async function getDecisionByKeyId(
 
   if (!decision) return null;
 
-  // Get tags
   const tags = await db('t_decision_tags as dt')
     .select('t.name as tag_name')
     .join('m_tags as t', 'dt.tag_id', 't.id')
@@ -299,17 +276,12 @@ async function getDecisionByKeyId(
 runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => {
   let projectId: number;
 
-  // Get project ID before running tests
   it('should get project ID', async () => {
     const db = getDb();
     const project = await db('m_projects').first();
     assert.ok(project, 'Project should exist');
     projectId = project.id;
   });
-
-  // ============================================================================
-  // Tag Index Population Tests
-  // ============================================================================
 
   describe('Tag Index (t_tag_index) - Data Integrity', () => {
     it('should populate t_tag_index when creating decision with tags', async () => {
@@ -361,7 +333,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Query tag index for 'api' tag
       const results = await queryTagIndex(db, ['api'], projectId);
 
       assert.ok(results.length >= 2, 'Should find at least 2 decisions with api tag');
@@ -372,7 +343,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
     it('should handle FK constraints (source_id references m_context_keys)', async () => {
       const db = getDb();
 
-      // Create decision
       const keyId = await createDecisionWithTags(db, {
         key: 'tag-index/fk-test',
         value: 'test',
@@ -397,10 +367,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
     });
   });
 
-  // ============================================================================
-  // Key Similarity Tests (Manual Calculation)
-  // ============================================================================
-
   describe('Key Similarity - Manual Calculation', () => {
     it('should calculate Levenshtein distance for key similarity', async () => {
       const db = getDb();
@@ -421,7 +387,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Manual similarity calculation
       const key1 = 'similarity/api/authentication';
       const key2 = 'similarity/api/authorization';
 
@@ -448,7 +413,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Get decisions
       const decision1 = await getDecisionByKeyId(db, keyId1, projectId);
       const decision2 = await getDecisionByKeyId(db, keyId2, projectId);
 
@@ -474,10 +438,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
     });
   });
 
-  // ============================================================================
-  // Tag Overlap Tests (Jaccard Similarity)
-  // ============================================================================
-
   describe('Tag Overlap - Jaccard Similarity', () => {
     it('should calculate Jaccard similarity for tag overlap', async () => {
       const db = getDb();
@@ -498,7 +458,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Calculate Jaccard similarity
       const tags1 = ['performance', 'security'];
       const tags2 = ['performance', 'security', 'critical'];
       const tags3 = ['performance'];
@@ -513,7 +472,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
     it('should rank by tag overlap using tag index', async () => {
       const db = getDb();
 
-      // Create decisions with different tag overlaps
       await createDecisionWithTags(db, {
         key: 'ranking/high-overlap',
         value: 'value1',
@@ -530,7 +488,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Query tag index for multiple tags
       const results = await queryTagIndex(db, ['performance', 'security'], projectId);
 
       assert.ok(results.length > 0, 'Should find decisions with matching tags');
@@ -585,10 +542,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
     });
   });
 
-  // ============================================================================
-  // Three-Tier Similarity Detection (Manual Calculation)
-  // ============================================================================
-
   describe('Three-Tier Similarity Detection - Manual', () => {
     // Full scoring model (100 points max):
     // - keySimilarity: 0-20 points
@@ -608,7 +561,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Manual similarity calculation for similar key
       // NEW context (user input) vs EXISTING decision
       const existingKey = 'tier1/existing';
       const newKey = 'tier1/different'; // Different suffix to get lower score
@@ -638,7 +590,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Manual similarity calculation for highly similar decision
       const existingKey = 'tier2/authentication-strategy';
       const newKey = 'tier2/authentication-strategy-new';
 
@@ -671,7 +622,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Manual similarity calculation for near-exact duplicate
       const existingKey = 'tier3/exact-match';
       const newKey = 'tier3/exact-match'; // Exact same key
 
@@ -702,7 +652,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Manual similarity calculation for completely different decision
       const existingKey = 'no-match/api-design';
       const newKey = 'no-match/database-schema';
 
@@ -715,10 +664,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
       assert.ok(totalScore < 35, `Score ${totalScore} should be below Tier 1 threshold (35)`);
     });
   });
-
-  // ============================================================================
-  // Cross-Database Compatibility Tests
-  // ============================================================================
 
   describe(`Cross-database compatibility - ${dbType}`, () => {
     it('should handle unicode in decision keys for tag index', async () => {
@@ -733,7 +678,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Query tag index
       const results = await queryTagIndex(db, ['unicode'], projectId);
 
       assert.ok(results.length > 0, 'Should find unicode decision in tag index');
@@ -752,7 +696,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Query tag index with special characters
       const results = await queryTagIndex(db, ['api-v2'], projectId);
 
       assert.ok(results.length > 0, 'Should find tags with special characters');
@@ -769,7 +712,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Query with different case
       const upperResults = await queryTagIndex(db, ['API'], projectId);
       const lowerResults = await queryTagIndex(db, ['api'], projectId);
 
@@ -783,15 +725,10 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
     });
   });
 
-  // ============================================================================
-  // Tag Index Performance Tests
-  // ============================================================================
-
   describe('Tag Index Performance', () => {
     it('should efficiently query tag index for multiple tags', async () => {
       const db = getDb();
 
-      // Create multiple decisions with overlapping tags
       for (let i = 1; i <= 5; i++) {
         await createDecisionWithTags(db, {
           key: `perf/decision-${i}`,
@@ -802,7 +739,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         });
       }
 
-      // Query tag index for 'number' tag (should find all 5)
       const results = await queryTagIndex(db, ['number'], projectId);
 
       assert.ok(results.length >= 5, 'Should find all 5 decisions with number tag');
@@ -819,7 +755,6 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
         projectId,
       });
 
-      // Query tag index for multiple tags
       const results = await queryTagIndex(db, ['tag1', 'tag2', 'tag3'], projectId);
 
       // Group by source_id to count matches (v4 uses source_id)

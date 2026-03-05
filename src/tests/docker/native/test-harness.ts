@@ -1,16 +1,8 @@
 /**
  * Native RDBMS Integration Test Harness
  *
- * Provides parameterized testing utilities for running the same test suite
- * across MySQL, MariaDB, and PostgreSQL via fresh Knex migrations.
- *
- * Key Features:
- * - runTestsOnAllDatabases(): Run same tests on all 3 databases
- * - Database-agnostic assertion helpers
- * - Minimal test data seeding
- * - Automatic cleanup
- *
- * Note: Task and file tables removed in v5.0 (deprecated)
+ * Parameterized testing utilities for running test suites across
+ * MySQL, MariaDB, and PostgreSQL via fresh Knex migrations.
  */
 
 import { describe, before, after } from 'node:test';
@@ -18,11 +10,6 @@ import assert from 'node:assert';
 import type { Knex } from 'knex';
 import { initDatabase, teardownDatabase } from './db-init.js';
 import { type DatabaseType } from '../../database/testing-config.js';
-import { generateSqlDump, type DatabaseFormat } from '../../../utils/sql-dump/index.js';
-
-// ============================================================================
-// Parameterized Test Runner
-// ============================================================================
 
 /**
  * Run the same test suite on MySQL, MariaDB, and PostgreSQL
@@ -67,15 +54,10 @@ export function runTestsOnAllDatabases(
         console.log(`  ✅ ${dbType} cleanup complete`);
       });
 
-      // Run the same tests with this database connection
       defineTests(() => db, dbType);
     });
   }
 }
-
-// ============================================================================
-// Test Data Seeding
-// ============================================================================
 
 /**
  * Seed minimal test data for operations testing
@@ -89,7 +71,6 @@ export function runTestsOnAllDatabases(
  * @param db - Knex database connection
  */
 export async function seedTestData(db: Knex): Promise<void> {
-  // Layers (should already exist from migrations, but verify)
   const layerCount = await db('m_layers').count('* as count').first();
   if (!layerCount || layerCount.count === 0) {
     await db('m_layers').insert([
@@ -105,7 +86,6 @@ export async function seedTestData(db: Knex): Promise<void> {
     ]);
   }
 
-  // Tags
   const tags = ['test', 'api', 'performance', 'security', 'architecture'];
   for (const tag of tags) {
     const exists = await db('m_tags').where({ name: tag, project_id: 1 }).first();
@@ -114,7 +94,6 @@ export async function seedTestData(db: Knex): Promise<void> {
     }
   }
 
-  // Scopes
   const scopes = ['global', 'module', 'component'];
   for (const scope of scopes) {
     const exists = await db('m_scopes').where({ name: scope, project_id: 1 }).first();
@@ -135,33 +114,22 @@ export async function seedTestData(db: Knex): Promise<void> {
  * @param db - Knex database connection
  */
 export async function cleanupTestData(db: Knex): Promise<void> {
-  // Delete in correct order (children first, parents last)
-  // Transaction tables
-
-  // t_decision_tags has (decision_key_id, project_id, tag_id)
   await db('t_decision_tags').where('project_id', 1).del();
-  // t_decision_scopes has (decision_key_id, project_id, scope_id)
   await db('t_decision_scopes').where('project_id', 1).del();
-  // t_decision_context has project_id (added in v3.7.0)
+  // t_decision_context added in v3.7.0
   await db('t_decision_context').where('project_id', 1).del();
-  // t_decisions has project_id
   await db('t_decisions').where('project_id', 1).del();
-  // t_decisions_numeric has project_id
   await db('t_decisions_numeric').where('project_id', 1).del();
-  // m_context_keys has (id, key_name) - NO project_id
+  // m_context_keys has no project_id column
   await db('m_context_keys').del();
 
   await db('t_constraints').where('project_id', 1).del();
 
   // Note: Task and file tables removed in v5.0
 
-  // t_tag_index has (tag, source_type, source_id, project_id, created_ts) - polymorphic design
+  // polymorphic design: source_type + source_id + tag
   await db('t_tag_index').where('project_id', 1).del();
 }
-
-// ============================================================================
-// Assertion Helpers
-// ============================================================================
 
 /**
  * Assert that a decision exists with expected key and value
@@ -253,7 +221,6 @@ export async function assertTagIndexPopulated(
 
   assert.ok(contextKey, `Decision key "${key}" should exist`);
 
-  // t_tag_index uses polymorphic design: source_type + source_id + tag
   const indexEntries = await db('t_tag_index')
     .where({ source_type: 'decision', source_id: contextKey.id, project_id: 1 })
     .pluck('tag');
@@ -264,10 +231,6 @@ export async function assertTagIndexPopulated(
     assert.ok(indexEntries.includes(expectedTag), `Tag index should contain "${expectedTag}"`);
   }
 }
-
-// ============================================================================
-// Query Helpers
-// ============================================================================
 
 /**
  * Get tag ID by name (creates if not exists)
@@ -318,20 +281,11 @@ export async function getScopeId(db: Knex, scopeName: string): Promise<number> {
   return scope.id;
 }
 
-// ============================================================================
-// Cross-Database Migration Test Helpers
-// ============================================================================
-
 /**
  * Source databases for cross-database migration testing
  * Includes SQLite (local) + Docker databases (MySQL, MariaDB, PostgreSQL)
  */
 export type CrossDbSourceType = 'sqlite' | DatabaseType;
-
-/**
- * Target database formats for SQL dump output
- */
-export type CrossDbTargetFormat = DatabaseFormat;
 
 /**
  * Seed rich test data covering all v4 tables for migration testing
@@ -349,7 +303,6 @@ export type CrossDbTargetFormat = DatabaseFormat;
 export async function seedRichTestData(db: Knex, projectId: number = 1): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
 
-  // 1. Create context keys and decisions
   const decisionKeys = ['migration-test-decision-1', 'migration-test-decision-2', 'migration-test-decision-3'];
   for (let i = 0; i < decisionKeys.length; i++) {
     const keyName = decisionKeys[i];
@@ -367,7 +320,6 @@ export async function seedRichTestData(db: Knex, projectId: number = 1): Promise
       status: 1, // Status.ACTIVE = 1
     });
 
-    // Add tags to decisions
     const tagIds = await db('m_tags').where({ project_id: projectId }).limit(2).pluck('id');
     for (const tagId of tagIds) {
       await db('t_decision_tags').insert({
@@ -378,7 +330,6 @@ export async function seedRichTestData(db: Knex, projectId: number = 1): Promise
     }
   }
 
-  // 2. Create constraints
   const constraints = [
     { text: 'Migration test constraint 1', category: 'architecture', priority: 3 },
     { text: 'Migration test constraint 2', category: 'performance', priority: 2 },
@@ -400,26 +351,6 @@ export async function seedRichTestData(db: Knex, projectId: number = 1): Promise
 }
 
 /**
- * Execute SQL dump generation from a database
- *
- * @param db - Source Knex database connection
- * @param targetFormat - Target database format (mysql, postgresql, sqlite)
- * @returns Generated SQL dump string
- */
-export async function executeSqlDump(
-  db: Knex,
-  targetFormat: CrossDbTargetFormat
-): Promise<string> {
-  return generateSqlDump(db, targetFormat, {
-    includeHeader: true,
-    includeSchema: true,
-    chunkSize: 100,
-    conflictMode: 'replace',
-  });
-}
-
-
-/**
  * Verify sqlew access by checking row counts and basic CRUD operations
  *
  * @param db - Knex database connection to verify
@@ -437,7 +368,6 @@ export async function verifySqlewAccess(
   const errors: string[] = [];
   const tables: Record<string, { count: number; expected?: number; match: boolean }> = {};
 
-  // Core v4 tables to verify (task/file tables removed in v5.0)
   const tablesToCheck = [
     'm_projects',
     'm_layers',
@@ -466,7 +396,6 @@ export async function verifySqlewAccess(
     }
   }
 
-  // Test basic CRUD: Try to insert and read a decision
   try {
     const testKey = `migration-verify-${Date.now()}`;
     await db('m_context_keys').insert({ key_name: testKey });
@@ -474,7 +403,6 @@ export async function verifySqlewAccess(
     if (!inserted) {
       errors.push('CRUD test failed: Could not read inserted context key');
     }
-    // Cleanup
     await db('m_context_keys').where({ key_name: testKey }).del();
   } catch (err) {
     errors.push(`CRUD test failed: ${(err as Error).message}`);
@@ -495,7 +423,6 @@ export async function verifySqlewAccess(
  */
 export async function getTableCounts(db: Knex): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
-  // Task and file tables removed in v5.0
   const tables = [
     'm_projects',
     'm_layers',

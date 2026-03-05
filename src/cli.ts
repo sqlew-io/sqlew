@@ -6,7 +6,6 @@
 
 import { initializeDatabase } from './database.js';
 import { getContext, searchAdvanced } from './tools/context/index.js';
-import { dbDumpCommand } from './cli/db-dump.js';
 import { dbExportCommand } from './cli/db-export.js';
 import { dbImportCommand } from './cli/db-import.js';
 // Claude Code Hooks commands
@@ -164,7 +163,6 @@ LEGACY COMMANDS:
     --init           Legacy initialization (global rules + gitignore)
 
   Database:
-    db:dump    Generate SQL dump for database migration (schema + data)
     db:export  Export project data to JSON format (data-only, for append-import)
     db:import  Import project data from JSON export (append to existing database)
 
@@ -191,11 +189,7 @@ EXAMPLES:
   # Legacy initialization (prefer sqlew-plugin instead)
   sqlew --init
 
-  # Generate MySQL dump for database migration
-  npm run db:dump -- mysql -o dump-mysql.sql
-
 For more information on commands, run:
-  npm run db:dump -- --help
   npm run db:export -- --help
   npm run db:import -- --help
 `);
@@ -330,12 +324,6 @@ async function initAllCommand(): Promise<void> {
  */
 export async function runCli(rawArgs: string[]): Promise<void> {
   const args = parseArgs(rawArgs);
-
-  // Special handling for db:dump command (passes through --help to subcommand)
-  if (args.command === 'db:dump') {
-    await dbDumpCommand(rawArgs.slice(1));
-    return;
-  }
 
   // Special handling for db:export command (passes through --help to subcommand)
   if (args.command === 'db:export') {
@@ -486,7 +474,7 @@ export async function runCli(rawArgs: string[]): Promise<void> {
  */
 export function isCliCommand(command: string): boolean {
   const cliCommands = [
-    'db:dump', 'db:export', 'db:import', 'query',
+    'db:export', 'db:import', 'query',
     // Claude Code Hooks commands (v4.1.0+)
     'suggest', 'track-plan', 'save', 'check-completion', 'mark-done', 'init',
     // Hook events (v4.2.0+, v5.0.0+)

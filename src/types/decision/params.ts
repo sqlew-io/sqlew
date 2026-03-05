@@ -2,7 +2,7 @@
  * Decision tool parameter types
  */
 
-import type { StatusString } from '../../types.js';
+import type { StatusString } from '../enums.js';
 
 export interface SetDecisionParams {
   key: string;
@@ -19,9 +19,8 @@ export interface SetDecisionParams {
   alternatives?: any[];
   tradeoffs?: any;
   policy_name?: string;  // Explicit policy to validate against
-  // Duplicate detection bypass (v3.9.0)
-  ignore_suggest?: boolean;  // Skip similarity checks
-  ignore_reason?: string;    // Explanation for bypassing check
+  // Constraint suggestion (v4.1.0)
+  suggest_constraints?: boolean;  // If true, suggest related constraints after decision creation
 }
 
 export interface QuickSetDecisionParams {
@@ -41,7 +40,8 @@ export interface GetContextParams {
   status?: StatusString;
   scope?: string;
   tag_match?: 'AND' | 'OR';
-  _reference_project?: string;
+  full_value?: boolean;  // Return full value without truncation (default: false = 30 chars)
+  _reference_project?: string;  // Cross-project query: project name to query instead of current project
 }
 
 export interface GetDecisionParams {
@@ -57,6 +57,7 @@ export interface SearchByTagsParams {
   match_mode?: 'AND' | 'OR';
   status?: StatusString;
   layer?: string;
+  full_value?: boolean;  // Return full value without truncation (default: false = 30 chars)
 }
 
 export interface GetVersionsParams {
@@ -67,27 +68,29 @@ export interface SearchByLayerParams {
   layer: string;
   status?: StatusString;
   include_tags?: boolean;
-  _reference_project?: string;
+  full_value?: boolean;  // Return full value without truncation (default: false = 30 chars)
+  _reference_project?: string;  // Cross-project query: project name to query instead of current project
 }
 
 export interface SearchAdvancedParams {
-  layers?: string[];
-  tags_all?: string[];
-  tags_any?: string[];
-  exclude_tags?: string[];
-  scopes?: string[];
-  updated_after?: string;
-  updated_before?: string;
-  decided_by?: string[];
-  statuses?: StatusString[];
-  search_text?: string;
+  layers?: string[];  // OR relationship - match any
+  tags_all?: string[];  // AND relationship - must have ALL
+  tags_any?: string[];  // OR relationship - must have ANY
+  exclude_tags?: string[];  // Exclude these tags
+  scopes?: string[];  // Wildcard support (e.g., "api/instruments/*")
+  updated_after?: string;  // ISO timestamp or relative time ("7d")
+  updated_before?: string;  // ISO timestamp or relative time
+  decided_by?: string[];  // Array of agent names
+  statuses?: StatusString[];  // Multiple statuses
+  search_text?: string;  // Full-text search in value field
   sort_by?: 'updated' | 'key' | 'version';
   sort_order?: 'asc' | 'desc';
-  limit?: number;
-  offset?: number;
+  limit?: number;  // Max results (default: 20)
+  offset?: number;  // For pagination (default: 0)
+  full_value?: boolean;  // Return full value without truncation (default: false = 30 chars)
 }
 
 export interface HasUpdatesParams {
-  agent_name: string;
-  since_timestamp: string;
+  agent_name?: string;  // Optional since v4.1.2 (legacy sub-agent system removed)
+  since_timestamp: string;  // ISO 8601 timestamp
 }

@@ -1,12 +1,9 @@
-// ============================================================================
-// Decision Template Types (FR-006)
-// ============================================================================
-
-import type { StatusString } from '../../types.js';
-
 /**
- * Parameters for creating a decision from a template
+ * Decision template parameter and response types (FR-006)
  */
+
+import type { StatusString } from '../enums.js';
+
 export interface SetFromTemplateParams {
   template: string;  // Template name
   key: string;
@@ -22,9 +19,6 @@ export interface SetFromTemplateParams {
   [key: string]: any;
 }
 
-/**
- * Parameters for creating a decision template
- */
 export interface CreateTemplateParams {
   name: string;
   defaults: {
@@ -37,16 +31,10 @@ export interface CreateTemplateParams {
   created_by?: string;
 }
 
-/**
- * Parameters for listing all templates
- */
 export interface ListTemplatesParams {
   // No parameters - returns all templates
 }
 
-/**
- * Response for creating a decision from a template
- */
 export interface SetFromTemplateResponse {
   success: boolean;
   key: string;
@@ -61,9 +49,6 @@ export interface SetFromTemplateResponse {
   message?: string;
 }
 
-/**
- * Response for creating a decision template
- */
 export interface CreateTemplateResponse {
   success: boolean;
   template_id: number;
@@ -71,16 +56,13 @@ export interface CreateTemplateResponse {
   message?: string;
 }
 
-/**
- * Response for listing all templates
- */
 export interface ListTemplatesResponse {
   templates: Array<{
     id: number;
     name: string;
     defaults: any;  // Parsed JSON
     required_fields: string[] | null;  // Parsed JSON array
-    created_by: string | null;
+    // Note: created_by field removed in v4.0 (agent tracking eliminated)
     created_at: string;
   }>;
   count: number;

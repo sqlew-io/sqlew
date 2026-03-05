@@ -6,16 +6,8 @@ import type { DatabaseConfig } from '../config/types.js';
 
 const { knex } = knexLib;
 
-/**
- * SQLite adapter implementation with BaseAdapter integration.
- *
- * SQLite is a file-based database that doesn't require authentication,
- * so this adapter overrides the connect() method to bypass the auth flow.
- *
- * @extends BaseAdapter
- */
+/** SQLite adapter (file-based, no authentication required). */
 export class SQLiteAdapter extends BaseAdapter {
-  // Feature detection
   readonly supportsReturning = false;
   readonly supportsJSON = false;
   readonly supportsUpsert = true;
@@ -24,25 +16,15 @@ export class SQLiteAdapter extends BaseAdapter {
   readonly supportsSavepoints = true;
   readonly databaseName = 'sqlite' as const;
 
-  /**
-   * Creates a new SQLite adapter instance.
-   *
-   * @param config - Database configuration (auth is ignored for SQLite)
-   */
   constructor(config: DatabaseConfig) {
     super(config);
   }
 
-  /**
-   * Returns the Knex dialect for SQLite.
-   */
   getDialect(): string {
     return 'better-sqlite3';
   }
 
-  /**
-   * Initializes SQLite-specific settings (PRAGMA configuration).
-   */
+  /** Initializes SQLite-specific settings (PRAGMA configuration). */
   async initialize(): Promise<void> {
     const knex = this.getKnex();
 
@@ -53,12 +35,7 @@ export class SQLiteAdapter extends BaseAdapter {
     await knex.raw('PRAGMA busy_timeout = 5000');
   }
 
-  /**
-   * Establishes SQLite connection (overrides BaseAdapter to bypass auth).
-   *
-   * SQLite doesn't require authentication, so we create the Knex instance
-   * directly without going through the authentication provider flow.
-   */
+  /** Establishes SQLite connection (bypasses auth flow). */
   async connect(config?: Knex.Config): Promise<Knex> {
     // Return existing connection if already established
     if (this.knexInstance) {
@@ -83,9 +60,7 @@ export class SQLiteAdapter extends BaseAdapter {
     return this.knexInstance;
   }
 
-  /**
-   * Closes SQLite connection.
-   */
+  /** Closes SQLite connection with WAL checkpoint. */
   async disconnect(): Promise<void> {
     if (this.knexInstance) {
       try {
@@ -103,8 +78,6 @@ export class SQLiteAdapter extends BaseAdapter {
     }
   }
 
-
-  // Query Adaptations
   async insertReturning<T extends Record<string, any>>(
     table: string,
     data: Partial<T>
@@ -183,7 +156,6 @@ export class SQLiteAdapter extends BaseAdapter {
     return this.getKnex().raw(`GROUP_CONCAT(??, ?)`, [column, separator]);
   }
 
-  // Transactions
   async transaction<T>(
     callback: (trx: Knex.Transaction) => Promise<T>,
     options?: { isolationLevel?: 'serializable' | 'read committed' | 'repeatable read' }
@@ -198,7 +170,6 @@ export class SQLiteAdapter extends BaseAdapter {
     return trx.savepoint(callback);
   }
 
-  // Schema Management
   async tableExists(tableName: string): Promise<boolean> {
     const result = await this.getKnex().raw(
       `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,

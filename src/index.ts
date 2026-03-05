@@ -5,7 +5,7 @@
  *
  * Unified entry point (v4.0.2+):
  * - No args or MCP args: Start MCP server
- * - CLI commands (db:export, db:import, db:dump, query): Delegate to CLI
+ * - CLI commands (db:export, db:import, query): Delegate to CLI
  */
 
 // ============================================================================
@@ -16,7 +16,7 @@ const firstArg = rawArgs[0] || '';
 
 // Check if this is a CLI command or flag
 const cliCommands = [
-  'db:dump', 'db:export', 'db:import', 'query',
+  'db:export', 'db:import', 'query',
   'suggest', 'track-plan', 'save', 'check-completion', 'mark-done', 'init',
   // Hook events (v4.2.0+, v5.0.0+)
   'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start', 'on-prompt', 'pr-adr',

@@ -1,17 +1,25 @@
 /**
- * Enumeration types for MCP Shared Context Server
- * All enums use integer values matching database schema
+ * Enum types matching database integer values
  */
 
 /**
  * Decision status enumeration
- * 1 = active, 2 = deprecated, 3 = draft
+ * 1 = active, 2 = deprecated, 3 = draft, 4 = in_progress, 5 = in_review, 6 = implemented
  */
 export enum Status {
   ACTIVE = 1,
   DEPRECATED = 2,
   DRAFT = 3,
+  IN_PROGRESS = 4,
+  IN_REVIEW = 5,
+  IMPLEMENTED = 6,
 }
+
+/**
+ * Valid status string values for API parameters
+ * Matches STRING_TO_STATUS keys in constants.ts
+ */
+export type StatusString = 'active' | 'deprecated' | 'draft' | 'in_progress' | 'in_review' | 'implemented';
 
 /**
  * Message type enumeration
@@ -33,14 +41,4 @@ export enum Priority {
   MEDIUM = 2,
   HIGH = 3,
   CRITICAL = 4,
-}
-
-/**
- * File change type enumeration
- * 1 = created, 2 = modified, 3 = deleted
- */
-export enum ChangeType {
-  CREATED = 1,
-  MODIFIED = 2,
-  DELETED = 3,
 }

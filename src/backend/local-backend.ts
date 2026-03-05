@@ -189,13 +189,6 @@ export class LocalBackend implements ToolBackend {
       case 'add_decision_context': return await addDecisionContextAction(params);
       case 'list_decision_contexts': return await listDecisionContextsAction(params);
       case 'analytics': return await handleAnalytics(params);
-      case 'export':
-        // SaaS-only feature - LocalBackend cannot provide export data
-        throw new Error(
-          'Export feature is SaaS-only. ' +
-          'To use document export, connect to sqlew SaaS (set SQLEW_API_KEY). ' +
-          'For local JSON backup, use: npm run db:export'
-        );
       case 'help': {
         const helpContent = decisionHelp();
         trackAndReturnHelp('decision', 'help', JSON.stringify(helpContent));

@@ -1,21 +1,14 @@
 // src/adapters/types.ts
 import { Knex } from 'knex';
 
-/**
- * Database adapter interface for cross-RDBMS compatibility
- * Abstracts database-specific behavior
- */
+/** Database adapter interface for cross-RDBMS compatibility. */
 export interface DatabaseAdapter {
-  // ============================================================================
   // Connection Management
-  // ============================================================================
   connect(config: Knex.Config): Promise<Knex>;
   disconnect(): Promise<void>;
   getKnex(): Knex;
 
-  // ============================================================================
   // Feature Detection
-  // ============================================================================
   readonly supportsReturning: boolean;
   readonly supportsJSON: boolean;
   readonly supportsUpsert: boolean;
@@ -24,9 +17,7 @@ export interface DatabaseAdapter {
   readonly supportsSavepoints: boolean;
   readonly databaseName: 'sqlite' | 'postgresql' | 'mysql';
 
-  // ============================================================================
   // Query Adaptations
-  // ============================================================================
   insertReturning<T extends Record<string, any>>(
     table: string,
     data: Partial<T>
@@ -47,9 +38,7 @@ export interface DatabaseAdapter {
   concat(...values: Array<string | Knex.Raw>): Knex.Raw;
   stringAgg(column: string, separator?: string): Knex.Raw;
 
-  // ============================================================================
   // Transaction Helpers
-  // ============================================================================
   transaction<T>(
     callback: (trx: Knex.Transaction) => Promise<T>,
     options?: {
@@ -62,9 +51,7 @@ export interface DatabaseAdapter {
     callback: (sp: Knex.Transaction) => Promise<T>
   ): Promise<T>;
 
-  // ============================================================================
   // Schema Management
-  // ============================================================================
   tableExists(tableName: string): Promise<boolean>;
   autoIncrementColumn(table: Knex.CreateTableBuilder, columnName?: string): void;
 }

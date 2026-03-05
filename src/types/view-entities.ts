@@ -1,8 +1,8 @@
 /**
- * View result type interfaces
+ * View/query result entity interfaces
  */
 
-import type { StatusString } from '../types.js';
+import type { StatusString } from './enums.js';
 
 export interface TaggedDecision {
   readonly key: string;
@@ -29,7 +29,6 @@ export interface ActiveContext {
 export interface LayerSummary {
   readonly layer: string;
   readonly decisions_count: number;
-  readonly file_changes_count: number;
   readonly constraints_count: number;
 }
 
@@ -39,17 +38,8 @@ export interface UnreadMessagesByPriority {
   readonly count: number;
 }
 
-export interface RecentFileChange {
-  readonly path: string;
-  readonly changed_by: string;
-  readonly layer: string | null;
-  readonly change_type: 'created' | 'modified' | 'deleted';
-  readonly description: string | null;
-  readonly changed_at: string;  // ISO 8601 datetime
-}
-
 export interface TaggedConstraint {
-  readonly id: number;
+  readonly id: number | string;  // number for SQLite, UUID string for SaaS (v5.0.0)
   readonly category: string;
   readonly layer: string | null;
   readonly constraint_text: string;

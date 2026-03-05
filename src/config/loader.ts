@@ -11,7 +11,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { parse as parseTOML } from 'smol-toml';
-import type { SqlewConfig, FlatConfig, DatabaseConfig } from './types.js';
+import type { SqlewConfig, DatabaseConfig } from './types.js';
 import { DEFAULT_CONFIG } from './types.js';
 import { GitAdapter } from '../utils/vcs-adapter.js';
 
@@ -59,21 +59,9 @@ export function loadConfigFile(projectRoot: string = process.cwd(), configPath?:
         ...DEFAULT_CONFIG.autodelete,
         ...parsed.autodelete,
       },
-      tasks: {
-        ...DEFAULT_CONFIG.tasks,
-        ...parsed.tasks,
-      },
       debug: {
         ...DEFAULT_CONFIG.debug,
         ...parsed.debug,
-      },
-      agents: {
-        ...DEFAULT_CONFIG.agents,
-        ...parsed.agents,
-      },
-      commands: {
-        ...DEFAULT_CONFIG.commands,
-        ...parsed.commands,
       },
     };
 
@@ -94,61 +82,6 @@ export function loadConfigFile(projectRoot: string = process.cwd(), configPath?:
     console.warn(`   Using default configuration`);
     return DEFAULT_CONFIG;
   }
-}
-
-/**
- * Flatten nested config structure to database key-value format
- * Converts TOML sections (autodelete.message_hours) to flat keys (autodelete_message_hours)
- *
- * @param config - Nested configuration
- * @returns Flattened configuration for database storage
- */
-export function flattenConfig(config: SqlewConfig): FlatConfig {
-  const flat: FlatConfig = {};
-
-  // Flatten autodelete section
-  if (config.autodelete) {
-    if (config.autodelete.ignore_weekend !== undefined) {
-      flat.autodelete_ignore_weekend = config.autodelete.ignore_weekend;
-    }
-    if (config.autodelete.message_hours !== undefined) {
-      flat.autodelete_message_hours = config.autodelete.message_hours;
-    }
-    if (config.autodelete.file_history_days !== undefined) {
-      flat.autodelete_file_history_days = config.autodelete.file_history_days;
-    }
-  }
-
-  // Flatten tasks section
-  if (config.tasks) {
-    if (config.tasks.auto_archive_done_days !== undefined) {
-      flat.auto_archive_done_days = config.tasks.auto_archive_done_days;
-    }
-    if (config.tasks.stale_hours_in_progress !== undefined) {
-      flat.task_stale_hours_in_progress = config.tasks.stale_hours_in_progress;
-    }
-    if (config.tasks.stale_hours_waiting_review !== undefined) {
-      flat.task_stale_hours_waiting_review = config.tasks.stale_hours_waiting_review;
-    }
-    if (config.tasks.auto_stale_enabled !== undefined) {
-      flat.task_auto_stale_enabled = config.tasks.auto_stale_enabled;
-    }
-  }
-
-  return flat;
-}
-
-/**
- * Load config file and prepare for database insertion
- * Combines loading and flattening in one call
- *
- * @param projectRoot - Project root directory (defaults to process.cwd())
- * @param configPath - Optional path to config file
- * @returns Flattened configuration ready for database
- */
-export function loadAndFlattenConfig(projectRoot: string = process.cwd(), configPath?: string): FlatConfig {
-  const config = loadConfigFile(projectRoot, configPath);
-  return flattenConfig(config);
 }
 
 /**
@@ -324,36 +257,6 @@ export function validateConfig(config: SqlewConfig): { valid: boolean; errors: s
       if (config.autodelete.file_history_days < 1 || config.autodelete.file_history_days > 365) {
         errors.push('autodelete.file_history_days must be between 1 and 365');
       }
-    }
-  }
-
-  // Validate task settings
-  if (config.tasks) {
-    if (config.tasks.auto_archive_done_days !== undefined) {
-      if (config.tasks.auto_archive_done_days < 1 || config.tasks.auto_archive_done_days > 365) {
-        errors.push('tasks.auto_archive_done_days must be between 1 and 365');
-      }
-    }
-    if (config.tasks.stale_hours_in_progress !== undefined) {
-      if (config.tasks.stale_hours_in_progress < 1 || config.tasks.stale_hours_in_progress > 168) {
-        errors.push('tasks.stale_hours_in_progress must be between 1 and 168 (7 days)');
-      }
-    }
-    if (config.tasks.stale_hours_waiting_review !== undefined) {
-      if (config.tasks.stale_hours_waiting_review < 1 || config.tasks.stale_hours_waiting_review > 720) {
-        errors.push('tasks.stale_hours_waiting_review must be between 1 and 720 (30 days)');
-      }
-    }
-  }
-
-  // Validate agents settings
-  if (config.agents) {
-    const validKeys = ['scrum_master', 'researcher', 'architect'];
-    const configKeys = Object.keys(config.agents);
-    const invalidKeys = configKeys.filter(k => !validKeys.includes(k));
-
-    if (invalidKeys.length > 0) {
-      errors.push(`agents section has invalid keys: ${invalidKeys.join(', ')}`);
     }
   }
 

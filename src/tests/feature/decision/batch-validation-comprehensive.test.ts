@@ -12,6 +12,7 @@ import { DatabaseAdapter } from '../../../adapters/index.js';
 import { initializeDatabase, closeDatabase } from '../../../database.js';
 import { ProjectContext } from '../../../utils/project-context.js';
 import { unlink } from 'node:fs/promises';
+import { mkdirSync } from 'node:fs';
 
 const TEST_DB_PATH = '.tmp-test/batch-validation-decision.db';
 
@@ -19,7 +20,7 @@ describe('Decision Batch Validation Test Suite', () => {
   let adapter: DatabaseAdapter;
 
   before(async () => {
-    // Initialize test database
+    mkdirSync('.tmp-test', { recursive: true });
     adapter = await initializeDatabase({
       databaseType: 'sqlite',
       connection: {
@@ -42,10 +43,6 @@ describe('Decision Batch Validation Test Suite', () => {
       // Ignore cleanup errors
     }
   });
-
-  // ============================================================================
-  // DECISION BATCH VALIDATION (set_batch)
-  // ============================================================================
 
   describe('Decision Batch Validation - set_batch', () => {
     it('should reject batch with missing key', async () => {
@@ -175,10 +172,6 @@ describe('Decision Batch Validation Test Suite', () => {
       assert.strictEqual(result.failed, 0);
     });
   });
-
-  // ============================================================================
-  // ERROR MESSAGE FORMAT VERIFICATION
-  // ============================================================================
 
   describe('Error Message Format Verification', () => {
     it('should include field name in error message', async () => {

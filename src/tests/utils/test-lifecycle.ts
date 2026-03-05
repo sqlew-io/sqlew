@@ -8,11 +8,6 @@
 import { Knex } from 'knex';
 import type { DbConfig, DatabaseType } from './db-config.js';
 import { connectDb, disconnectDb } from './db-schema.js';
-
-// ============================================================================
-// Test Context Management
-// ============================================================================
-
 export interface TestContext {
   dbs: Map<DatabaseType, Knex>;
   configs: Map<DatabaseType, DbConfig>;
@@ -53,40 +48,9 @@ export async function teardownTestContext(context: TestContext): Promise<void> {
     await disconnectDb(db);
   }
 }
-
-// ============================================================================
-// Better-SQLite3 Test Lifecycle Helpers (v3.9.0)
-// ============================================================================
-
 /**
- * Force exit after test completion to prevent better-sqlite3 hanging
- *
- * **Problem**: better-sqlite3 native addon keeps Node.js event loop alive
- * even after proper cleanup (db.destroy(), etc.)
- *
- * **Solution**: Embed forced exit in the LAST test of each test suite
- *
- * **Usage**:
- * ```typescript
- * describe('My Test Suite', () => {
- *   it('test 1', async () => { ... });
- *   it('test 2', async () => { ... });
- *
- *   it('test 3 (LAST)', async () => {
- *     // ... test logic ...
- *
- *     // Call at the END of the last test
- *     forceExitAfterTest();
- *   });
- * });
- * ```
- *
- * **Why setImmediate()?**
- * - Executes after current test completes but before Node test runner's `after()` hook
- * - Allows test to finish properly and report results
- * - Prevents event loop from hanging after all tests pass
- *
- * **Token Efficiency**: Reduces need for manual process.exit(0) in every test file
+ * Force exit after test completion to prevent better-sqlite3 hanging.
+ * Uses setImmediate to let the test finish before exiting.
  */
 export function forceExitAfterTest(): void {
   setImmediate(async () => {

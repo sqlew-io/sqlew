@@ -1,11 +1,6 @@
 /**
- * JSON Import/Export System Types (v3.7.3)
- * Types for database import/export operations with cross-project support
+ * JSON import/export system types (v3.7.3)
  */
-
-// ============================================================================
-// JSON Import System Types (v3.7.3)
-// ============================================================================
 
 /**
  * Options for JSON import operation
@@ -39,18 +34,16 @@ export interface IdMapping extends Map<number, number> {}
 
 /**
  * Complete ID mapping context for all master tables
+ * Note: agents removed in v4.0, files/tasks removed in v5.0
  */
 export interface ImportIdMappings {
   projects: IdMapping;
-  agents: IdMapping;
-  files: IdMapping;
   context_keys: IdMapping;
   tags: IdMapping;
   scopes: IdMapping;
   constraint_categories: IdMapping;
   layers: IdMapping;
-  task_statuses: IdMapping;
-  tasks: IdMapping;  // Transaction table, but needed for dependencies
+  decision_policies: IdMapping;  // v4.0+ table
 }
 
 /**
@@ -73,13 +66,12 @@ export interface ImportContext {
 
 /**
  * Import statistics
+ * Note: agents_created, activity_log_created removed in v4.0
+ * Note: files/tasks related stats removed in v5.0
  */
 export interface ImportStats {
   project_created: boolean;
   master_tables: {
-    agents_created: number;
-    files_created: number;
-    files_reused: number;
     context_keys_created: number;
     tags_created: number;
     tags_reused: number;
@@ -91,35 +83,15 @@ export interface ImportStats {
     decisions_numeric_created: number;
     decision_history_created: number;
     decision_context_created: number;
-    file_changes_created: number;
     constraints_created: number;
-    tasks_created: number;
-    task_details_created: number;
-    activity_log_created: number;
+    decision_policies_created: number;  // v4.0+ table
+    tag_index_created: number;  // v4.0+ table
   };
   junction_tables: {
     decision_tags_created: number;
     decision_scopes_created: number;
     constraint_tags_created: number;
-    task_tags_created: number;
-    task_file_links_created: number;
-    task_decision_links_created: number;
-    task_dependencies_created: number;
   };
-}
-
-/**
- * Task dependency graph for topological sorting
- */
-export interface TaskDependencyGraph {
-  /** Task IDs with no dependencies (roots) */
-  roots: number[];
-  /** Map from blocker_task_id to array of blocked_task_ids */
-  children: Map<number, number[]>;
-  /** Map from blocked_task_id to array of blocker_task_ids */
-  parents: Map<number, number[]>;
-  /** All task IDs in the graph */
-  allTaskIds: Set<number>;
 }
 
 /**

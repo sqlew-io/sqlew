@@ -18,20 +18,6 @@ export async function getLayerId(
   const result = await knex('m_layers').where({ name }).first('id');
   return result ? result.id : null;
 }
-
-/**
- * Get constraint category ID by name
- */
-export async function getCategoryId(
-  adapter: DatabaseAdapter,
-  name: string,
-  trx?: Knex.Transaction
-): Promise<number | null> {
-  const knex = trx || adapter.getKnex();
-  const result = await knex('m_constraint_categories').where({ name }).first('id');
-  return result ? result.id : null;
-}
-
 /**
  * Get decision with context
  */

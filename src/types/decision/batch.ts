@@ -1,20 +1,14 @@
-// ============================================================================
-// Batch Operation Types (FR-005)
-// ============================================================================
+/**
+ * Batch operation types (FR-005)
+ */
 
 import type { SetDecisionParams } from './params.js';
 
-/**
- * Parameters for batch decision creation
- */
 export interface SetDecisionBatchParams {
   decisions: SetDecisionParams[];
   atomic?: boolean;  // Default: true (all succeed or all fail)
 }
 
-/**
- * Response for batch decision creation
- */
 export interface SetDecisionBatchResponse {
   success: boolean;
   inserted: number;

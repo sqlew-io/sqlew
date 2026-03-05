@@ -1,16 +1,8 @@
 /**
  * Decision Operations - Native RDBMS Integration Tests
  *
- * Tests decision table schema correctness across MySQL, MariaDB, and PostgreSQL:
- * - Foreign key constraint enforcement
- * - UNIQUE constraint validation
- * - CASCADE delete behavior
- * - View functionality (v_tagged_decisions)
- * - Tag index population (m_tag_index)
- * - Cross-database compatibility
- *
- * Architecture: Direct Knex operations, no MCP tool dependencies
- * Task #530: Refactored from MCP tool calls to database layer testing
+ * Tests decision schema correctness (FK, UNIQUE, CASCADE, tags, cross-DB)
+ * via direct Knex operations on MySQL, MariaDB, and PostgreSQL.
  */
 
 import { describe, it } from 'node:test';
@@ -30,7 +22,6 @@ import {
 runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
   let projectId: number;
 
-  // Get project ID before running tests
   it('should get project ID', async () => {
     const db = getDb();
     const project = await db('m_projects').first();
@@ -38,15 +29,10 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
     projectId = project.id;
   });
 
-  // ============================================================================
-  // Foreign Key Constraint Tests
-  // ============================================================================
-
   describe('Foreign key constraints', () => {
     it('should enforce FK constraint on key_id', async () => {
       const db = getDb();
 
-      // Try to insert decision with non-existent key_id
       const insertPromise = db('t_decisions').insert({
         key_id: 999999, // Non-existent
         project_id: projectId,
@@ -72,13 +58,11 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
     it('should enforce FK constraint on layer_id', async () => {
       const db = getDb();
 
-      // Setup: Create valid key
       await db('m_context_keys').insert({ key_name: 'fk-test-layer' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'fk-test-layer' })
         .first();
 
-      // Try to insert with invalid layer_id
       const insertPromise = db('t_decisions').insert({
         key_id: keyRecord.id,
         project_id: projectId,
@@ -90,20 +74,14 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
 
       await assert.rejects(insertPromise, /foreign key|FOREIGN KEY|Cannot add or update a child row/i);
 
-      // Cleanup
       await db('m_context_keys').where({ id: keyRecord.id }).del();
     });
   });
-
-  // ============================================================================
-  // UNIQUE Constraint Tests
-  // ============================================================================
 
   describe('UNIQUE constraints', () => {
     it('should enforce PRIMARY KEY uniqueness on key_id', async () => {
       const db = getDb();
 
-      // Setup: Create key and decision
       await db('m_context_keys').insert({ key_name: 'unique-test-pk' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'unique-test-pk' })
@@ -120,7 +98,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         layer_id: layerId,
       });
 
-      // Try to insert duplicate (same key_id + project_id)
       const duplicatePromise = db('t_decisions').insert({
         key_id: keyRecord.id,
         project_id: projectId,
@@ -135,7 +112,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         /UNIQUE constraint|Duplicate entry|duplicate key value/i
       );
 
-      // Cleanup
       await cleanupTestData(db);
     });
 
@@ -145,7 +121,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
     it('should allow multiple context entries per decision in v4 schema (no UNIQUE on decision_key_id)', async () => {
       const db = getDb();
 
-      // Setup: Create decision
       await db('m_context_keys').insert({ key_name: 'context-multi-test' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'context-multi-test' })
@@ -162,7 +137,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         layer_id: layerId,
       });
 
-      // Insert first context
       await db('t_decision_context').insert({
         decision_key_id: keyRecord.id,
         project_id: projectId,
@@ -170,7 +144,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         ts: Math.floor(Date.now() / 1000),
       });
 
-      // Insert second context - should succeed in v4 (no UNIQUE constraint)
       await db('t_decision_context').insert({
         decision_key_id: keyRecord.id,
         project_id: projectId,
@@ -178,21 +151,16 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         ts: Math.floor(Date.now() / 1000),
       });
 
-      // Verify both context entries exist
       const contexts = await db('t_decision_context')
         .where({ decision_key_id: keyRecord.id, project_id: projectId })
         .select('id', 'rationale');
 
       assert.strictEqual(contexts.length, 2, 'Should allow multiple context entries per decision in v4');
 
-      // Cleanup
       await cleanupTestData(db);
     });
   });
 
-  // ============================================================================
-  // Foreign Key Behavior Tests (v4 Schema Design)
-  // ============================================================================
   // NOTE: v4 schema uses m_context_keys as the central reference point.
   // - t_decisions, t_decision_tags, t_decision_context all reference m_context_keys
   // - ON DELETE CASCADE is only applied to project_id (not key_id/decision_key_id)
@@ -202,7 +170,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
     it('should block context_keys deletion when decisions exist (no CASCADE on key_id)', async () => {
       const db = getDb();
 
-      // Setup: Create key and decision
       await db('m_context_keys').insert({ key_name: 'fk-block-test-key' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'fk-block-test-key' })
@@ -219,7 +186,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         layer_id: layerId,
       });
 
-      // Try to delete context key - should be blocked by FK constraint
       const deletePromise = db('m_context_keys').where({ id: keyRecord.id }).del();
 
       await assert.rejects(
@@ -236,7 +202,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
     it('should allow decision deletion without affecting decision_tags (different FK reference)', async () => {
       const db = getDb();
 
-      // Setup: Create decision with tags
       await db('m_context_keys').insert({ key_name: 'fk-tags-test' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'fk-tags-test' })
@@ -260,7 +225,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         tag_id: tagId,
       });
 
-      // Verify tags exist
       let tags = await db('t_decision_tags').where({ decision_key_id: keyRecord.id });
       assert.ok(tags.length > 0, 'Tags should exist before deletion');
 
@@ -280,7 +244,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
     it('should allow decision deletion without affecting decision_context (different FK reference)', async () => {
       const db = getDb();
 
-      // Setup: Create decision with context
       await db('m_context_keys').insert({ key_name: 'fk-context-test' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'fk-context-test' })
@@ -304,7 +267,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         ts: Math.floor(Date.now() / 1000),
       });
 
-      // Verify context exists
       let context = await db('t_decision_context').where({ decision_key_id: keyRecord.id }).first();
       assert.ok(context, 'Context should exist before deletion');
 
@@ -321,15 +283,10 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
     });
   });
 
-  // ============================================================================
-  // Decision CRUD Operations (Database Layer)
-  // ============================================================================
-
   describe('Decision table operations', () => {
     it('should insert decision with all required fields', async () => {
       const db = getDb();
 
-      // Setup: Insert master data
       await db('m_context_keys').insert({ key_name: 'crud-test-key' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'crud-test-key' })
@@ -337,7 +294,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
 
       const layerId = await getLayerId(db, 'infrastructure');
 
-      // Insert decision
       await db('t_decisions').insert({
         key_id: keyRecord.id,
         project_id: projectId,
@@ -347,17 +303,14 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         layer_id: layerId,
       });
 
-      // Verify
       await assertDecisionExists(db, 'crud-test-key', 'fastify');
 
-      // Cleanup
       await cleanupTestData(db);
     });
 
     it('should update existing decision value', async () => {
       const db = getDb();
 
-      // Setup: Create initial decision
       await db('m_context_keys').insert({ key_name: 'update-test-key' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'update-test-key' })
@@ -374,7 +327,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         layer_id: layerId,
       });
 
-      // Update decision
       await db('t_decisions')
         .where({ key_id: keyRecord.id })
         .update({
@@ -383,17 +335,14 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
           ts: Math.floor(Date.now() / 1000),
         });
 
-      // Verify
       await assertDecisionExists(db, 'update-test-key', 'postgresql-v16');
 
-      // Cleanup
       await cleanupTestData(db);
     });
 
     it('should store numeric decisions in t_decisions_numeric', async () => {
       const db = getDb();
 
-      // Setup: Create key
       await db('m_context_keys').insert({ key_name: 'numeric-test-key' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'numeric-test-key' })
@@ -401,7 +350,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
 
       const layerId = await getLayerId(db, 'infrastructure');
 
-      // Insert numeric decision
       await db('t_decisions_numeric').insert({
         key_id: keyRecord.id,
         project_id: projectId,
@@ -411,7 +359,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         layer_id: layerId,
       });
 
-      // Verify
       const numericDecision = await db('t_decisions_numeric')
         .where({ key_id: keyRecord.id })
         .first();
@@ -419,20 +366,14 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
       assert.ok(numericDecision, 'Numeric decision should exist');
       assert.strictEqual(numericDecision.value, 100, 'Numeric value should match');
 
-      // Cleanup
       await cleanupTestData(db);
     });
   });
-
-  // ============================================================================
-  // Decision Context Operations
-  // ============================================================================
 
   describe('Decision context operations', () => {
     it('should insert decision context with rationale, alternatives, tradeoffs', async () => {
       const db = getDb();
 
-      // Setup: Create decision
       await db('m_context_keys').insert({ key_name: 'context-test-key' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'context-test-key' })
@@ -449,7 +390,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         layer_id: layerId,
       });
 
-      // Insert context
       await db('t_decision_context').insert({
         decision_key_id: keyRecord.id,
         project_id: projectId,
@@ -459,7 +399,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         ts: Math.floor(Date.now() / 1000),
       });
 
-      // Verify
       const context = await db('t_decision_context')
         .where({ decision_key_id: keyRecord.id })
         .first();
@@ -469,14 +408,12 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
       assert.strictEqual(context.alternatives_considered, 'JWT, Session-based auth, Basic auth');
       assert.strictEqual(context.tradeoffs, 'More complex implementation than basic auth');
 
-      // Cleanup
       await cleanupTestData(db);
     });
 
     it('should update existing decision context', async () => {
       const db = getDb();
 
-      // Setup: Create decision with context
       await db('m_context_keys').insert({ key_name: 'context-update-key' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'context-update-key' })
@@ -500,7 +437,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         ts: Math.floor(Date.now() / 1000),
       });
 
-      // Update context
       await db('t_decision_context')
         .where({ decision_key_id: keyRecord.id })
         .update({
@@ -508,7 +444,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
           alternatives_considered: 'New alternatives',
         });
 
-      // Verify
       const context = await db('t_decision_context')
         .where({ decision_key_id: keyRecord.id })
         .first();
@@ -516,20 +451,14 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
       assert.strictEqual(context.rationale, 'Updated rationale');
       assert.strictEqual(context.alternatives_considered, 'New alternatives');
 
-      // Cleanup
       await cleanupTestData(db);
     });
   });
-
-  // ============================================================================
-  // Tag Operations
-  // ============================================================================
 
   describe('Decision tagging', () => {
     it('should insert decision tags', async () => {
       const db = getDb();
 
-      // Setup: Create decision
       await db('m_context_keys').insert({ key_name: 'tag-test-key' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'tag-test-key' })
@@ -546,7 +475,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         layer_id: layerId,
       });
 
-      // Insert tags
       const apiTagId = await getTagId(db, 'api');
       const perfTagId = await getTagId(db, 'performance');
 
@@ -555,10 +483,8 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         { decision_key_id: keyRecord.id, project_id: projectId, tag_id: perfTagId },
       ]);
 
-      // Verify
       await assertDecisionHasTags(db, 'tag-test-key', ['api', 'performance']);
 
-      // Cleanup
       await cleanupTestData(db);
     });
 
@@ -567,15 +493,10 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
     // It's an aggregate count table populated by application logic, not individual mappings
   });
 
-  // ============================================================================
-  // Scope Operations
-  // ============================================================================
-
   describe('Decision scoping', () => {
     it('should insert decision scopes', async () => {
       const db = getDb();
 
-      // Setup: Create decision
       await db('m_context_keys').insert({ key_name: 'scope-test-key' });
       const keyRecord = await db('m_context_keys')
         .where({ key_name: 'scope-test-key' })
@@ -592,7 +513,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         layer_id: layerId,
       });
 
-      // Insert scopes
       const globalScopeId = await getScopeId(db, 'global');
       const moduleScopeId = await getScopeId(db, 'module');
 
@@ -601,7 +521,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
         { decision_key_id: keyRecord.id, project_id: projectId, scope_id: moduleScopeId },
       ]);
 
-      // Verify
       const scopes = await db('t_decision_scopes')
         .join('m_scopes', 't_decision_scopes.scope_id', 'm_scopes.id')
         .where({ 't_decision_scopes.decision_key_id': keyRecord.id, 't_decision_scopes.project_id': projectId })
@@ -611,14 +530,9 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
       assert.ok(scopes.includes('global'), 'Should have global scope');
       assert.ok(scopes.includes('module'), 'Should have module scope');
 
-      // Cleanup
       await cleanupTestData(db);
     });
   });
-
-  // ============================================================================
-  // Cross-Database Compatibility Tests
-  // ============================================================================
 
   describe(`Cross-database compatibility - ${dbType}`, () => {
     it('should handle long VARCHAR keys', async () => {
@@ -643,7 +557,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
 
       await assertDecisionExists(db, longKey, 'test');
 
-      // Cleanup
       await cleanupTestData(db);
     });
 
@@ -669,7 +582,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
 
       await assertDecisionExists(db, 'special-chars-key', specialValue);
 
-      // Cleanup
       await cleanupTestData(db);
     });
 
@@ -695,7 +607,6 @@ runTestsOnAllDatabases('Decision Operations', (getDb, dbType) => {
 
       await assertDecisionExists(db, 'unicode-key', unicodeValue);
 
-      // Cleanup
       await cleanupTestData(db);
     });
   });

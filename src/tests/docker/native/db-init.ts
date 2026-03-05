@@ -1,13 +1,8 @@
 /**
  * Native RDBMS Database Initialization
  *
- * Handles fresh database setup via Knex migrations for
- * MySQL, MariaDB, and PostgreSQL integration tests.
- *
- * Key Features:
- * - Initialize fresh database with all migrations
- * - Verify migration success
- * - Clean teardown with proper disconnect
+ * Fresh database setup and teardown via Knex migrations
+ * for MySQL, MariaDB, and PostgreSQL integration tests.
  */
 
 import knex, { Knex } from 'knex';
@@ -19,10 +14,6 @@ import { getTestConfig, type DatabaseType } from '../../database/testing-config.
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// ============================================================================
-// Migration Directory Configuration
-// ============================================================================
 
 /**
  * Get migration directory paths
@@ -41,22 +32,8 @@ function getMigrationDirs(): string[] {
   ];
 }
 
-// ============================================================================
-// Database Initialization
-// ============================================================================
-
 /**
  * Initialize fresh database with all Knex migrations
- *
- * This creates a clean database state by:
- * 1. Connecting to the database
- * 2. Running all migrations (bootstrap + upgrades + enhancements)
- * 3. Verifying migration success
- *
- * @param dbType - Database type (mysql, mariadb, postgresql)
- * @returns Knex instance connected to fresh database
- *
- * @throws Error if connection fails or migrations fail
  *
  * @example
  * ```typescript
@@ -66,10 +43,8 @@ function getMigrationDirs(): string[] {
  * ```
  */
 export async function initDatabase(dbType: DatabaseType): Promise<Knex> {
-  // Get base configuration from centralized testing config
   const config = getTestConfig(dbType);
 
-  // Add migration configuration
   const migrationDirs = getMigrationDirs();
   const fullConfig: Knex.Config = {
     ...config,
@@ -81,14 +56,11 @@ export async function initDatabase(dbType: DatabaseType): Promise<Knex> {
     },
   };
 
-  // Create connection
   const db = knex(fullConfig);
 
   try {
-    // Verify connection
     await db.raw('SELECT 1');
 
-    // Run all migrations
     const [batchNo, migrations] = await db.migrate.latest();
 
     if (migrations.length === 0) {
@@ -97,12 +69,10 @@ export async function initDatabase(dbType: DatabaseType): Promise<Knex> {
       console.log(`    ✅ Ran ${migrations.length} migrations (batch ${batchNo})`);
     }
 
-    // Verify migrations completed
     await verifyMigrations(db);
 
     return db;
   } catch (error: any) {
-    // Cleanup on failure
     await db.destroy().catch(() => {});
     throw new Error(`Failed to initialize ${dbType} database: ${error.message}`);
   }
@@ -110,27 +80,15 @@ export async function initDatabase(dbType: DatabaseType): Promise<Knex> {
 
 /**
  * Verify that migrations completed successfully
- *
- * Checks:
- * - knex_migrations table exists
- * - At least one migration ran
- * - Key tables exist (t_decisions, t_constraints)
- *
- * Note: v4_tasks removed in v5.0 (deprecated)
- *
- * @param db - Knex database connection
- * @throws Error if verification fails
  */
 export async function verifyMigrations(db: Knex): Promise<void> {
-  // Check migration table exists
   const hasMigrationTable = await db.schema.hasTable('knex_migrations');
   assert.ok(hasMigrationTable, 'knex_migrations table should exist');
 
-  // Check migrations ran
   const migrations = await db('knex_migrations').select('name');
   assert.ok(migrations.length > 0, 'At least one migration should have run');
 
-  // Check key tables exist (task tables removed in v5.0)
+  // Note: v4_tasks removed in v5.0 (deprecated)
   const keyTables = ['m_context_keys', 't_decisions', 't_constraints'];
   for (const table of keyTables) {
     const exists = await db.schema.hasTable(table);
@@ -138,31 +96,18 @@ export async function verifyMigrations(db: Knex): Promise<void> {
   }
 }
 
-// ============================================================================
-// Database Teardown
-// ============================================================================
-
 /**
  * Clean up database and disconnect
  *
- * Performs proper cleanup:
- * 1. Drop all tables (including knex_migrations)
- * 2. Disconnect from database
- *
- * Note: This is safe because tests use Docker containers with isolated databases.
- *
- * @param db - Knex database connection
+ * Safe because tests use Docker containers with isolated databases.
  */
 export async function teardownDatabase(db: Knex): Promise<void> {
   try {
-    // Get database type from client config
     const client = db.client.config.client;
     const dbType = getDbTypeFromClient(client);
 
-    // Drop all tables (including knex_migrations)
     await dropAllTables(db, dbType);
 
-    // Disconnect
     await db.destroy();
   } catch (error) {
     // Best effort cleanup - ignore errors
@@ -170,17 +115,9 @@ export async function teardownDatabase(db: Knex): Promise<void> {
   }
 }
 
-/**
- * Drop all tables from database
- *
- * Database-specific DROP TABLE implementations to handle different SQL dialects.
- *
- * @param db - Knex database connection
- * @param dbType - Database type
- */
+/** Drop all tables using database-specific SQL dialects */
 async function dropAllTables(db: Knex, dbType: DatabaseType): Promise<void> {
   if (dbType === 'mysql' || dbType === 'mariadb') {
-    // MySQL/MariaDB: Disable FK checks, drop all tables
     await db.raw('SET FOREIGN_KEY_CHECKS=0');
 
     const tables = await db.raw(`
@@ -196,7 +133,6 @@ async function dropAllTables(db: Knex, dbType: DatabaseType): Promise<void> {
 
     await db.raw('SET FOREIGN_KEY_CHECKS=1');
   } else if (dbType === 'postgresql') {
-    // PostgreSQL: Drop all tables with CASCADE
     const tables = await db.raw(`
       SELECT tablename
       FROM pg_tables
@@ -218,8 +154,7 @@ async function dropAllTables(db: Knex, dbType: DatabaseType): Promise<void> {
 function getDbTypeFromClient(client: string): DatabaseType {
   switch (client) {
     case 'mysql2':
-      // Cannot distinguish MySQL from MariaDB via client, default to mysql
-      return 'mysql';
+      return 'mysql'; // Cannot distinguish MySQL from MariaDB via client string
     case 'pg':
       return 'postgresql';
     case 'better-sqlite3':

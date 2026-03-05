@@ -35,10 +35,6 @@ const execAsyncWithTimeout = async (
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ============================================================================
-// Database Configuration
-// ============================================================================
-
 export type DatabaseType = ConfigDatabaseType;
 
 export interface DbConfig {
@@ -62,12 +58,10 @@ const migrationDirs = [
 export function getDbConfig(type: DatabaseType, customPath?: string): DbConfig {
   const knexConfig = getTestConfig(type);
 
-  // For SQLite, override path if provided
   if (type === 'sqlite' && customPath) {
     knexConfig.connection = { filename: customPath };
   }
 
-  // Add migration configuration for all databases
   if (!knexConfig.migrations) {
     knexConfig.migrations = {
       directory: migrationDirs,
@@ -77,7 +71,6 @@ export function getDbConfig(type: DatabaseType, customPath?: string): DbConfig {
     };
   }
 
-  // Get container name for Docker-based databases
   let containerName: string | undefined;
   if (type !== 'sqlite') {
     const dockerConfig = getDockerConfig(type);
@@ -90,10 +83,6 @@ export function getDbConfig(type: DatabaseType, customPath?: string): DbConfig {
     containerName,
   };
 }
-
-// ============================================================================
-// Database Connection Helpers (DRY)
-// ============================================================================
 
 /**
  * Create and verify database connection
@@ -142,10 +131,8 @@ export async function dropAllTables(db: Knex, type: DatabaseType): Promise<void>
     await db.raw('PRAGMA foreign_keys = ON');
 
   } else if (type === 'mysql' || type === 'mariadb') {
-    // MySQL/MariaDB: Drop all views first, then tables
     await db.raw('SET FOREIGN_KEY_CHECKS=0');
 
-    // Drop views
     const views = await db.raw(`
       SELECT TABLE_NAME
       FROM INFORMATION_SCHEMA.TABLES
@@ -156,7 +143,6 @@ export async function dropAllTables(db: Knex, type: DatabaseType): Promise<void>
       await db.raw(`DROP VIEW IF EXISTS ??`, [row.TABLE_NAME]);
     }
 
-    // Drop tables
     const tables = await db.raw(`
       SELECT TABLE_NAME
       FROM INFORMATION_SCHEMA.TABLES
@@ -174,10 +160,6 @@ export async function dropAllTables(db: Knex, type: DatabaseType): Promise<void>
     await db.raw('CREATE SCHEMA public');
   }
 }
-
-// ============================================================================
-// Schema Comparison Utilities (DRY)
-// ============================================================================
 
 export interface TableInfo {
   name: string;
@@ -274,10 +256,6 @@ export async function assertRowCountsMatch(
   );
 }
 
-// ============================================================================
-// FK Constraint Helpers (DRY)
-// ============================================================================
-
 export interface FKConstraintInfo {
   tableName: string;
   columnName: string;
@@ -373,10 +351,6 @@ export async function assertFKConstraintsExist(
   );
 }
 
-// ============================================================================
-// Data Seeding Helpers (DRY)
-// ============================================================================
-
 /**
  * Seed test data with FK relationships
  * Creates a simple schema: projects → agents → context_keys → decisions
@@ -384,12 +358,11 @@ export async function assertFKConstraintsExist(
 export async function seedTestData(db: Knex): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
 
-  // Clear existing test data (use test IDs 10, 20, 100, 101 to avoid conflicts with migration-created data)
+  // use test IDs 10, 20, 100, 101 to avoid conflicts with migration-created data
   await db('t_decisions').where('key_id', '>=', 100).andWhere('key_id', '<=', 101).del();
   await db('m_context_keys').where('id', '>=', 100).andWhere('id', '<=', 101).del();
   await db('m_projects').where('name', 'like', 'test-project-%').del();
 
-  // Seed m_projects (use IDs 10, 20 to avoid conflicts)
   await db('m_projects').insert([
     { id: 10, name: 'test-project-1', display_name: 'Test Project 1', detection_source: 'test', created_ts: now, last_active_ts: now },
     { id: 20, name: 'test-project-2', display_name: 'Test Project 2', detection_source: 'test', created_ts: now, last_active_ts: now },
@@ -397,13 +370,11 @@ export async function seedTestData(db: Knex): Promise<void> {
 
   // Note: v4_agents removed in v4.0 (agent tracking eliminated)
 
-  // Seed m_context_keys (use IDs 100, 101 to avoid conflicts)
   await db('m_context_keys').insert([
     { id: 100, key_name: 'test/key1' },
     { id: 101, key_name: 'test/key2' },
   ]);
 
-  // Seed t_decisions (has FK to m_projects, m_context_keys)
   // Note: agent_id removed in v4.0
   await db('t_decisions').insert([
     { key_id: 100, project_id: 10, value: 'test-value-1', ts: now },
@@ -416,18 +387,12 @@ export async function seedTestData(db: Knex): Promise<void> {
  * Note: Migrations may create a default project (ID 1), so we check for our test projects specifically
  */
 export async function assertSeededDataExists(db: Knex): Promise<void> {
-  // Check for our specific test projects (IDs 10, 20)
   const testProjects = await db('m_projects').whereIn('id', [10, 20]);
   assert.strictEqual(testProjects.length, 2, 'Should have 2 test projects (IDs 10, 20)');
 
-  // Check for our test decisions
   const testDecisions = await db('t_decisions').whereIn('key_id', [100, 101]);
   assert.strictEqual(testDecisions.length, 2, 'Should have 2 test decisions (key_ids 100, 101)');
 }
-
-// ============================================================================
-// SQL Import Helpers (DRY)
-// ============================================================================
 
 /**
  * Import SQL dump to database via Docker container
@@ -441,10 +406,8 @@ export async function importSqlToDocker(
   writeFileSync(tempFile, sql);
 
   try {
-    // Copy file to container
     await execAsyncWithTimeout(`docker cp ${tempFile} ${containerName}:/tmp/import.sql`);
 
-    // Import based on database type
     if (type === 'mysql' || type === 'mariadb') {
       await execAsyncWithTimeout(
         `docker exec ${containerName} mysql -u mcp_user -pmcp_pass mcp_test -e "SOURCE /tmp/import.sql"`
@@ -455,16 +418,11 @@ export async function importSqlToDocker(
       );
     }
   } finally {
-    // Clean up temp file
     if (existsSync(tempFile)) {
       unlinkSync(tempFile);
     }
   }
 }
-
-// ============================================================================
-// Test Lifecycle Helpers (DRY)
-// ============================================================================
 
 export interface TestContext {
   dbs: Map<DatabaseType, Knex>;
@@ -486,7 +444,6 @@ export async function setupTestContext(types: DatabaseType[]): Promise<TestConte
       const db = await connectDb(config);
       dbs.set(type, db);
     } catch (error: any) {
-      // Clean up already connected databases
       for (const [, db] of dbs) {
         await disconnectDb(db);
       }
@@ -506,57 +463,21 @@ export async function teardownTestContext(context: TestContext): Promise<void> {
   }
 }
 
-// ============================================================================
-// Better-SQLite3 Test Lifecycle Helpers (v3.9.0)
-// ============================================================================
-
 /**
- * Force exit after test completion to prevent better-sqlite3 hanging
- *
- * **Problem**: better-sqlite3 native addon keeps Node.js event loop alive
- * even after proper cleanup (db.destroy(), etc.)
- *
- * **Solution**: Embed forced exit in the LAST test of each test suite
- *
- * **Usage**:
- * ```typescript
- * describe('My Test Suite', () => {
- *   it('test 1', async () => { ... });
- *   it('test 2', async () => { ... });
- *
- *   it('test 3 (LAST)', async () => {
- *     // ... test logic ...
- *
- *     // Call at the END of the last test
- *     forceExitAfterTest();
- *   });
- * });
- * ```
- *
- * **Why setImmediate()?**
- * - Executes after current test completes but before Node test runner's `after()` hook
- * - Allows test to finish properly and report results
- * - Prevents event loop from hanging after all tests pass
- *
- * **Token Efficiency**: Reduces need for manual process.exit(0) in every test file
+ * Force exit after test completion to prevent better-sqlite3 hanging.
+ * Uses setImmediate to let the test finish before exiting.
  */
 export function forceExitAfterTest(): void {
   setImmediate(async () => {
     try {
-      // Database cleanup can be skipped for temporary test databases
       // better-sqlite3 handles cleanup internally before exit
     } catch (error) {
       // Ignore cleanup errors
     } finally {
-      // Force exit immediately (better-sqlite3 keeps event loop alive)
       process.exit(0);
     }
   });
 }
-
-// ============================================================================
-// Task and File Link Test Helpers (v3.9.0)
-// ============================================================================
 
 /**
  * Options for creating a test task
@@ -571,27 +492,14 @@ export interface CreateTestTaskOptions {
   acceptance_criteria?: string;
 }
 
-/**
- * Create a test task with all required fields including timestamps
- *
- * **v4.0.0+ Compatible**: Uses v4_tasks and v4_task_details tables
- * **v3.8.0+ Compatible**: Includes created_ts and updated_ts (NOT NULL fields)
- * **v3.7.0+ Compatible**: Uses provided projectId (required for multi-project support)
- *
- * @param db - Knex database connection
- * @param options - Task creation options
- * @returns Task ID
- */
+/** Create a test task with all required fields including timestamps */
 export async function createTestTask(
   db: Knex,
   options: CreateTestTaskOptions
 ): Promise<number> {
   const currentTs = Math.floor(Date.now() / 1000);
 
-  // Note: Agent tracking removed in v4.0 - no agent lookup needed
-
-  // Create task with all required fields
-  // Note: assigned_agent_id and created_by_agent_id removed in v4.0
+  // Note: agent_id fields removed in v4.0
   const [taskId] = await db('v4_tasks')
     .insert({
       title: options.title,
@@ -605,7 +513,6 @@ export async function createTestTask(
 
   const actualTaskId = taskId?.id || taskId;
 
-  // Add task details if description or acceptance_criteria provided
   if (options.description || options.acceptance_criteria) {
     await db('v4_task_details').insert({
       task_id: actualTaskId,
@@ -617,21 +524,7 @@ export async function createTestTask(
   return actualTaskId;
 }
 
-/**
- * Add watched files to a task with v4.0+ schema compatibility
- *
- * **v4.0+ Schema Changes**:
- * - Uses v4_files table (path_hash removed in v4, uses path directly)
- * - Uses v4_task_file_links table with linked_ts
- * - Added action field (default 'edit')
- * - UNIQUE constraint: `(task_id, project_id, file_id)`
- *
- * @param db - Knex database connection
- * @param taskId - Task ID to link files to
- * @param filePaths - Array of file paths to watch
- * @param projectId - Project ID (required for multi-project support)
- * @returns Array of successfully added file paths
- */
+/** Add watched files to a task (v4.0+ schema) */
 export async function addWatchedFiles(
   db: Knex,
   taskId: number,
@@ -643,10 +536,8 @@ export async function addWatchedFiles(
 
   for (const filePath of filePaths) {
     try {
-      // Get or create file
       let fileId: number;
 
-      // v4 schema: no path_hash, use path directly with project_id
       const existingFile = await db('v4_files')
         .where({ project_id: projectId, path: filePath })
         .first('id');
@@ -660,7 +551,6 @@ export async function addWatchedFiles(
         fileId = newFileId?.id || newFileId;
       }
 
-      // Add file link with v4.0 schema fields
       await db('v4_task_file_links')
         .insert({
           task_id: taskId,
@@ -675,26 +565,13 @@ export async function addWatchedFiles(
       addedFiles.push(filePath);
     } catch (error) {
       console.error(`Error adding file ${filePath}:`, error);
-      // Continue with next file
     }
   }
 
   return addedFiles;
 }
 
-/**
- * Create a pruned file record in the audit table
- *
- * **v4.0+ Compatible**: Uses v4_task_pruned_files table with pruned_ts field
- * **v4.0+ Compatible**: Includes project_id (required for multi-project support)
- * **v3.5.0+ Feature**: Auto-pruning audit trail
- *
- * @param db - Knex database connection
- * @param taskId - Task ID
- * @param filePath - File path that was pruned
- * @param projectId - Project ID (required for multi-project support)
- * @returns Pruned file record ID
- */
+/** Create a pruned file record in the audit table (v4.0+ schema) */
 export async function createPrunedFileRecord(
   db: Knex,
   taskId: number,
@@ -716,15 +593,7 @@ export async function createPrunedFileRecord(
   return id?.id || id;
 }
 
-/**
- * Get watched files for a task
- *
- * **v4.0+ Compatible**: Uses v4_task_file_links and v4_files tables
- *
- * @param db - Knex database connection
- * @param taskId - Task ID
- * @returns Array of file paths
- */
+/** Get watched files for a task (v4.0+ schema) */
 export async function getWatchedFiles(
   db: Knex,
   taskId: number

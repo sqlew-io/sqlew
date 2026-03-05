@@ -10,12 +10,13 @@ import { handleAnalytics } from '../../../tools/context/index.js';
 import { setDecision } from '../../../tools/context/index.js';
 import { getAdapter, initializeDatabase, closeDatabase } from '../../../database.js';
 import { ProjectContext } from '../../../utils/project-context.js';
+import { mkdirSync } from 'node:fs';
 
 const TEST_DB_PATH = '.tmp-test/decision-analytics.db';
 
 describe('Decision Analytics Action', () => {
   before(async () => {
-    // Initialize database with SQLite using test-specific database
+    mkdirSync('.tmp-test', { recursive: true });
     const adapter = await initializeDatabase({
       databaseType: 'sqlite',
       connection: { filename: TEST_DB_PATH }

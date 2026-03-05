@@ -15,17 +15,7 @@ import type { DatabaseConfig } from '../config/types.js';
 
 export { SQLiteAdapter, PostgreSQLAdapter, MySQLAdapter };
 
-/**
- * Factory function to create database adapter.
- *
- * NOTE: This factory maintains backward compatibility with the old signature
- * that only accepts database type. For new code with authentication, create
- * adapters directly with DatabaseConfig.
- *
- * @param databaseType - Database type identifier
- * @param config - Optional database configuration (for new auth-aware code)
- * @returns Database adapter instance
- */
+/** Factory function to create database adapter. */
 export function createDatabaseAdapter(
   databaseType: 'sqlite' | 'postgresql' | 'mysql',
   config?: DatabaseConfig

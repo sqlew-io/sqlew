@@ -1,48 +1,78 @@
 /**
- * Barrel export file for all type definitions
- *
- * This file provides backward compatibility by re-exporting all types
- * from the modularized type files.
+ * Barrel exports for types module
+ * All types re-exported from domain-specific modules
  */
 
-// Core enums
-export * from './enums.js';
+// Database connection type
+import { Database } from 'better-sqlite3';
+export type { Database };
 
-// Master entity types
-export * from './master-entities.js';
+// Enums
+export { Status, MessageType, Priority } from './enums.js';
+export type { StatusString } from './enums.js';
 
-// Transaction entity types
-export * from './transaction-entities.js';
+// Master entities
+export type { ContextKey, ConstraintCategory, Layer, Tag, Scope } from './master-entities.js';
 
-// View entity types
-export * from './view-entities.js';
+// Transaction entities
+export type {
+  Decision, DecisionNumeric, DecisionHistory,
+  DecisionTag, DecisionScope,
+  Constraint, ConstraintTag,
+  ActivityLog, DecisionTemplate,
+} from './transaction-entities.js';
 
-// Decision types
-export * from './decision/params.js';
-export * from './decision/responses.js';
-export * from './decision/templates.js';
-export * from './decision/batch.js';
+// View entities
+export type {
+  TaggedDecision, ActiveContext, LayerSummary,
+  UnreadMessagesByPriority, TaggedConstraint, ActivityLogEntry,
+} from './view-entities.js';
 
-// Task types
-export * from './task/params.js';
-export * from './task/responses.js';
+// Validation
+export type { ValidationError, ActionNotFoundError } from './validation.js';
 
-// File types
-export * from './file/params.js';
-export * from './file/responses.js';
+// Actions
+export type { DecisionAction, ConstraintAction, ConfigAction, ExampleAction } from './actions.js';
 
-// Constraint types
-export * from './constraint/params.js';
-export * from './constraint/responses.js';
+// Import/Export system
+export type {
+  JsonImportOptions, ImportValidationResult,
+  IdMapping, ImportIdMappings, ImportContext,
+  ImportStats, JsonImportResult,
+} from './import-export.js';
 
-// Action types
-export * from './actions.js';
+// Decision params
+export type {
+  SetDecisionParams, QuickSetDecisionParams,
+  GetContextParams, GetDecisionParams, HardDeleteDecisionParams,
+  SearchByTagsParams, GetVersionsParams, SearchByLayerParams,
+  SearchAdvancedParams, HasUpdatesParams,
+} from './decision/params.js';
 
-// Validation types
-export * from './validation.js';
+// Decision responses
+export type {
+  SetDecisionResponse, QuickSetDecisionResponse,
+  GetContextResponse, GetDecisionResponse, HardDeleteDecisionResponse,
+  SearchByTagsResponse, GetVersionsResponse, SearchByLayerResponse,
+  SearchAdvancedResponse, HasUpdatesResponse,
+  GetStatsResponse, FlushWALResponse,
+} from './decision/responses.js';
 
-// Import/Export types
-export * from './import-export.js';
+// Decision templates
+export type {
+  SetFromTemplateParams, CreateTemplateParams, ListTemplatesParams,
+  SetFromTemplateResponse, CreateTemplateResponse, ListTemplatesResponse,
+} from './decision/templates.js';
 
-// Re-export Database type from better-sqlite3
-export type { Database } from 'better-sqlite3';
+// Decision batch
+export type { SetDecisionBatchParams, SetDecisionBatchResponse } from './decision/batch.js';
+
+// Constraint params
+export type {
+  AddConstraintParams, GetConstraintsParams, DeactivateConstraintParams,
+} from './constraint/params.js';
+
+// Constraint responses
+export type {
+  AddConstraintResponse, GetConstraintsResponse, DeactivateConstraintResponse,
+} from './constraint/responses.js';
