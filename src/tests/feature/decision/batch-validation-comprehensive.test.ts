@@ -43,10 +43,6 @@ describe('Decision Batch Validation Test Suite', () => {
     }
   });
 
-  // ============================================================================
-  // DECISION BATCH VALIDATION (set_batch)
-  // ============================================================================
-
   describe('Decision Batch Validation - set_batch', () => {
     it('should reject batch with missing key', async () => {
       const decisions = [
@@ -175,10 +171,6 @@ describe('Decision Batch Validation Test Suite', () => {
       assert.strictEqual(result.failed, 0);
     });
   });
-
-  // ============================================================================
-  // ERROR MESSAGE FORMAT VERIFICATION
-  // ============================================================================
 
   describe('Error Message Format Verification', () => {
     it('should include field name in error message', async () => {

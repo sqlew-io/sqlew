@@ -7,11 +7,6 @@
 
 import { Knex } from 'knex';
 import assert from 'node:assert';
-
-// ============================================================================
-// Data Seeding Helpers
-// ============================================================================
-
 /**
  * Seed test data with FK relationships
  * Creates a simple schema: projects → agents → context_keys → decisions

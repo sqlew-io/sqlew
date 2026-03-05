@@ -23,10 +23,6 @@ interface ValidationTest {
   };
 }
 
-// ============================================================================
-// Test Data: Missing Required Parameters
-// ============================================================================
-
 const missingRequiredTests: ValidationTest[] = [
   {
     name: 'decision.set - missing key',
@@ -78,10 +74,6 @@ const missingRequiredTests: ValidationTest[] = [
   }
 ];
 
-// ============================================================================
-// Test Data: Typo Detection (Levenshtein Distance ≤ 2)
-// ============================================================================
-
 const typoDetectionTests: ValidationTest[] = [
   {
     name: 'decision.set - typo: "ky" → "key"',
@@ -124,10 +116,6 @@ const typoDetectionTests: ValidationTest[] = [
     expectedError: { did_you_mean: { categry: 'category' } }
   }
 ];
-
-// ============================================================================
-// Test Data: Valid Parameter Combinations
-// ============================================================================
 
 const validParameterTests: ValidationTest[] = [
   {
@@ -174,10 +162,6 @@ const validParameterTests: ValidationTest[] = [
   }
 ];
 
-// ============================================================================
-// Test Data: Help Actions (Should Skip Validation)
-// ============================================================================
-
 const helpActionTests: ValidationTest[] = [
   {
     name: 'decision.help - should skip validation',
@@ -194,10 +178,6 @@ const helpActionTests: ValidationTest[] = [
     shouldFail: false
   }
 ];
-
-// ============================================================================
-// Test Runner Functions
-// ============================================================================
 
 function runValidationTest(testCase: ValidationTest): void {
   try {
@@ -254,10 +234,6 @@ function runValidationTest(testCase: ValidationTest): void {
   }
 }
 
-// ============================================================================
-// Test Suites
-// ============================================================================
-
 test('Missing Required Parameters', async (t) => {
   for (const testCase of missingRequiredTests) {
     await t.test(testCase.name, () => {
@@ -289,10 +265,6 @@ test('Help Actions Skip Validation', async (t) => {
     });
   }
 });
-
-// ============================================================================
-// Batch Validation Tests
-// ============================================================================
 
 test('Batch Validation', async (t) => {
   await t.test('validateBatchParams - valid batch', () => {
@@ -343,10 +315,6 @@ test('Batch Validation', async (t) => {
     validateBatchParams('decision', 'decisions', [], 'set', 50);
   });
 });
-
-// ============================================================================
-// Action Spec Tests
-// ============================================================================
 
 test('Action Spec Registry', async (t) => {
   await t.test('getActionSpec - valid tool and action', () => {

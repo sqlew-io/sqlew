@@ -12,7 +12,6 @@ import { getProjectContext, ProjectContext } from '../../utils/project-context.j
 
 describe('Auto-Trigger Suggestions (Task 407)', () => {
   before(async () => {
-    // Initialize database with SQLite using test-specific database
     const adapter = await initializeDatabase({
       databaseType: 'sqlite',
       connection: { filename: '.tmp-test/auto-trigger-suggestions.db' }
@@ -25,16 +24,13 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       projectRootPath: process.cwd(),
     });
 
-    // Clean up any existing test data from previous runs
     const projectId = projectContext.getProjectId();
 
-    // Delete test policy
     await knex('t_decision_policies')
       .where('name', 'security_vulnerability')
       .where('project_id', projectId)
       .delete();
 
-    // Get key IDs for CVE decisions and test decisions
     const cveKeyIds = await knex('m_context_keys')
       .select('id')
       .where('key_name', 'like', 'CVE-%')
@@ -43,7 +39,6 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
     const keyIds = cveKeyIds.map((row: any) => row.id);
 
     if (keyIds.length > 0) {
-      // Delete in order of dependencies (child tables first)
       await knex('t_decision_tags')
         .whereIn('decision_key_id', keyIds)
         .where('project_id', projectId)
@@ -75,12 +70,10 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
   });
 
   after(async () => {
-    // Clean up test data
     const adapter = getAdapter();
     const knex = adapter.getKnex();
     const projectId = getProjectContext().getProjectId();
 
-    // Get key IDs for CVE decisions and test decisions
     const cveKeyIds = await knex('m_context_keys')
       .select('id')
       .where('key_name', 'like', 'CVE-%')
@@ -89,25 +82,20 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
     const keyIds = cveKeyIds.map((row: any) => row.id);
 
     if (keyIds.length > 0) {
-      // Delete in order of dependencies (child tables first)
-      // 1. Delete decision tags (junction table)
       await knex('t_decision_tags')
         .whereIn('decision_key_id', keyIds)
         .where('project_id', projectId)
         .delete();
 
-      // 2. Delete decision scopes (junction table)
       await knex('t_decision_scopes')
         .whereIn('decision_key_id', keyIds)
         .where('project_id', projectId)
         .delete();
 
-      // 3. Delete decision history
       await knex('t_decision_history')
         .whereIn('key_id', keyIds)
         .delete();
 
-      // 4. Delete decisions from both tables
       await knex('t_decisions')
         .whereIn('key_id', keyIds)
         .where('project_id', projectId)
@@ -118,13 +106,11 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
         .where('project_id', projectId)
         .delete();
 
-      // 5. Delete context keys
       await knex('m_context_keys')
         .whereIn('id', keyIds)
         .delete();
     }
 
-    // Delete test policy
     await knex('t_decision_policies')
       .where('name', 'security_vulnerability')
       .where('project_id', projectId)
@@ -138,13 +124,11 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
     const knex = adapter.getKnex();
     const projectId = getProjectContext().getProjectId();
 
-    // Delete existing policy first (migration may have created it with defaults)
     await knex('t_decision_policies')
       .where('name', 'security_vulnerability')
       .where('project_id', projectId)
       .delete();
 
-    // Create test policy with suggest_similar=1 (matches CVE-* keys)
     await knex('t_decision_policies').insert({
       name: 'security_vulnerability',
       project_id: projectId,
@@ -159,7 +143,6 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       ts: Math.floor(Date.now() / 1000)
     });
 
-    // Create a related decision first (for suggestions)
     await setDecision({
       key: 'CVE-2024-0001',
       value: 'Fixed buffer overflow in auth module',
@@ -168,7 +151,7 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       scopes: ['MODULE:auth']
     });
 
-    // Create another related decision (use different tags/key to avoid triggering duplicate detection)
+    // Use different tags/key to avoid triggering duplicate detection
     await setDecision({
       key: 'DB-PERF-2024-001',
       value: 'Optimized database query performance for user search',
@@ -177,7 +160,6 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       scopes: ['MODULE:database']
     });
 
-    // Create decision that should trigger suggestions
     // v3.9.0 Three-Tier System:
     // - Tier 1 (35-44): Gentle nudge (non-blocking warning)
     // - Tier 2 (45-59): Hard block (error thrown)
@@ -212,12 +194,10 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
     }
 
     if (wasBlocked) {
-      // Test passed - blocking is evidence of auto-trigger
       assert.ok(true, 'Auto-trigger worked: detected similarity and blocked');
       return;
     }
 
-    // Tier 1: If not blocked, verify gentle nudge was triggered
     assert.ok(result, 'Result should exist if not blocked');
     assert.ok(result.policy_validation, 'Should have policy_validation field');
     assert.strictEqual(
@@ -226,18 +206,15 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       'Should match security_vulnerability policy'
     );
 
-    // Verify auto-trigger provided suggestions (Tier 1 gentle nudge)
     const hasSuggestions = (result as any).duplicate_risk || result.suggestions;
     assert.ok(hasSuggestions, 'Auto-trigger should provide suggestions (Tier 1) or block (Tier 2+)');
 
     if ((result as any).duplicate_risk) {
-      // v3.9.0 format
       const suggestionsList = (result as any).duplicate_risk.suggestions;
       assert.ok(suggestionsList && suggestionsList.length > 0, 'Should have at least one suggestion');
       assert.ok(suggestionsList[0].key, 'Suggestion should have key');
       assert.ok(suggestionsList[0].reasoning, 'Suggestion should have reasoning');
     } else if (result.suggestions) {
-      // Legacy format
       const suggestionsList = result.suggestions.suggestions;
       assert.ok(suggestionsList && suggestionsList.length > 0, 'Should have at least one suggestion');
       assert.ok(suggestionsList[0].key, 'Suggestion should have key');
@@ -249,13 +226,12 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
     const knex = adapter.getKnex();
     const projectId = getProjectContext().getProjectId();
 
-    // Delete existing policy from previous test
     await knex('t_decision_policies')
       .where('name', 'security_vulnerability')
       .where('project_id', projectId)
       .delete();
 
-    // Create policy with suggest_similar=0 (auto-trigger disabled)
+    // suggest_similar=0 disables auto-trigger
     await knex('t_decision_policies').insert({
       name: 'security_vulnerability',
       project_id: projectId,
@@ -266,7 +242,6 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       ts: Math.floor(Date.now() / 1000)
     });
 
-    // Create decision that matches policy but should NOT trigger suggestions
     const result = await setDecision({
       key: 'CVE-2024-0004',
       value: 'Fixed memory leak in cache module',
@@ -275,7 +250,6 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       scopes: ['MODULE:cache']
     });
 
-    // Verify policy validation was applied
     assert.ok(result.policy_validation, 'Should have policy_validation field');
     assert.strictEqual(
       result.policy_validation?.matched_policy,
@@ -283,7 +257,6 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       'Should match security_vulnerability policy'
     );
 
-    // Verify suggestions were NOT triggered
     assert.strictEqual(
       result.suggestions,
       undefined,
@@ -292,7 +265,6 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
   });
 
   it('should NOT auto-trigger suggestions when decision does not match any policy', async () => {
-    // Create decision that does not match any policy pattern
     const result = await setDecision({
       key: 'test/autotrigger/no-policy-match',
       value: 'Some arbitrary decision',
@@ -301,14 +273,12 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       scopes: ['GLOBAL']
     });
 
-    // Verify no policy validation was applied
     assert.strictEqual(
       result.policy_validation,
       undefined,
       'Should NOT have policy_validation when no policy matches'
     );
 
-    // Verify no suggestions were triggered
     assert.strictEqual(
       result.suggestions,
       undefined,
@@ -321,13 +291,11 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
     const knex = adapter.getKnex();
     const projectId = getProjectContext().getProjectId();
 
-    // Delete existing policy from previous test
     await knex('t_decision_policies')
       .where('name', 'security_vulnerability')
       .where('project_id', projectId)
       .delete();
 
-    // Create policy with auto-trigger enabled
     await knex('t_decision_policies').insert({
       name: 'security_vulnerability',
       project_id: projectId,
@@ -338,7 +306,6 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       ts: Math.floor(Date.now() / 1000)
     });
 
-    // Create decision with empty tags that won't match existing decisions
     const result = await setDecision({
       key: 'CVE-2024-9999-unique',
       value: 'Patched critical vulnerability in authentication middleware',
@@ -347,12 +314,9 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       scopes: ['GLOBAL']
     });
 
-    // Decision should still succeed even if suggestions fail
     assert.ok(result.success, 'Decision.set should succeed even if suggestions fail');
     assert.ok(result.key, 'Should have key');
     assert.ok(result.version, 'Should have version');
-
-    // Policy validation should still work
     assert.ok(result.policy_validation, 'Should have policy_validation field');
   });
 });

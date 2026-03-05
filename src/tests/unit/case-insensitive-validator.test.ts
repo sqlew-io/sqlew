@@ -1,14 +1,7 @@
 /**
  * Unit Tests for Case-Insensitive Validator Utility
  *
- * Tests all normalization and duplicate detection functions:
- * - normalizeIdentifier()
- * - checkNormalizedDuplicate()
- * - validateNoNormalizedDuplicate()
- * - findNormalizedMatch()
- *
  * @see src/utils/case-insensitive-validator.ts
- * @since v4.0.2
  */
 
 import { describe, it, before, after } from 'node:test';
@@ -21,10 +14,6 @@ import {
   findNormalizedMatch,
   NormalizedDuplicateResult
 } from '../../utils/case-insensitive-validator.js';
-
-// ============================================================================
-// Test Suite: normalizeIdentifier()
-// ============================================================================
 
 describe('normalizeIdentifier()', () => {
   it('should convert to lowercase', () => {
@@ -101,10 +90,6 @@ describe('normalizeIdentifier()', () => {
     });
   });
 });
-
-// ============================================================================
-// Test Suite: checkNormalizedDuplicate()
-// ============================================================================
 
 describe('checkNormalizedDuplicate()', () => {
   let db: Knex;
@@ -274,10 +259,6 @@ describe('checkNormalizedDuplicate()', () => {
   });
 });
 
-// ============================================================================
-// Test Suite: validateNoNormalizedDuplicate()
-// ============================================================================
-
 describe('validateNoNormalizedDuplicate()', () => {
   let db: Knex;
 
@@ -406,10 +387,6 @@ describe('validateNoNormalizedDuplicate()', () => {
     );
   });
 });
-
-// ============================================================================
-// Test Suite: findNormalizedMatch()
-// ============================================================================
 
 describe('findNormalizedMatch()', () => {
   let db: Knex;
@@ -550,10 +527,6 @@ describe('findNormalizedMatch()', () => {
     assert.strictEqual(result!.name, 'Business-Layer');
   });
 });
-
-// ============================================================================
-// Integration Tests: Real-world scenarios
-// ============================================================================
 
 describe('Integration: Real-world scenarios', () => {
   let db: Knex;

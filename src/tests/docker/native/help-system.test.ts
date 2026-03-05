@@ -1,11 +1,8 @@
 /**
  * Help System - Native RDBMS Integration Tests
  *
- * Tests help system tables (m_help_tools, m_help_actions, t_help_action_examples,
- * t_help_use_cases, m_help_use_case_cats) on fresh MySQL, MariaDB, and PostgreSQL installations.
- *
- * Task #534: Refactor to use direct Knex operations instead of MCP tool functions
- * v4 migration: Updated all table/column names to v4 schema (2025-12-25)
+ * Tests help system tables via direct Knex operations
+ * on MySQL, MariaDB, and PostgreSQL.
  */
 
 import { describe, it } from 'node:test';
@@ -16,17 +13,12 @@ import { runTestsOnAllDatabases } from './test-harness.js';
 runTestsOnAllDatabases('Help System', (getDb, dbType) => {
   let projectId: number;
 
-  // Get project ID before running tests
   it('should get project ID', async () => {
     const db = getDb();
     const project = await db('m_projects').first();
     assert.ok(project, 'Project should exist');
     projectId = project.id;
   });
-
-  // ============================================================================
-  // m_help_tools - Tool Registry
-  // ============================================================================
 
   describe('m_help_tools table', () => {
     it('should have decision tool registered', async () => {
@@ -92,10 +84,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
     });
   });
 
-  // ============================================================================
-  // m_help_actions - Action Documentation
-  // ============================================================================
-
   describe('m_help_actions table', () => {
     it('should have decision.set action documented', async () => {
       const db = getDb();
@@ -116,7 +104,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
       assert.ok(Array.isArray(params), 'Parameters should be an array');
       assert.ok(params.length > 0, 'Should have at least one parameter');
 
-      // Verify key parameters
       const paramNames = params.map((p: any) => p.param_name);
       assert.ok(paramNames.includes('key'), 'Should have key parameter');
       assert.ok(paramNames.includes('value'), 'Should have value parameter');
@@ -158,7 +145,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
       assert.ok(decisionActions.length > 1, 'Decision tool should have multiple actions');
       assert.ok(constraintActions.length >= 1, 'Constraint tool should have actions');
 
-      // Verify key decision actions exist
       const decisionActionNames = decisionActions.map((a: any) => a.action_name);
       assert.ok(decisionActionNames.includes('set'), 'Should have set action');
       assert.ok(decisionActionNames.includes('get'), 'Should have get action');
@@ -188,10 +174,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
     });
   });
 
-  // ============================================================================
-  // m_help_actions - Foreign Key Constraints
-  // ============================================================================
-
   describe('m_help_actions foreign key constraints', () => {
     it('should enforce FK constraint on tool_name', async () => {
       const db = getDb();
@@ -219,10 +201,8 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
     it('should allow actions with valid tool_name', async () => {
       const db = getDb();
 
-      // Insert a test action with valid tool_name
       const testActionName = `test_action_${Date.now()}`;
 
-      // m_help_actions columns: id, tool_name, action_name, description, returns
       await db('m_help_actions').insert({
         tool_name: 'decision',
         action_name: testActionName,
@@ -235,28 +215,21 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
 
       assert.ok(inserted, 'Should insert action with valid tool_name');
 
-      // Cleanup
       await db('m_help_actions')
         .where({ action_name: testActionName })
         .delete();
     });
   });
 
-  // ============================================================================
-  // t_help_action_examples - Example Storage
-  // ============================================================================
-
   describe('t_help_action_examples table', () => {
     it('should have examples for decision tool', async () => {
       const db = getDb();
 
-      // Join with m_help_actions to filter by tool_name
       const examples = await db('t_help_action_examples')
         .join('m_help_actions', 't_help_action_examples.action_id', 'm_help_actions.id')
         .where({ 'm_help_actions.tool_name': 'decision' })
         .select('t_help_action_examples.*');
 
-      // Should have examples seeded
       assert.ok(
         examples.length >= 0,
         'Should return examples (or empty array if none seeded)'
@@ -272,16 +245,13 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
     it('should filter examples by action', async () => {
       const db = getDb();
 
-      // Join with m_help_actions to filter by tool_name and action_name
       const examples = await db('t_help_action_examples')
         .join('m_help_actions', 't_help_action_examples.action_id', 'm_help_actions.id')
         .where({ 'm_help_actions.tool_name': 'decision', 'm_help_actions.action_name': 'set' })
         .select('t_help_action_examples.*', 'm_help_actions.tool_name', 'm_help_actions.action_name');
 
-      // Verify filtering works
       assert.ok(Array.isArray(examples), 'Should return array');
 
-      // All returned examples should match the filter
       examples.forEach((ex: any) => {
         assert.strictEqual(ex.tool_name, 'decision');
         assert.strictEqual(ex.action_name, 'set');
@@ -317,7 +287,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
 
       assert.ok(Array.isArray(examples), 'Should return search results');
 
-      // All results should match keyword in title
       examples.forEach((ex: any) => {
         assert.ok(
           ex.title.toLowerCase().includes(keyword.toLowerCase()),
@@ -352,16 +321,11 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
 
       assert.ok(Array.isArray(examples), 'Should return filtered search results');
 
-      // All results should be for decision tool
       examples.forEach((ex: any) => {
         assert.strictEqual(ex.tool_name, 'decision');
       });
     });
   });
-
-  // ============================================================================
-  // t_help_use_cases - Use Case Storage
-  // ============================================================================
 
   describe('t_help_use_cases table', () => {
     it('should have use case table structure', async () => {
@@ -385,7 +349,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
     it('should get use case by ID', async () => {
       const db = getDb();
 
-      // Get first use case if any exist
       const firstUseCase = await db('t_help_use_cases')
         .orderBy('id', 'asc')
         .first();
@@ -446,10 +409,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
       });
     });
   });
-
-  // ============================================================================
-  // m_help_use_case_cats - Use Case Category Management
-  // ============================================================================
 
   describe('m_help_use_case_cats table', () => {
     it('should have use case categories', async () => {
@@ -515,10 +474,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
   // NOTE: m_help_use_case_steps table does not exist in current schema
   // Use case steps are stored in the 'workflow' TEXT column of t_help_use_cases
 
-  // ============================================================================
-  // Cross-Database Compatibility Tests
-  // ============================================================================
-
   describe(`Cross-database compatibility - ${dbType}`, () => {
     it('should handle unicode in example search', async () => {
       const db = getDb();
@@ -528,7 +483,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
         .where('title', 'like', `%${unicodeKeyword}%`)
         .select('*');
 
-      // Should not crash with unicode
       assert.ok(Array.isArray(examples), 'Should handle unicode search');
     });
 
@@ -540,7 +494,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
         .where('title', 'like', `%${specialKeyword}%`)
         .select('*');
 
-      // Should not crash with special characters
       assert.ok(Array.isArray(examples), 'Should handle special characters');
     });
 
@@ -560,7 +513,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
       assert.ok(Array.isArray(page1), 'Should return page 1');
       assert.ok(Array.isArray(page2), 'Should return page 2');
 
-      // If there are enough examples, pages should be different
       if (page1.length === 5 && page2.length > 0) {
         const page1Ids = page1.map((e: any) => e.id);
         const page2Ids = page2.map((e: any) => e.id);
@@ -651,10 +603,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
     });
   });
 
-  // ============================================================================
-  // Integration Tests - Complex Queries
-  // ============================================================================
-
   describe('Integration - Complex queries', () => {
     it('should join tools, actions, and examples', async () => {
       const db = getDb();
@@ -741,7 +689,6 @@ runTestsOnAllDatabases('Help System', (getDb, dbType) => {
         assert.ok(row.id, 'Should have id');
         assert.ok(row.title, 'Should have title');
         assert.ok(row.category_name, 'Should have category_name');
-        // workflow contains the workflow steps
       });
     });
   });

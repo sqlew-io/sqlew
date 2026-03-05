@@ -1,13 +1,8 @@
 /**
  * Constraint Scorer Unit Tests
  *
- * Tests the scoring functions in src/utils/constraint-scorer.ts:
- * - levenshteinDistance() - text similarity
- * - calculateRecencyScore() - recency scoring
- * - scoreConstraint() - individual constraint scoring
- * - scoreConstraints() - batch scoring with sorting
- * - filterByThreshold() - score filtering
- * - limitSuggestions() - result limiting
+ * Tests scoring pipeline: Levenshtein distance, recency scoring,
+ * constraint scoring, filtering, and result limiting.
  */
 
 import { describe, it } from 'node:test';
@@ -25,10 +20,6 @@ import {
 } from '../../utils/constraint-scorer.js';
 
 describe('Constraint Scorer', () => {
-  // ============================================================================
-  // levenshteinDistance() Tests
-  // ============================================================================
-
   describe('levenshteinDistance()', () => {
     it('should return 0 for identical strings', () => {
       assert.strictEqual(levenshteinDistance('hello', 'hello'), 0);
@@ -82,10 +73,6 @@ describe('Constraint Scorer', () => {
     });
   });
 
-  // ============================================================================
-  // calculateRecencyScore() Tests
-  // ============================================================================
-
   describe('calculateRecencyScore()', () => {
     it('should return 10 points for constraints <= 30 days old', () => {
       const now = Math.floor(Date.now() / 1000);
@@ -124,10 +111,6 @@ describe('Constraint Scorer', () => {
       assert.strictEqual(calculateRecencyScore(yearAgo), 0);
     });
   });
-
-  // ============================================================================
-  // scoreConstraint() Tests
-  // ============================================================================
 
   describe('scoreConstraint()', () => {
     const now = Math.floor(Date.now() / 1000);
@@ -288,10 +271,6 @@ describe('Constraint Scorer', () => {
     });
   });
 
-  // ============================================================================
-  // scoreConstraints() Tests
-  // ============================================================================
-
   describe('scoreConstraints()', () => {
     const now = Math.floor(Date.now() / 1000);
 
@@ -323,10 +302,6 @@ describe('Constraint Scorer', () => {
       assert.deepStrictEqual(results, []);
     });
   });
-
-  // ============================================================================
-  // filterByThreshold() Tests
-  // ============================================================================
 
   describe('filterByThreshold()', () => {
     const createScoredConstraint = (score: number, id: number = 1): ScoredConstraint => ({
@@ -380,10 +355,6 @@ describe('Constraint Scorer', () => {
     });
   });
 
-  // ============================================================================
-  // limitSuggestions() Tests
-  // ============================================================================
-
   describe('limitSuggestions()', () => {
     const createScoredConstraint = (id: number): ScoredConstraint => ({
       id,
@@ -429,10 +400,6 @@ describe('Constraint Scorer', () => {
       assert.strictEqual(results.length, 0);
     });
   });
-
-  // ============================================================================
-  // Integration Tests (Combined Pipeline)
-  // ============================================================================
 
   describe('Scoring Pipeline Integration', () => {
     const now = Math.floor(Date.now() / 1000);

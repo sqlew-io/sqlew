@@ -10,11 +10,6 @@ import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
-
-// ============================================================================
-// SQL Import Helpers
-// ============================================================================
-
 /**
  * Import SQL dump to database via Docker container
  */

@@ -8,11 +8,6 @@
 import knex, { Knex } from 'knex';
 import assert from 'node:assert';
 import type { DbConfig, DatabaseType } from './db-config.js';
-
-// ============================================================================
-// Database Connection Helpers
-// ============================================================================
-
 /**
  * Create and verify database connection
  */
@@ -92,11 +87,6 @@ export async function dropAllTables(db: Knex, type: DatabaseType): Promise<void>
     await db.raw('CREATE SCHEMA public');
   }
 }
-
-// ============================================================================
-// Schema Comparison Utilities
-// ============================================================================
-
 export interface TableInfo {
   name: string;
   columnCount: number;
@@ -191,11 +181,6 @@ export async function assertRowCountsMatch(
     message || `Row count mismatch in ${tableName}`
   );
 }
-
-// ============================================================================
-// FK Constraint Helpers
-// ============================================================================
-
 export interface FKConstraintInfo {
   tableName: string;
   columnName: string;
