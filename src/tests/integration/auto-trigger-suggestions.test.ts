@@ -9,9 +9,11 @@ import assert from 'node:assert';
 import { setDecision } from '../../tools/context/index.js';
 import { getAdapter, initializeDatabase, closeDatabase } from '../../database.js';
 import { getProjectContext, ProjectContext } from '../../utils/project-context.js';
+import { mkdirSync } from 'node:fs';
 
 describe('Auto-Trigger Suggestions (Task 407)', () => {
   before(async () => {
+    mkdirSync('.tmp-test', { recursive: true });
     const adapter = await initializeDatabase({
       databaseType: 'sqlite',
       connection: { filename: '.tmp-test/auto-trigger-suggestions.db' }

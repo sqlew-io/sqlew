@@ -12,6 +12,7 @@ import { DatabaseAdapter } from '../../../adapters/index.js';
 import { initializeDatabase, closeDatabase } from '../../../database.js';
 import { ProjectContext } from '../../../utils/project-context.js';
 import { unlink } from 'node:fs/promises';
+import { mkdirSync } from 'node:fs';
 
 const TEST_DB_PATH = '.tmp-test/batch-validation-decision.db';
 
@@ -19,7 +20,7 @@ describe('Decision Batch Validation Test Suite', () => {
   let adapter: DatabaseAdapter;
 
   before(async () => {
-    // Initialize test database
+    mkdirSync('.tmp-test', { recursive: true });
     adapter = await initializeDatabase({
       databaseType: 'sqlite',
       connection: {

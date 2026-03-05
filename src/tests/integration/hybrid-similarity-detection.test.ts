@@ -10,6 +10,7 @@ import { initializeDatabase, getAdapter, closeDatabase } from '../../database.js
 import { setDecision } from '../../tools/context/index.js';
 import { SUGGEST_THRESHOLDS } from '../../constants.js';
 import { ProjectContext } from '../../utils/project-context.js';
+import { mkdirSync } from 'node:fs';
 
 describe('Hybrid Similarity Detection (v3.9.0)', () => {
   let projectId: number;
@@ -20,7 +21,7 @@ describe('Hybrid Similarity Detection (v3.9.0)', () => {
   }
 
   before(async () => {
-    // Initialize database with SQLite using test-specific database
+    mkdirSync('.tmp-test', { recursive: true });
     const adapter = await initializeDatabase({
       databaseType: 'sqlite',
       connection: { filename: '.tmp-test/hybrid-similarity-detection.db' }
