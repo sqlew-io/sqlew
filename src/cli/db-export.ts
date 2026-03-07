@@ -9,6 +9,7 @@ import * as path from 'path';
 import knexConfig from '../knexfile.js';
 import { generateJsonExport } from '../utils/exporter/export.js';
 import { loadConfigFile } from '../config/loader.js';
+import { getDefaultDbPath } from '../config/global-config.js';
 
 interface DbExportArgs {
   project?: string;
@@ -145,8 +146,8 @@ export async function executeDbExport(args: DbExportArgs): Promise<void> {
     let db: ReturnType<typeof knex>;
 
     if (sourceDb === 'sqlite') {
-      // SQLite source - prioritize: CLI arg > config file (default) > env var > hardcoded default
-      const dbPath = args['db-path'] || fileConfig.database?.path || process.env.SQLEW_DB_PATH || '.sqlew/sqlew.db';
+      // SQLite source - prioritize: CLI arg > config file (default) > env var > global default
+      const dbPath = args['db-path'] || fileConfig.database?.path || process.env.SQLEW_DB_PATH || getDefaultDbPath();
       const resolvedDbPath = path.resolve(process.cwd(), dbPath);
 
       // Check if database exists

@@ -89,7 +89,7 @@ export async function verifySchemaIntegrity(adapter: DatabaseAdapter): Promise<{
     errors: [] as string[],
   };
 
-  // v6.0: All tables use m_ (master) / t_ (transaction) prefixes
+  // v5.0: All tables use m_ (master) / t_ (transaction) prefixes
   // v5.0: Task and file management tables removed
   const requiredTables = [
     // Master tables (10)

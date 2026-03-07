@@ -9,6 +9,7 @@ import * as path from 'path';
 import knexConfig from '../knexfile.js';
 import { importJsonData } from '../utils/importer/import.js';
 import { loadConfigFile } from '../config/loader.js';
+import { getDefaultDbPath } from '../config/global-config.js';
 import type { JsonImportOptions } from '../types.js';
 
 interface DbImportArgs {
@@ -149,7 +150,7 @@ export async function executeDbImport(args: DbImportArgs): Promise<void> {
     let db: ReturnType<typeof knex>;
 
     if (targetDb === 'sqlite') {
-      const dbPath = args['db-path'] || fileConfig.database?.path || process.env.SQLEW_DB_PATH || '.sqlew/sqlew.db';
+      const dbPath = args['db-path'] || fileConfig.database?.path || process.env.SQLEW_DB_PATH || getDefaultDbPath();
       const resolvedDbPath = path.resolve(process.cwd(), dbPath);
 
       const config = { ...knexConfig.development };
