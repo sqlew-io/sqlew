@@ -171,6 +171,100 @@ function migrateOldGlobalDir(): void {
   } catch {
     // Migration is best-effort; don't block startup
   }
+
+  // If old and new resolve to the same path, no migration needed
+  if (resolve(oldDir) === resolve(newDir)) {
+    return null;
+  }
+  return oldDir;
+}
+
+/**
+ * Migrate from old platform-specific global directory to unified ~/.config/sqlew/
+ *
+ * - Old path exists & new path doesn't → copy contents, rename old to *.migrated
+ * - Old path exists & new path exists → merge session-cache only, rename old to *.migrated
+ * - Old path doesn't exist → no-op
+ */
+function migrateOldGlobalDir(): void {
+  const oldDir = getOldGlobalConfigDir();
+  if (!oldDir || !existsSync(oldDir)) {
+    return;
+  }
+
+  const newDir = join(homedir(), '.config', 'sqlew');
+  const migratedPath = oldDir + '.migrated';
+
+  // Already migrated
+  if (existsSync(migratedPath)) {
+    return;
+  }
+
+  try {
+    if (!existsSync(newDir)) {
+      // New dir doesn't exist → copy everything from old
+      mkdirSync(newDir, { recursive: true });
+      const entries = readdirSync(oldDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const srcPath = join(oldDir, entry.name);
+        const destPath = join(newDir, entry.name);
+        if (entry.isDirectory()) {
+          // Copy subdirectory (session-cache)
+          mkdirSync(destPath, { recursive: true });
+          const subEntries = readdirSync(srcPath);
+          for (const subEntry of subEntries) {
+            copyFileSync(join(srcPath, subEntry), join(destPath, subEntry));
+          }
+        } else {
+          copyFileSync(srcPath, destPath);
+        }
+      }
+    } else {
+      // Both exist → merge session-cache only
+      const oldCacheDir = join(oldDir, 'session-cache');
+      const newCacheDir = join(newDir, 'session-cache');
+      if (existsSync(oldCacheDir)) {
+        if (!existsSync(newCacheDir)) {
+          mkdirSync(newCacheDir, { recursive: true });
+        }
+        const cacheFiles = readdirSync(oldCacheDir);
+        for (const file of cacheFiles) {
+          const destFile = join(newCacheDir, file);
+          if (!existsSync(destFile)) {
+            copyFileSync(join(oldCacheDir, file), destFile);
+          }
+        }
+      }
+    }
+
+    // Rename old directory to *.migrated
+    renameSync(oldDir, migratedPath);
+  } catch {
+    // Migration is best-effort; don't block startup
+  }
+}
+
+/**
+ * Get the global configuration directory path
+ *
+ * All platforms: ~/.config/sqlew/ (unified in v5.1)
+ *
+ * @returns Absolute path to global config directory
+ */
+export function getGlobalConfigDir(): string {
+  return join(homedir(), '.config', 'sqlew');
+}
+
+/**
+ * Get the default database path for SQLite
+ *
+ * Uses global shared database by default (v5.1+)
+ * Name is 'sqlew-shared.db' to distinguish from project-local 'sqlew.db'
+ *
+ * @returns Absolute path to default SQLite database
+ */
+export function getDefaultDbPath(): string {
+  return join(getGlobalConfigDir(), 'sqlew-shared.db');
 }
 
 /**
