@@ -1,7 +1,7 @@
 /**
  * Cloud Configuration Loader
  *
- * Loads API key from global ~/.sqlew.env file.
+ * Loads API key from global ~/.config/sqlew/.sqlew.env file.
  * Loads project ID from .sqlew/config.toml [project].name.
  * Supports environment variable override for CI/CD environments.
  *
@@ -10,12 +10,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import { parse as parseTOML } from 'smol-toml';
 import { CLOUD_ENV_VARS, type CloudConfig, type ProjectConfig } from './types.js';
 import { detectEnvironment, type Environment } from '../utils/environment-detector.js';
 import { extractPathSuffix, getProjectRoot } from '../utils/path-utils.js';
 import { generateConnectionHash } from '../utils/connection-hash.js';
+import { getGlobalConfigDir, ensureGlobalConfigDir } from './global-config.js';
 
 /**
  * Connection identity for SaaS backend
@@ -41,11 +41,10 @@ export interface ExtendedCloudConfig extends CloudConfig {
 /**
  * Get the path to the global .sqlew.env file
  *
- * @returns Absolute path to ~/.sqlew.env
+ * @returns Absolute path to ~/.config/sqlew/.sqlew.env
  */
 export function getGlobalEnvPath(): string {
-  const homeDir = os.homedir();
-  return path.join(homeDir, '.sqlew.env');
+  return path.join(getGlobalConfigDir(), '.sqlew.env');
 }
 
 /**
@@ -89,11 +88,11 @@ function parseEnvContent(content: string): Record<string, string> {
 }
 
 /**
- * Load API key from global ~/.sqlew.env file
+ * Load API key from global ~/.config/sqlew/.sqlew.env file
  *
  * Priority:
  * 1. Environment variable SQLEW_API_KEY
- * 2. ~/.sqlew.env file
+ * 2. ~/.config/sqlew/.sqlew.env file
  *
  * @returns API key or null if not found
  */
@@ -104,7 +103,7 @@ export function loadApiKey(): string | null {
     return envApiKey;
   }
 
-  // Priority 2: Global ~/.sqlew.env file
+  // Priority 2: Global ~/.config/sqlew/.sqlew.env file
   const globalEnvPath = getGlobalEnvPath();
   try {
     if (fs.existsSync(globalEnvPath)) {
@@ -172,7 +171,7 @@ export function createConnectionIdentity(
  * Load complete cloud configuration from global file
  *
  * This is the main entry point for loading cloud configuration.
- * It loads API key from ~/.sqlew.env and project name from .sqlew/config.toml.
+ * It loads API key from ~/.config/sqlew/.sqlew.env and project name from .sqlew/config.toml.
  *
  * @param projectRoot - Project root path (optional)
  * @returns Extended cloud config or null if API key not found
@@ -217,7 +216,7 @@ function projectNameToEnvKey(projectName: string): string {
 }
 
 /**
- * Load cached project ID from ~/.sqlew.env
+ * Load cached project ID from ~/.config/sqlew/.sqlew.env
  *
  * Key format: SQLEW_PROJECT_ID_{project_name}
  *
@@ -242,7 +241,7 @@ export function loadCachedProjectId(projectName: string): string | null {
 }
 
 /**
- * Save project ID to ~/.sqlew.env
+ * Save project ID to ~/.config/sqlew/.sqlew.env
  *
  * Appends or updates the key SQLEW_PROJECT_ID_{project_name}
  *
@@ -250,6 +249,7 @@ export function loadCachedProjectId(projectName: string): string | null {
  * @param projectId - Resolved project UUID
  */
 export function saveCachedProjectId(projectName: string, projectId: string): void {
+  ensureGlobalConfigDir();
   const globalEnvPath = getGlobalEnvPath();
   const envKey = projectNameToEnvKey(projectName);
 
@@ -297,7 +297,7 @@ export function saveCachedProjectId(projectName: string, projectId: string): voi
 /**
  * Check file permissions (Unix-only)
  *
- * On Unix systems, .sqlew.env should have 600 permissions.
+ * On Unix systems, ~/.config/sqlew/.sqlew.env should have 600 permissions.
  * On Windows, this check is skipped (returns true).
  *
  * @returns true if permissions are OK or on Windows

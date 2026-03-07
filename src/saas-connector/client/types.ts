@@ -32,7 +32,7 @@ export interface CloudConfig {
   apiKey: string;
   /** Project name from .sqlew/config.toml [project].name */
   projectName?: string;
-  /** Resolved project UUID (cached in ~/.sqlew.env) */
+  /** Resolved project UUID (cached in ~/.config/sqlew/.sqlew.env) */
   projectId?: string;
   /** Connection identity for SaaS mode (v5.0.0+) */
   connectionIdentity?: ConnectionIdentity;

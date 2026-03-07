@@ -67,7 +67,7 @@ describe('Backend Factory', () => {
     });
 
     it('should throw error for cloud config without API key', async () => {
-      // Skip if ~/.sqlew.env exists (it will provide API key)
+      // Skip if ~/.config/sqlew/.sqlew.env exists (it will provide API key)
       if (hasGlobalEnvFile()) {
         return;
       }
@@ -169,7 +169,7 @@ describe('Backend Factory', () => {
 
   describe('loadCloudConfig', () => {
     it('should return null when no API key set', async () => {
-      // Skip if ~/.sqlew.env exists (it will provide API key)
+      // Skip if ~/.config/sqlew/.sqlew.env exists (it will provide API key)
       if (hasGlobalEnvFile()) {
         return;
       }

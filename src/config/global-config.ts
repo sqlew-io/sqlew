@@ -174,6 +174,40 @@ function migrateOldGlobalDir(): void {
 }
 
 /**
+ * Migrate old ~/.sqlew.env to ~/.config/sqlew/.sqlew.env
+ *
+ * - Old exists & new doesn't → copy then delete old
+ * - Old exists & new exists → keep new, delete old
+ * - Old doesn't exist → no-op
+ *
+ * Unlike migrateOldGlobalDir() which renames to *.migrated,
+ * .sqlew.env contains API keys so the old file is deleted outright.
+ */
+function migrateOldEnvFile(): void {
+  const oldEnvPath = join(homedir(), '.sqlew.env');
+  if (!existsSync(oldEnvPath)) {
+    return;
+  }
+
+  const newEnvPath = join(homedir(), '.config', 'sqlew', '.sqlew.env');
+
+  try {
+    if (!existsSync(newEnvPath)) {
+      // Ensure target directory exists
+      const targetDir = join(homedir(), '.config', 'sqlew');
+      if (!existsSync(targetDir)) {
+        mkdirSync(targetDir, { recursive: true });
+      }
+      copyFileSync(oldEnvPath, newEnvPath);
+    }
+    // Delete old file regardless (new takes priority if both exist)
+    unlinkSync(oldEnvPath);
+  } catch {
+    // Migration is best-effort; don't block startup
+  }
+}
+
+/**
  * Get the global configuration directory path
  *
  * All platforms: ~/.config/sqlew/ (unified in v5.1)
@@ -249,6 +283,8 @@ const CONFIG_TOML_TEMPLATE = `# ~/.config/sqlew/config.toml - Global sqlew confi
 export function ensureGlobalConfigDir(): void {
   // Migrate from old platform-specific directory first
   migrateOldGlobalDir();
+  // Migrate old ~/.sqlew.env to ~/.config/sqlew/.sqlew.env
+  migrateOldEnvFile();
 
   const dir = getGlobalConfigDir();
   if (!existsSync(dir)) {

@@ -39,9 +39,12 @@ sqlew db:export [output-file] [key=value ...]
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `project=<name>` | Export specific project by name | All projects |
-| `db-path=<path>` | Database file path | `.sqlew/sqlew.db` |
+| `project=<name>` | Export specific project by name | Auto-detect from `config.toml` |
+| `project=all` | Export all projects (explicit opt-in) | — |
+| `db-path=<path>` | Database file path | `~/.config/sqlew/sqlew-shared.db` |
 | `config=<path>` | Config file path | Auto-detect |
+
+> **Security (v5.1.0+)**: With the global shared database, `db:export` no longer exports all projects by default. It auto-detects the project name from `.sqlew/config.toml` `[project].name`. To export all projects, you must explicitly specify `project=all`.
 
 ### What Gets Exported
 
@@ -52,11 +55,14 @@ sqlew db:export [output-file] [key=value ...]
 ### Examples
 
 ```bash
-# Export all projects
+# Export current project (auto-detect from .sqlew/config.toml)
 sqlew db:export backup.json
 
 # Export specific project
 sqlew db:export backup.json project=my-project
+
+# Export all projects (explicit)
+sqlew db:export backup.json project=all
 
 # Export to stdout
 sqlew db:export project=my-project
@@ -131,7 +137,11 @@ sqlew db:import backup.json dry-run=true
 **Step 1: Export from SQLite**
 
 ```bash
+# Exports current project (from .sqlew/config.toml [project].name)
 sqlew db:export migration-backup.json
+
+# Or export all projects for full migration
+sqlew db:export migration-backup.json project=all
 ```
 
 **Step 2: Prepare MySQL**
@@ -175,7 +185,11 @@ sqlew db:import migration-backup.json
 **Step 1: Export from SQLite**
 
 ```bash
+# Exports current project (from .sqlew/config.toml [project].name)
 sqlew db:export migration-backup.json
+
+# Or export all projects for full migration
+sqlew db:export migration-backup.json project=all
 ```
 
 **Step 2: Prepare PostgreSQL**
@@ -221,7 +235,11 @@ sqlew db:import migration-backup.json
 Configure `.sqlew/config.toml` for MySQL, then:
 
 ```bash
+# Exports current project (from .sqlew/config.toml [project].name)
 sqlew db:export migration-backup.json
+
+# Or export all projects for full migration
+sqlew db:export migration-backup.json project=all
 ```
 
 **Step 2: Prepare PostgreSQL**
@@ -312,11 +330,11 @@ sqlew db:import /tmp/b.json
 ### Full Database Backup
 
 ```bash
-# Simple file copy (SQLite)
-cp .sqlew/sqlew.db .sqlew/backup-$(date +%Y%m%d).db
+# Simple file copy (SQLite global DB)
+cp ~/.config/sqlew/sqlew-shared.db ~/backup-$(date +%Y%m%d).db
 
-# Or JSON export (cross-database compatible)
-sqlew db:export backup-$(date +%Y%m%d).json
+# Or JSON export (cross-database compatible, all projects)
+sqlew db:export backup-$(date +%Y%m%d).json project=all
 ```
 
 ---

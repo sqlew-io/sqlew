@@ -41,11 +41,14 @@ If your project uses a custom database path (set via `database.path` in `.sqlew/
 ### Step 1: Export from your current database
 
 ```bash
-# Export using the current config.toml settings
+# Export current project (auto-detected from .sqlew/config.toml [project].name)
 sqlew db:export export.json
 
+# Or export all projects from the database
+sqlew db:export export.json project=all
+
 # Or specify the database path explicitly
-sqlew db:export export.json db-path=.claude/docs/sqlew.db
+sqlew db:export export.json db-path=.claude/docs/sqlew.db project=all
 ```
 
 ### Step 2: Switch to global database

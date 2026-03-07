@@ -64,10 +64,10 @@ The cloud backend handles authentication, encryption, and scaling — no local d
 
 1. Obtain an API key from the [sqlew dashboard](https://sqlew.io)
 
-2. Save the key to `~/.sqlew.env`:
+2. Save the key to `~/.config/sqlew/.sqlew.env`:
    ```bash
-   echo 'SQLEW_API_KEY=sk-your-api-key' >> ~/.sqlew.env
-   chmod 600 ~/.sqlew.env   # Unix only
+   echo 'SQLEW_API_KEY=sk-your-api-key' >> ~/.config/sqlew/.sqlew.env
+   chmod 600 ~/.config/sqlew/.sqlew.env   # Unix only
    ```
 
 3. Set database type in `.sqlew/config.toml`:

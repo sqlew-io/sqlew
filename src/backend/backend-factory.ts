@@ -36,12 +36,12 @@ export function isCloudMode(config: SqlewConfig): boolean {
 }
 
 /**
- * Load cloud configuration from global ~/.sqlew.env or environment variables
+ * Load cloud configuration from global ~/.config/sqlew/.sqlew.env or environment variables
  *
  * Flow:
- * 1. Load API key from ~/.sqlew.env
+ * 1. Load API key from ~/.config/sqlew/.sqlew.env
  * 2. Load project name from .sqlew/config.toml
- * 3. Check cached project ID in ~/.sqlew.env
+ * 3. Check cached project ID in ~/.config/sqlew/.sqlew.env
  * 4. If not cached, resolve via /api/v1/project/resolve and cache
  *
  * @param projectRoot - Project root directory (for ConnectionIdentity)
