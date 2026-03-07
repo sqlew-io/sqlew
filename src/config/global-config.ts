@@ -61,6 +61,8 @@ export interface GlobalDebugConfig {
  * Stored in user's home directory, applies to all projects
  */
 export interface GlobalConfig {
+  /** Project identification */
+  project?: { name?: string; display_name?: string };
   /** Database settings (for global install) */
   database?: GlobalDatabaseConfig;
   /** Autodelete settings */
@@ -285,6 +287,7 @@ export function loadGlobalConfig(): GlobalConfig {
 
     // Merge with defaults (preserve all parsed fields)
     return {
+      project: parsed.project,
       database: parsed.database,
       autodelete: parsed.autodelete,
       debug: parsed.debug,
