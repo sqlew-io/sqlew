@@ -54,6 +54,7 @@ export function loadConfigFile(projectRoot: string = process.cwd(), configPath?:
 
     // Merge with defaults (file config takes priority)
     const merged: SqlewConfig = {
+      project: parsed.project,
       database: databaseConfig,
       autodelete: {
         ...DEFAULT_CONFIG.autodelete,

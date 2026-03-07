@@ -133,6 +133,7 @@ async function loadConfigWithPriority(
 
     const config: SqlewConfig = {
       ...DEFAULT_CONFIG,
+      project: globalConfig.project ? { name: globalConfig.project.name!, display_name: globalConfig.project.display_name } : undefined,
       database: mergedDatabase,
       autodelete: { ...DEFAULT_CONFIG.autodelete, ...globalConfig.autodelete },
       debug: { ...DEFAULT_CONFIG.debug, ...globalConfig.debug },
