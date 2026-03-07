@@ -33,16 +33,20 @@ ARGUMENTS:
   [output-file]            Output file (optional, default: stdout)
 
 OPTIONS (use key=value format):
-  project=<name>           Export specific project (default: all projects)
+  project=<name>           Export specific project (default: auto-detect from config.toml)
+  project=all              Export all projects (explicit opt-in required)
   db-path=<path>           SQLite database path
   config=<path>            Config file path
 
 EXAMPLES:
+  # Export current project (auto-detect from .sqlew/config.toml)
+  npm run db:export -- data.json
+
   # Export specific project
   npm run db:export -- data.json project=myproject
 
-  # Export all projects
-  npm run db:export -- backup.json
+  # Export all projects (explicit)
+  npm run db:export -- backup.json project=all
 
   # Export to stdout
   npm run db:export -- project=myproject
@@ -114,7 +118,6 @@ export async function executeDbExport(args: DbExportArgs): Promise<void> {
     process.exit(1);
   }
 
-  const projectName = args.project;
   const output = args.output;
 
   // Load config file - prioritize: explicit --config > default locations
@@ -130,6 +133,17 @@ export async function executeDbExport(args: DbExportArgs): Promise<void> {
     }
   }
 
+  // Resolve project name: CLI arg > config.toml [project].name > error
+  let projectName = args.project;
+  let exportAll = false;
+
+  if (projectName === 'all') {
+    exportAll = true;
+    projectName = undefined;
+  } else if (!projectName) {
+    projectName = fileConfig.project?.name;
+  }
+
   // Determine source database - normalize 'postgres' to 'postgresql'
   const configDbType = fileConfig.database?.type || 'sqlite';
   const sourceDb = configDbType === 'postgres' ? 'postgresql' : configDbType;
@@ -138,8 +152,15 @@ export async function executeDbExport(args: DbExportArgs): Promise<void> {
     console.error(`Reading from ${sourceDb.toUpperCase()} database...`);
     if (projectName) {
       console.error(`Exporting project: ${projectName}`);
+    } else if (exportAll) {
+      console.error(`Exporting all projects (explicit project=all)`);
     } else {
-      console.error(`Exporting all projects`);
+      console.error(`Error: No project name specified.`);
+      console.error(`  Specify project name in one of these ways:`);
+      console.error(`    1. Set [project].name in .sqlew/config.toml`);
+      console.error(`    2. Use CLI option: project=<name>`);
+      console.error(`    3. To export ALL projects: project=all`);
+      process.exit(1);
     }
 
     // Create Knex instance based on source database

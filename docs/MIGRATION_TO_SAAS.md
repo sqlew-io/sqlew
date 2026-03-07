@@ -159,10 +159,10 @@ Yes. Export each project separately:
 
 ```bash
 # Export all projects
-npx sqlew db:export --all backup-all.json
+npx sqlew db:export backup-all.json project=all
 
 # Or export specific project
-npx sqlew db:export --project my-project backup.json
+npx sqlew db:export backup.json project=my-project
 ```
 
 ### What about constraint tags?
