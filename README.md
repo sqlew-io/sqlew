@@ -72,7 +72,7 @@ Add to `.mcp.json` in your project root:
 }
 ```
 
-The database (`.sqlew/sqlew.db`) and config (`.sqlew/config.toml`) are auto-created on first run.
+The database (`~/.config/sqlew/sqlew-shared.db`) and config are auto-created on first run. See [Shared Database](docs/SHARED_DATABASE.md) for details.
 
 ### 3. Just use Plan Mode!
 
