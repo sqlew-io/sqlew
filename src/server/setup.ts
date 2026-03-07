@@ -26,8 +26,9 @@ import { ensureSqlewDirectory } from '../config/example-generator.js';
 import { determineProjectRoot } from '../utils/project-root.js';
 import { ParsedArgs } from './arg-parser.js';
 import { initializeSqlewRules } from '../init-rules.js';
-import { loadGlobalConfig } from '../config/global-config.js';
+import { loadGlobalConfig, getDefaultDbPath } from '../config/global-config.js';
 import { initializeBackend, isCloudMode, getBackend } from '../backend/backend-factory.js';
+import { migrateLocalToGlobal } from '../migration/local-to-global.js';
 
 /**
  * Extract project name from a path, skipping hidden directories.
@@ -264,9 +265,18 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
       throw new Error(`Database connection failed: ${error.message}`);
     }
   } else {
-    // SQLite (default or explicit) - always resolve DB path from project root
-    // This ensures migrations run on the correct database (not the package's DB)
-    const resolvedDbPath = dbPath || resolve(finalProjectRoot, DEFAULT_DB_PATH);
+    // SQLite (default or explicit)
+    // v5.1: Default to global shared DB (~/.config/sqlew/sqlew-shared.db)
+    // If local DB exists and no explicit path, migrate to global
+    if (!dbPath) {
+      const globalDbPath = getDefaultDbPath();
+      const localDbPath = resolve(finalProjectRoot, DEFAULT_DB_PATH);
+      if (existsSync(localDbPath) && !existsSync(localDbPath + '.migrated')) {
+        await migrateLocalToGlobal(finalProjectRoot, globalDbPath);
+      }
+      dbPath = globalDbPath;
+    }
+    const resolvedDbPath = dbPath;
     const config = { connection: { filename: resolvedDbPath } };
     db = await initializeDatabase(config);
     await initializeBackend(fileConfig, finalProjectRoot);

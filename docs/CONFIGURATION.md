@@ -42,10 +42,14 @@ display_name = "My Project"      # Optional. Human-readable name (spaces allowed
 
 ### SQLite (Default)
 
+As of v5.1.0, the default database is `~/.config/sqlew/sqlew-shared.db` (shared). To override with a project-local database:
+
 ```toml
 [database]
 path = ".sqlew/sqlew.db"    # Relative to project root, or absolute path
 ```
+
+See [Shared Database](./SHARED_DATABASE.md) for migration guide and details.
 
 ### PostgreSQL / MySQL / MariaDB
 
@@ -148,5 +152,6 @@ chmod 600 ~/.sqlew.env
 
 ## Related Documentation
 
+- [Shared Database](./SHARED_DATABASE.md) — Global shared database, migration guide, per-project override
 - [Database Authentication](./DATABASE_AUTH.md) — Detailed auth config (SSH tunnel, validation rules, security)
 - [Architecture](./ARCHITECTURE.md) — System design overview

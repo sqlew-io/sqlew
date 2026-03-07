@@ -102,7 +102,6 @@ export function initializeSqlewRules(projectRoot: string): void {
 const SQLEW_GITIGNORE_ENTRIES = [
   'queue/',
   'tmp/',
-  '*.db*',
 ];
 
 /** Marker comment for sqlew gitignore */

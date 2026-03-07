@@ -5,7 +5,7 @@
  * @since v4.1.0
  */
 
-import { readFileSync, existsSync, mkdirSync, writeFileSync, unlinkSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, unlinkSync, readdirSync, copyFileSync, renameSync } from 'fs';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
 import { parse as parseTOML, stringify as stringifyTOML } from 'smol-toml';
@@ -79,25 +79,119 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {};
 // ============================================================================
 
 /**
+ * Get the old platform-specific global config directory path (pre-v5.1)
+ *
+ * - Windows: %APPDATA%/sqlew/
+ * - Linux/macOS: ~/.local/share/sqlew/
+ *
+ * @returns Absolute path to old global config directory, or null if same as new
+ */
+function getOldGlobalConfigDir(): string | null {
+  const home = homedir();
+  const newDir = join(home, '.config', 'sqlew');
+
+  let oldDir: string;
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA || join(home, 'AppData', 'Roaming');
+    oldDir = join(appData, 'sqlew');
+  } else {
+    const xdgDataHome = process.env.XDG_DATA_HOME || join(home, '.local', 'share');
+    oldDir = join(xdgDataHome, 'sqlew');
+  }
+
+  // If old and new resolve to the same path, no migration needed
+  if (resolve(oldDir) === resolve(newDir)) {
+    return null;
+  }
+  return oldDir;
+}
+
+/**
+ * Migrate from old platform-specific global directory to unified ~/.config/sqlew/
+ *
+ * - Old path exists & new path doesn't → copy contents, rename old to *.migrated
+ * - Old path exists & new path exists → merge session-cache only, rename old to *.migrated
+ * - Old path doesn't exist → no-op
+ */
+function migrateOldGlobalDir(): void {
+  const oldDir = getOldGlobalConfigDir();
+  if (!oldDir || !existsSync(oldDir)) {
+    return;
+  }
+
+  const newDir = join(homedir(), '.config', 'sqlew');
+  const migratedPath = oldDir + '.migrated';
+
+  // Already migrated
+  if (existsSync(migratedPath)) {
+    return;
+  }
+
+  try {
+    if (!existsSync(newDir)) {
+      // New dir doesn't exist → copy everything from old
+      mkdirSync(newDir, { recursive: true });
+      const entries = readdirSync(oldDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const srcPath = join(oldDir, entry.name);
+        const destPath = join(newDir, entry.name);
+        if (entry.isDirectory()) {
+          // Copy subdirectory (session-cache)
+          mkdirSync(destPath, { recursive: true });
+          const subEntries = readdirSync(srcPath);
+          for (const subEntry of subEntries) {
+            copyFileSync(join(srcPath, subEntry), join(destPath, subEntry));
+          }
+        } else {
+          copyFileSync(srcPath, destPath);
+        }
+      }
+    } else {
+      // Both exist → merge session-cache only
+      const oldCacheDir = join(oldDir, 'session-cache');
+      const newCacheDir = join(newDir, 'session-cache');
+      if (existsSync(oldCacheDir)) {
+        if (!existsSync(newCacheDir)) {
+          mkdirSync(newCacheDir, { recursive: true });
+        }
+        const cacheFiles = readdirSync(oldCacheDir);
+        for (const file of cacheFiles) {
+          const destFile = join(newCacheDir, file);
+          if (!existsSync(destFile)) {
+            copyFileSync(join(oldCacheDir, file), destFile);
+          }
+        }
+      }
+    }
+
+    // Rename old directory to *.migrated
+    renameSync(oldDir, migratedPath);
+  } catch {
+    // Migration is best-effort; don't block startup
+  }
+}
+
+/**
  * Get the global configuration directory path
  *
- * - Linux/macOS: ~/.local/share/sqlew/
- * - Windows: %APPDATA%/sqlew/
+ * All platforms: ~/.config/sqlew/ (unified in v5.1)
  *
  * @returns Absolute path to global config directory
  */
 export function getGlobalConfigDir(): string {
-  const home = homedir();
+  return join(homedir(), '.config', 'sqlew');
+}
 
-  if (process.platform === 'win32') {
-    // Windows: Use APPDATA if available, otherwise fall back to home
-    const appData = process.env.APPDATA || join(home, 'AppData', 'Roaming');
-    return join(appData, 'sqlew');
-  } else {
-    // Linux/macOS: Use XDG_DATA_HOME if available, otherwise ~/.local/share
-    const xdgDataHome = process.env.XDG_DATA_HOME || join(home, '.local', 'share');
-    return join(xdgDataHome, 'sqlew');
-  }
+/**
+ * Get the default database path for SQLite
+ *
+ * Uses global shared database by default (v5.1+)
+ * Name is 'sqlew-shared.db' to distinguish from project-local 'sqlew.db'
+ *
+ * @returns Absolute path to default SQLite database
+ */
+export function getDefaultDbPath(): string {
+  return join(getGlobalConfigDir(), 'sqlew-shared.db');
 }
 
 /**
@@ -123,13 +217,50 @@ export function getSessionCacheDir(): string {
 // Configuration Loading
 // ============================================================================
 
+/** Default config.toml template for new installations */
+const CONFIG_TOML_TEMPLATE = `# ~/.config/sqlew/config.toml - Global sqlew configuration
+# This config applies to all projects unless overridden by project-local config
+
+[database]
+# Default database type: sqlite | mysql | postgresql | cloud
+# type = "sqlite"
+
+# SQLite: default path (uncomment to customize)
+# path = "~/.config/sqlew/sqlew-shared.db"
+
+# MySQL example:
+# type = "mysql"
+# [database.connection]
+# host = "127.0.0.1"
+# port = 3306
+# database = "sqlew"
+
+# SaaS/Cloud mode:
+# type = "cloud"
+`;
+
 /**
  * Ensure global config directory exists
+ * Also migrates from old platform-specific directory (pre-v5.1)
+ * and generates config.toml template if missing
  */
 export function ensureGlobalConfigDir(): void {
+  // Migrate from old platform-specific directory first
+  migrateOldGlobalDir();
+
   const dir = getGlobalConfigDir();
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
+  }
+
+  // Generate config.toml template if missing
+  const configPath = join(dir, 'config.toml');
+  if (!existsSync(configPath)) {
+    try {
+      writeFileSync(configPath, CONFIG_TOML_TEMPLATE, 'utf-8');
+    } catch {
+      // Best-effort; don't block startup
+    }
   }
 }
 

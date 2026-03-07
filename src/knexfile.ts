@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { parse as parseTOML } from 'smol-toml';
+import { homedir } from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,7 +31,7 @@ if (existsSync(configPath)) {
   }
 }
 
-const DEFAULT_DB_PATH = process.env.SQLEW_DB_PATH || configDbPath || '.sqlew/sqlew.db';
+const DEFAULT_DB_PATH = process.env.SQLEW_DB_PATH || configDbPath || path.join(homedir(), '.config', 'sqlew', 'sqlew-shared.db');
 
 const config: { [key: string]: Knex.Config } = {
   development: {
