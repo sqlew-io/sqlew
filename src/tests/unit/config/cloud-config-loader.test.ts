@@ -28,11 +28,13 @@ describe('cloud-config-loader', () => {
   });
 
   describe('getGlobalEnvPath', () => {
-    it('should return path in home directory', () => {
+    it('should return path under ~/.config/sqlew/', () => {
       const envPath = getGlobalEnvPath();
       const homeDir = os.homedir();
 
       assert.ok(envPath.startsWith(homeDir));
+      assert.ok(envPath.includes('.config'));
+      assert.ok(envPath.includes('sqlew'));
       assert.ok(envPath.endsWith('.sqlew.env'));
     });
   });
@@ -47,7 +49,7 @@ describe('cloud-config-loader', () => {
 
     it('should return null when not configured', () => {
       const apiKey = loadApiKey();
-      // May return null or value from ~/.sqlew.env if it exists
+      // May return null or value from ~/.config/sqlew/.sqlew.env if it exists
       assert.ok(apiKey === null || typeof apiKey === 'string');
     });
   });

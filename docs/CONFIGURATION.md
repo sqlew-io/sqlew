@@ -127,7 +127,7 @@ node dist/index.js --autodelete-ignore-weekend --autodelete-message-hours=48
 
 | Variable | Description | Source |
 |----------|-------------|--------|
-| `SQLEW_API_KEY` | API key for cloud backend (`database.type = "cloud"`) | `~/.sqlew.env` or environment |
+| `SQLEW_API_KEY` | API key for cloud backend (`database.type = "cloud"`) | `~/.config/sqlew/.sqlew.env` or environment |
 | `SQLEW_DEBUG` | Debug log file path (overrides `debug.log_path` in config) | Environment only |
 
 ### SQLEW_API_KEY
@@ -135,17 +135,17 @@ node dist/index.js --autodelete-ignore-weekend --autodelete-message-hours=48
 Used when `database.type = "cloud"`. Loaded in this priority:
 
 1. Environment variable `SQLEW_API_KEY`
-2. `~/.sqlew.env` file (key=value format)
+2. `~/.config/sqlew/.sqlew.env` file (key=value format)
 
 ```bash
-# ~/.sqlew.env
+# ~/.config/sqlew/.sqlew.env
 SQLEW_API_KEY=sk-your-api-key-here
 ```
 
-On Unix systems, ensure `~/.sqlew.env` has `600` permissions:
+On Unix systems, ensure `~/.config/sqlew/.sqlew.env` has `600` permissions:
 
 ```bash
-chmod 600 ~/.sqlew.env
+chmod 600 ~/.config/sqlew/.sqlew.env
 ```
 
 ---

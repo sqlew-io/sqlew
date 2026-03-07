@@ -99,7 +99,7 @@ Connect to [sqlew.io](https://sqlew.io) for team-shared decisions:
 Visit [sqlew.io](https://sqlew.io) and save your API key:
 
 ```bash
-# ~/.sqlew.env (shared across all projects)
+# ~/.config/sqlew/.sqlew.env (shared across all projects)
 SQLEW_API_KEY=your-api-key
 ```
 

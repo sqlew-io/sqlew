@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.1.0] - 2026-03-07
+
+### Changed
+
+**📁 `.sqlew.env` relocated to `~/.config/sqlew/.sqlew.env`**
+
+The cloud API key file (`~/.sqlew.env`) has been moved to `~/.config/sqlew/.sqlew.env` to align with the v5.1 unified global config path. Automatic migration copies the old file and deletes it (API key security: no stale copies). `saveCachedProjectId()` now calls `ensureGlobalConfigDir()` for directory safety.
+
+**🔒 db:export Project Scope Auto-Detection (Security)**
+
+`db:export` no longer exports all projects by default. With the global shared database (v5.1.0), the default "export everything" behavior risked leaking other projects' decision data.
+
+- **Auto-detect**: Project name resolved from `.sqlew/config.toml` `[project].name` when no `project=` option is given
+- **Explicit all**: `project=all` required to export all projects (escape hatch)
+- **Error on ambiguity**: If no project name is found (no CLI arg, no config.toml), the command exits with an actionable error message
+- **Breaking change**: Previously, omitting `project=` exported all projects silently
+
+### Resolution Priority
+
+```
+1. CLI argument: project=<name>     (highest)
+2. config.toml: [project].name
+3. Error exit                       (lowest)
+```
+
+---
+
 ## [5.0.6] - 2026-02-14
 
 ### Changed
