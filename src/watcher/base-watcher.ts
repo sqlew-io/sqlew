@@ -11,7 +11,7 @@
  */
 
 import chokidar, { FSWatcher } from 'chokidar';
-import { execSync } from 'child_process';
+import { detectEnvironment } from '../utils/environment-detector.js';
 import { debugLog } from '../utils/debug-logger.js';
 
 /**
@@ -48,34 +48,22 @@ export abstract class BaseWatcher {
   }
 
   /**
-   * Detect if running on WSL (Windows Subsystem for Linux)
-   */
-  protected isWSL(): boolean {
-    if (process.platform !== 'linux') {
-      return false;
-    }
-
-    try {
-      const result = execSync('uname -r', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'ignore'],
-      });
-      return (
-        result.toLowerCase().includes('microsoft') ||
-        result.toLowerCase().includes('wsl')
-      );
-    } catch {
-      return false;
-    }
-  }
-
-  /**
    * Initialize chokidar watcher with common options
    */
   protected initializeWatcher(options: WatcherOptions): FSWatcher {
-    const isWSL = this.isWSL();
+    const env = detectEnvironment();
+    const isWSL = env === 'wsl';
     if (isWSL) {
       debugLog('INFO', `${this.watcherName}: WSL detected`);
+    }
+
+    // WSL2 + Windows FS (/mnt/) requires polling because inotify doesn't work
+    const paths = Array.isArray(options.paths) ? options.paths : [options.paths];
+    const needsPolling = isWSL && paths.some(p => p.startsWith('/mnt/'));
+    const usePolling = options.usePolling ?? needsPolling;
+
+    if (needsPolling && options.usePolling === undefined) {
+      debugLog('INFO', `${this.watcherName}: Auto-enabling polling for WSL2 Windows FS`);
     }
 
     const watcherConfig: Parameters<typeof chokidar.watch>[1] = {
@@ -86,7 +74,7 @@ export abstract class BaseWatcher {
         stabilityThreshold: Math.max(options.debounceMs ?? this.debounceMs, 1000),
         pollInterval: 500,  // Reduced polling frequency to avoid duplicate events
       },
-      usePolling: options.usePolling ?? false,
+      usePolling,
       interval: options.pollInterval ?? 500,  // Match polling interval
     };
 
