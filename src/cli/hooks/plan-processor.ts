@@ -10,7 +10,7 @@
  * @since v4.2.5
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
 import { enqueueDecisionCreate, enqueueConstraintCreate, enqueueDecisionContextCreate } from '../../utils/hook-queue.js';
 import {
@@ -72,7 +72,13 @@ export function processPlanPatterns(projectPath: string): ProcessPlanResult {
   }
 
   // Resolve plan file path
-  const planPath = resolvePlanPath(planInfo.plan_file);
+  // Prefer explicit plan_path (Grok Build + future envs) over legacy plan_file + GLOBAL_PLANS_DIR resolution (Claude)
+  let planPath: string | null = null;
+  if (planInfo.plan_path && existsSync(planInfo.plan_path)) {
+    planPath = planInfo.plan_path;
+  } else {
+    planPath = resolvePlanPath(planInfo.plan_file);
+  }
   if (!planPath) {
     return { processed: false, skipReason: 'plan_file_not_found' };
   }

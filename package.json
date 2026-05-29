@@ -1,6 +1,6 @@
 {
   "name": "sqlew",
-  "description": "Automated ADR (Architecture Decision Records) for Claude Code - MCP server with SQL-backed decision repository",
+  "description": "Automated ADR (Architecture Decision Records) for AI Coding Agents - MCP server with SQL-backed decision repository",
   "version": "5.1.0",
   "main": "dist/index.js",
   "type": "module",
@@ -35,7 +35,7 @@
     "migrate:rollback": "npm run knex migrate:rollback",
     "test:backend": "node --test --test-force-exit --import tsx \"src/tests/backend/**/*.test.ts\" | node scripts/filter-test-output.js",
     "test:backend:verbose": "node --test --test-force-exit --import tsx \"src/tests/backend/**/*.test.ts\"",
-"migrate:status": "npm run knex migrate:status"
+    "migrate:status": "npm run knex migrate:status"
   },
   "engines": {
     "node": ">=20.0.0"

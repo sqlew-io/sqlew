@@ -51,17 +51,31 @@ To uninstall, remove the copied skill directories and config entries.
 
 Source: https://github.com/sqlew-io/sqlew-codex
 
+## Grok Build
+
+```bash
+git clone https://github.com/sqlew-io/sqlew-grok.git
+# Place the required files under ~/.grok/hooks/ etc. (see sqlew-grok/README.md for details)
+```
+
+See `hooks/sqlew-grok.json` in the sqlew-grok repository for an example hook definition for Grok Build.
+
+**Note**: sqlew-grok is under development. At this time, minimal extensions on the sqlew core side (v5.2+ expected) are required.
+
+Source: https://github.com/sqlew-io/sqlew-grok
+
 ## What Gets Configured
 
-| Feature | Claude Code | Codex |
-|---------|-------------|-------|
-| MCP server | Auto-configured | Manual (config.toml) |
-| Plan-to-ADR | Skills + Hooks | Skills + System prompt |
-| PR enrichment | Skill (sqlew-pr-adr) | Skill (sqlew-pr-adr) |
-| Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) |
+| Feature | Claude Code | Codex | Grok Build |
+|---------|-------------|-------|------------|
+| MCP server | Auto-configured | Manual (config.toml) | Manual (hooks + MCP) |
+| Plan-to-ADR | Skills + Hooks | Skills + System prompt | Hooks (in development) |
+| PR enrichment | Skill (sqlew-pr-adr) | Skill (sqlew-pr-adr) | Planned |
+| Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Planned |
 
 ## Version History
 
+- **v5.2+ (planned)**: Start of Grok Build support (sqlew-grok adapter)
 - **v5.0.0**: Plugin-first architecture (sqlew-plugin for Claude Code, sqlew-codex for Codex)
 - **v4.3.0**: Plan-to-ADR - Automatic ADR from Plan Mode
 - **v4.1.0**: Initial Claude Code Hooks integration

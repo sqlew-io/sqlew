@@ -17,7 +17,8 @@
  * @modified v4.2.3 - Added template injection on new plan creation
  */
 
-import { readStdinJson, sendContinue, isPlanFile, getProjectPath } from './stdin-parser.js';
+import { randomUUID } from 'crypto';
+import { readStdinJson, sendContinue, isPlanFile, getProjectPath, computeGrokPlanPath } from './stdin-parser.js';
 import { PLAN_MODE_ENFORCEMENT } from './on-prompt.js';
 import { extractPlanFileName, parseFrontmatter, generatePlanId, getPlanId } from './plan-id-utils.js';
 import {
@@ -78,6 +79,23 @@ export async function trackPlanCommand(): Promise<void> {
         // Clear old plan cache to prevent stale data on "clear context" approval
         clearPlanCache(projectPath);
         clearCurrentPlan(projectPath);
+
+        // Grok Build: pre-record the per-session plan.md path now (we have the sessionId).
+        // This keeps the cache warm; on-exit-plan also recomputes defensively if this is missed.
+        if (input.client === 'grok' && input.session_id) {
+          const planPath = computeGrokPlanPath(projectPath, input.session_id);
+          if (planPath) {
+            const planInfo: CurrentPlanInfo = {
+              plan_id: randomUUID(),
+              plan_file: 'plan.md',
+              plan_path: planPath,
+              plan_updated_at: new Date().toISOString(),
+              recorded: false,
+              decision_pending: true,
+            };
+            saveCurrentPlan(projectPath, planInfo);
+          }
+        }
       }
       sendContinue(PLAN_MODE_ENFORCEMENT);
       return;

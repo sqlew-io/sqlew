@@ -11,7 +11,9 @@
  * @modified v4.2.5 - Refactored to use plan-processor.ts (DRY)
  */
 
-import { readStdinJson, sendContinue, sendPostToolUseContext, getProjectPath } from './stdin-parser.js';
+import { randomUUID } from 'crypto';
+import { readStdinJson, sendContinue, sendPostToolUseContext, getProjectPath, computeGrokPlanPath } from './stdin-parser.js';
+import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
 import { processPlanPatterns } from './plan-processor.js';
 
 // ============================================================================
@@ -38,6 +40,30 @@ export async function onExitPlanCommand(): Promise<void> {
     if (!projectPath) {
       sendContinue();
       return;
+    }
+
+    // Grok Build: the per-session plan lives at ~/.grok/sessions/<enc(cwd)>/<sessionId>/plan.md.
+    // The exit hook's session_id is authoritative (each Grok session has its own plan.md), so
+    // ALWAYS resolve the path from it here — never trust a stored plan_path, which may be stale
+    // from a previous session and would make processPlanPatterns read the wrong/missing file.
+    // When the stored info belongs to a different session we reset it as a new plan; when it's
+    // the same session we preserve plan_id/recorded so dedup still works.
+    if (input.client === 'grok' && input.session_id) {
+      const planPath = computeGrokPlanPath(projectPath, input.session_id);
+      if (planPath) {
+        const existing = loadCurrentPlan(projectPath);
+        const sameSession = existing?.plan_path === planPath;
+        const planInfo: CurrentPlanInfo = {
+          plan_id: sameSession && existing ? existing.plan_id : randomUUID(),
+          plan_file: 'plan.md',
+          plan_path: planPath,
+          plan_updated_at: new Date().toISOString(),
+          recorded: sameSession ? (existing?.recorded ?? false) : false,
+          decision_pending: sameSession ? (existing?.decision_pending ?? true) : true,
+          enforcement_shown_at: sameSession ? existing?.enforcement_shown_at : undefined,
+        };
+        saveCurrentPlan(projectPath, planInfo);
+      }
     }
 
     // Delegate to shared processor
