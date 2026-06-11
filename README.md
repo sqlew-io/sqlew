@@ -58,6 +58,16 @@ The plugin automatically configures MCP server, Skills (Plan Mode guidance), and
 
 See [sqlew-codex](https://github.com/sqlew-io/sqlew-codex) for Codex CLI integration.
 
+#### Grok Build (Plugin)
+
+```bash
+npm install -g sqlew
+grok plugin install sqlew-io/sqlew-plugin --trust
+grok plugin update
+```
+
+The plugin configures MCP server, Skills (plan mode guidance), and Hooks (automatic decision capture on `exit_plan_mode`). See [Hooks Guide](docs/HOOKS_GUIDE.md) for setup details and caveats (do not duplicate hooks in `~/.grok/hooks/` or `config.toml`).
+
 #### Manual
 
 Add to `.mcp.json` in your project root:
@@ -86,7 +96,7 @@ No special commands needed — just plan your work normally, and sqlew captures 
 - **Fast Queries** — 2-50ms retrieval via SQL, even with thousands of decisions
 - **Duplicate Detection** — Three-tier similarity scoring (0-100) prevents redundant decisions
 - **Constraint Tracking** — Architectural rules and principles as first-class entities
-- **Auto-Capture** — Hooks automatically record decisions from Plan Mode (Claude Code plugin)
+- **Auto-Capture** — Hooks automatically record decisions from Plan Mode (Claude Code and Grok Build via sqlew-plugin)
 - **Multi-Database** — SQLite (default), PostgreSQL, MySQL/MariaDB, or Cloud
 - **Git Worktree Ready** — Each worktree shares the same context database
 
@@ -142,7 +152,7 @@ name = "your-project-name"
 |-------|-------------|
 | [ADR Concepts](docs/ADR_CONCEPTS.md) | Architecture Decision Records explained |
 | [Configuration](docs/CONFIGURATION.md) | Config file setup, database options |
-| [Hooks Guide](docs/HOOKS_GUIDE.md) | Claude Code Hooks integration |
+| [Hooks Guide](docs/HOOKS_GUIDE.md) | Claude Code, Codex, and Grok Build integration |
 | [Cross Database](docs/CROSS_DATABASE.md) | Multi-database support |
 | [CLI Usage](docs/CLI_USAGE.md) | Database migration, export/import |
 
@@ -163,16 +173,15 @@ Support development via [GitHub Sponsors](https://github.com/sponsors/sqlew-io).
 
 ## Version
 
-Current version: **5.0.8**
+Current version: **5.2.0**
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
-**What's New in v5.0.8:**
+**What's New in v5.2.0:**
 
-- **PR ADR enforcement** — PreToolUse Hook blocks `gh pr create` without ADR markers, file-grouped format
-- **Codex CLI support** — Works beyond Claude Code via [sqlew-codex](https://github.com/sqlew-io/sqlew-codex)
-- **Plugin-first architecture** — Simplified setup via sqlew-plugin
-- **Cloud backend** — Connect to [sqlew.io](https://sqlew.io) for team-shared decisions
+- **Grok Build support** — Plan-to-ADR via [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) (`grok plugin install sqlew-io/sqlew-plugin --trust`)
+- **Grok plan.md injection** — Decision/Constraint template appended on `enter_plan_mode`
+- **Hook normalization** — Single CLI hook handlers work under both Claude Code and Grok Build
 
 ## License
 

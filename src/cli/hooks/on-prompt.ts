@@ -79,6 +79,12 @@ export async function onPromptCommand(): Promise<void> {
   try {
     const input = await readStdinJson();
 
+    // Grok Build: UserPromptSubmit is a passive hook — stdout is ignored.
+    // Plan mode guidance is delivered via plugin skills instead.
+    if (input.client === 'grok') {
+      return;
+    }
+
     if (!isPlanMode(input)) {
       // Non-plan mode: output nothing (exit 0 = allow, no context injection)
       return;

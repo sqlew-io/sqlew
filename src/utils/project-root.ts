@@ -2,7 +2,8 @@
  * Project Root Determination Utility
  *
  * Determines the project root directory with correct priority order:
- * 0. CLAUDE_PROJECT_DIR environment variable (Claude Code Hooks set this automatically)
+ * 0. CLAUDE_PROJECT_DIR environment variable (Claude Code / Grok Build hooks)
+ * 0b. GROK_WORKSPACE_ROOT environment variable (Grok Build hooks / MCP)
  * 1. SQLEW_PROJECT_ROOT environment variable (MCP client can set this)
  * 2. CLI --db-path argument (absolute path) → use dirname
  * 3. CLI --config-path argument (absolute path) → use dirname
@@ -13,7 +14,8 @@
  * like C:\Windows\System32 (e.g., by MCP hosts like Claude Desktop or Junie AI).
  *
  * Environment Variable Support:
- * - CLAUDE_PROJECT_DIR: Set automatically by Claude Code Hooks (v4.1.0+)
+ * - CLAUDE_PROJECT_DIR: Set automatically by Claude Code / Grok Build hooks (v4.1.0+)
+ * - GROK_WORKSPACE_ROOT: Set automatically by Grok Build hooks (v5.2.0+)
  * - SQLEW_PROJECT_ROOT: MCP clients can set this (Serena-MCP pattern)
  * This allows project-relative database paths without absolute CLI arguments.
  */
@@ -44,7 +46,8 @@ export interface ProjectRootOptions {
  * Determines the project root directory based on available path information.
  *
  * Priority order (highest to lowest):
- * 0. CLAUDE_PROJECT_DIR environment variable (Claude Code Hooks)
+ * 0. CLAUDE_PROJECT_DIR environment variable (Claude Code / Grok Build hooks)
+ * 0b. GROK_WORKSPACE_ROOT environment variable (Grok Build)
  * 1. SQLEW_PROJECT_ROOT environment variable
  * 2. CLI --db-path (absolute)
  * 3. CLI --config-path (absolute)
@@ -85,6 +88,12 @@ export function determineProjectRoot(options: ProjectRootOptions = {}): string {
   if (claudeProjectDir && path.isAbsolute(claudeProjectDir)) {
     // Normalize to forward slashes for cross-platform consistency
     return claudeProjectDir.replace(/\\/g, '/');
+  }
+
+  // Priority 0b: GROK_WORKSPACE_ROOT (Grok Build hooks inject this on every hook process)
+  const grokWorkspaceRoot = process.env.GROK_WORKSPACE_ROOT;
+  if (grokWorkspaceRoot && path.isAbsolute(grokWorkspaceRoot)) {
+    return grokWorkspaceRoot.replace(/\\/g, '/');
   }
 
   // Priority 1: SQLEW_PROJECT_ROOT environment variable

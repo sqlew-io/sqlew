@@ -361,8 +361,14 @@ export function saveGlobalConfig(config: GlobalConfig): void {
 export interface CurrentPlanInfo {
   /** Unique plan ID (UUID) */
   plan_id: string;
-  /** Plan file name (e.g., "rippling-spinning-eagle.md") */
+  /** Plan file name (e.g., "rippling-spinning-eagle.md") — legacy, for Claude global plans */
   plan_file: string;
+  /**
+   * Absolute path to the actual plan file (preferred when set).
+   * Used by Grok Build (per-session plan.md) and future environments.
+   * When present, extraction logic should use this instead of resolving via plan_file + GLOBAL_PLANS_DIR.
+   */
+  plan_path?: string;
   /** Plan file last updated timestamp (ISO 8601) */
   plan_updated_at: string;
   /** Whether decision has been recorded for this plan */

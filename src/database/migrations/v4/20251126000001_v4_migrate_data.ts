@@ -281,7 +281,8 @@ export async function up(knex: Knex): Promise<void> {
       'key_id', 'project_id', 'value', 'layer_id', 'version', 'status', 'ts'
     ]);
   } else {
-    // Legacy v3 schemas: t_decisions に project_id が存在しないため、固定値 1 を付与して移行する
+    // Legacy v3 schemas: t_decisions does not have a project_id column,
+    // so we assign a fixed value of 1 during migration.
     const hasTDecisions = await knex.schema.hasTable('t_decisions');
     if (!hasTDecisions) {
       console.error('  ⚠️ t_decisions does not exist, skipping');
