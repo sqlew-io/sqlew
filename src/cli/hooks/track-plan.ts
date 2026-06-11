@@ -28,8 +28,10 @@ import {
   clearCurrentPlan,
   type CurrentPlanInfo,
 } from '../../config/global-config.js';
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { hasPatterns } from './plan-pattern-extractor.js';
+import { debugLog } from '../../utils/debug-logger.js';
 
 // ============================================================================
 // Template Constants
@@ -55,6 +57,46 @@ const PLAN_TEMPLATE = `
 
 ---
 `.trim();
+
+/** Marker heading written with PLAN_TEMPLATE; used to avoid duplicate injection. */
+export const PLAN_TEMPLATE_MARKER = '## 📝 Decision/Constraint Recording';
+
+/**
+ * Append Decision/Constraint template to a Grok Build plan.md (file side-effect).
+ *
+ * Grok ignores passive/PreToolUse stdout context injection, so we write directly
+ * to plan.md on enter_plan_mode. Skips when the template marker or real patterns
+ * are already present.
+ *
+ * @param planPath - Absolute path to ~/.grok/sessions/.../plan.md
+ * @returns true if template was written or appended
+ */
+export function injectGrokPlanTemplate(planPath: string): boolean {
+  const planDir = dirname(planPath);
+  if (!existsSync(planDir)) {
+    mkdirSync(planDir, { recursive: true });
+  }
+
+  if (!existsSync(planPath)) {
+    writeFileSync(planPath, `${PLAN_TEMPLATE}\n`, 'utf-8');
+    debugLog('DEBUG', '[track-plan] Created Grok plan.md with template', { planPath });
+    return true;
+  }
+
+  const content = readFileSync(planPath, 'utf-8');
+  if (content.includes(PLAN_TEMPLATE_MARKER) || hasPatterns(content)) {
+    debugLog('DEBUG', '[track-plan] Skipped Grok template injection', {
+      planPath,
+      hasMarker: content.includes(PLAN_TEMPLATE_MARKER),
+      hasPatterns: hasPatterns(content),
+    });
+    return false;
+  }
+
+  appendFileSync(planPath, `\n\n${PLAN_TEMPLATE}\n`, 'utf-8');
+  debugLog('DEBUG', '[track-plan] Appended template to Grok plan.md', { planPath });
+  return true;
+}
 
 // ============================================================================
 // Main Entry Point
@@ -94,6 +136,7 @@ export async function trackPlanCommand(): Promise<void> {
               decision_pending: true,
             };
             saveCurrentPlan(projectPath, planInfo);
+            injectGrokPlanTemplate(planPath);
           }
         }
       }
