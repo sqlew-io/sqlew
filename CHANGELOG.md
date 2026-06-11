@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.2.0] - 2026-06-11
+
+### Added
+
+**Grok Build support (sqlew-plugin v5.2.0)**
+
+Unified Plan-to-ADR support for Grok Build alongside Claude Code via a single sqlew-plugin install. No separate sqlew-grok adapter required.
+
+- **`normalizeHookInput()`** — Translates Grok hook payloads (`hookEventName`, `toolName`, `sessionId`, `workspaceRoot`) to canonical Claude-shaped `HookInput`. Claude payloads pass through unchanged.
+- **`computeGrokPlanPath()`** — Resolves per-session plan file at `~/.grok/sessions/<encodeURIComponent(cwd)>/<sessionId>/plan.md`.
+- **`injectGrokPlanTemplate()`** — Appends Decision/Constraint template to `plan.md` on `enter_plan_mode` (file side-effect). Grok ignores passive hook stdout; skills auto-invocation is unreliable.
+- **`GROK_WORKSPACE_ROOT`** — Added to `determineProjectRoot()` for MCP server project root resolution.
+- **Grok `sendBlock()` compat** — PreToolUse deny hooks emit `{"decision":"deny","reason":"..."}` on stdout for Grok (in addition to exit 2 + stderr for Claude Code).
+- **Unit tests** — `grok-hook-normalization.test.ts`, `grok-plan-template-injection.test.ts`.
+
+### Changed
+
+- **`on-prompt`** — Early return for Grok client (`UserPromptSubmit` stdout is ignored on Grok).
+- **`on-exit-plan` / `track-plan`** — Record `CurrentPlanInfo.plan_path` for Grok; always re-resolve from `session_id` on exit.
+- **`plan-processor`** — Prefer explicit `plan_path` over legacy Claude global plans resolver.
+- **`docs/HOOKS_GUIDE.md`** — Replaced sqlew-grok adapter instructions with `grok plugin install sqlew-io/sqlew-plugin --trust` workflow.
+
+### Plugin Changes (sqlew-plugin v5.2.0)
+
+- Hook matchers: `enter_plan_mode` / `exit_plan_mode` alongside Claude tool names
+- Skills: Grok-specific plan mode guidance (`sqlew-plan-guidance`, `sqlew-decision-format`)
+
+---
+
 ## [5.1.0] - 2026-03-07
 
 ### Changed

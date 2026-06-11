@@ -58,8 +58,15 @@ No separate adapter is required.
 
 ```bash
 npm i -g sqlew
-grok plugin install /path/to/sqlew-plugin --trust
+grok plugin install sqlew-io/sqlew-plugin --trust
 grok plugin update
+```
+
+For local development, install from a cloned directory instead:
+
+```bash
+git clone https://github.com/sqlew-io/sqlew-plugin.git
+grok plugin install ./sqlew-plugin --trust
 ```
 
 Verify installation:

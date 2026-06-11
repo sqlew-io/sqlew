@@ -5,6 +5,9 @@
 .serena
 CLAUDE.md
 
+# Cursor MCP tool descriptors (auto-generated)
+mcps/
+
 # Dependencies
 node_modules/
 
@@ -48,6 +51,10 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# indexion (third-party CLI, not part of sqlew)
+.indexion.toml
+.indexion/
 
 # Test and documentation files (phase-specific)
 PHASE*.md
