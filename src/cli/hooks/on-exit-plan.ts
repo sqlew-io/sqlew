@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 import { readStdinJson, sendContinue, sendPostToolUseContext, getProjectPath, computeGrokPlanPath } from './stdin-parser.js';
 import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
 import { processPlanPatterns } from './plan-processor.js';
+import { debugLog } from '../../utils/debug-logger.js';
 
 // ============================================================================
 // Main Entry Point
@@ -38,9 +39,20 @@ export async function onExitPlanCommand(): Promise<void> {
 
     const projectPath = getProjectPath(input);
     if (!projectPath) {
+      debugLog('WARN', '[on-exit-plan] No project path', {
+        client: input.client,
+        session_id: input.session_id,
+        cwd: input.cwd,
+      });
       sendContinue();
       return;
     }
+
+    debugLog('DEBUG', '[on-exit-plan] Processing exit', {
+      client: input.client,
+      session_id: input.session_id,
+      projectPath,
+    });
 
     // Grok Build: the per-session plan lives at ~/.grok/sessions/<enc(cwd)>/<sessionId>/plan.md.
     // The exit hook's session_id is authoritative (each Grok session has its own plan.md), so
@@ -68,6 +80,12 @@ export async function onExitPlanCommand(): Promise<void> {
 
     // Delegate to shared processor
     const result = processPlanPatterns(projectPath);
+
+    debugLog('DEBUG', '[on-exit-plan] Result', {
+      processed: result.processed,
+      skipReason: result.skipReason,
+      projectPath,
+    });
 
     if (!result.processed) {
       // Map skip reasons to user-friendly messages

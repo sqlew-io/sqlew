@@ -13,6 +13,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
 import { enqueueDecisionCreate, enqueueConstraintCreate, enqueueDecisionContextCreate } from '../../utils/hook-queue.js';
+import { debugLog } from '../../utils/debug-logger.js';
 import {
   extractPatternsFromPlan,
   hasPatterns,
@@ -63,6 +64,7 @@ export function processPlanPatterns(projectPath: string): ProcessPlanResult {
   // Load current plan info
   const planInfo = loadCurrentPlan(projectPath);
   if (!planInfo?.plan_file) {
+    debugLog('DEBUG', '[plan-processor] Skip: no_active_plan', { projectPath });
     return { processed: false, skipReason: 'no_active_plan' };
   }
 
@@ -80,6 +82,11 @@ export function processPlanPatterns(projectPath: string): ProcessPlanResult {
     planPath = resolvePlanPath(planInfo.plan_file);
   }
   if (!planPath) {
+    debugLog('DEBUG', '[plan-processor] Skip: plan_file_not_found', {
+      projectPath,
+      plan_path: planInfo.plan_path,
+      plan_file: planInfo.plan_file,
+    });
     return { processed: false, skipReason: 'plan_file_not_found' };
   }
 

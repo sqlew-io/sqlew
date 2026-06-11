@@ -354,6 +354,10 @@ export function sendPostToolUseContext(additionalContext: string): void {
  * @param reason - Reason for blocking
  */
 export function sendBlock(reason: string): void {
+  // Grok Build: PreToolUse hooks deliver reason via stdout deny JSON (stderr is not shown).
+  if (process.env.GROK_HOOK_EVENT || process.env.GROK_WORKSPACE_ROOT) {
+    console.log(JSON.stringify({ decision: 'deny', reason }));
+  }
   console.error(reason);
   process.exit(2);
 }

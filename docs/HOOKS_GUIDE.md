@@ -53,29 +53,42 @@ Source: https://github.com/sqlew-io/sqlew-codex
 
 ## Grok Build
 
+sqlew-plugin provides unified support for Claude Code and Grok Build (v5.2+).
+No separate adapter is required.
+
 ```bash
-git clone https://github.com/sqlew-io/sqlew-grok.git
-# Place the required files under ~/.grok/hooks/ etc. (see sqlew-grok/README.md for details)
+npm i -g sqlew
+grok plugin install /path/to/sqlew-plugin --trust
+grok plugin update
 ```
 
-See `hooks/sqlew-grok.json` in the sqlew-grok repository for an example hook definition for Grok Build.
+Verify installation:
 
-**Note**: sqlew-grok is under development. At this time, minimal extensions on the sqlew core side (v5.2+ expected) are required.
+```bash
+grok plugin list          # sqlew enabled + trusted
+grok inspect              # hooks, MCP, skills visible
+```
 
-Source: https://github.com/sqlew-io/sqlew-grok
+**Important**:
+- Do NOT register sqlew hooks in `~/.grok/hooks/` (causes double-firing with plugin hooks)
+- Do NOT add `[mcp_servers.sqlew]` to `~/.grok/config.toml` (plugin `.mcp.json` handles MCP)
+- Plan mode guidance uses plugin skills (`sqlew-plan-guidance`, `sqlew-decision-format`), not hook injection
+- Plan-to-ADR extracts `### 📌 Decision:` / `### 🚫 Constraint:` from `plan.md` on `exit_plan_mode`
+
+Source: https://github.com/sqlew-io/sqlew-plugin
 
 ## What Gets Configured
 
 | Feature | Claude Code | Codex | Grok Build |
 |---------|-------------|-------|------------|
-| MCP server | Auto-configured | Manual (config.toml) | Manual (hooks + MCP) |
-| Plan-to-ADR | Skills + Hooks | Skills + System prompt | Hooks (in development) |
-| PR enrichment | Skill (sqlew-pr-adr) | Skill (sqlew-pr-adr) | Planned |
-| Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Planned |
+| MCP server | Auto-configured | Manual (config.toml) | Plugin `.mcp.json` |
+| Plan-to-ADR | Skills + Hooks | Skills + System prompt | Skills + Hooks |
+| PR enrichment | Skill (sqlew-pr-adr) | Skill (sqlew-pr-adr) | Skill (sqlew-pr-adr) |
+| Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) |
 
 ## Version History
 
-- **v5.2+ (planned)**: Start of Grok Build support (sqlew-grok adapter)
+- **v5.2.0**: Grok Build support via sqlew-plugin (hook normalization, Grok plan path, skills-based plan guidance)
 - **v5.0.0**: Plugin-first architecture (sqlew-plugin for Claude Code, sqlew-codex for Codex)
 - **v4.3.0**: Plan-to-ADR - Automatic ADR from Plan Mode
 - **v4.1.0**: Initial Claude Code Hooks integration
