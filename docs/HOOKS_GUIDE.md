@@ -35,21 +35,34 @@ Source: https://github.com/sqlew-io/sqlew-plugin
 ## Codex
 
 ```bash
-git clone https://github.com/sqlew-io/sqlew-codex.git
-cp -r sqlew-codex/copy_to_codex_dir/* ~/.codex/
+npm i -g sqlew
+codex plugin marketplace add sqlew-io/sqlew-plugin
+codex plugin install sqlew --source sqlew-plugin
 ```
 
-Then add to `~/.codex/config.toml`:
+After install, trust bundled hooks via `/hooks` in Codex.
+
+Enable Plan mode when needed:
 
 ```toml
-[mcp_servers.sqlew]
-command = "sqlew"
-args = []
+[features]
+collaboration_modes = true
 ```
 
-To uninstall, remove the copied skill directories and config entries.
+The plugin automatically configures:
+- MCP server settings (`.mcp.json`)
+- Skills (plan mode guidance, decision format, PR ADR)
+- Hooks (plan enforcement, PR ADR guard, decision extraction)
 
-Source: https://github.com/sqlew-io/sqlew-codex
+To uninstall:
+
+```bash
+codex plugin remove sqlew
+```
+
+**Legacy manual install** (deprecated): see [sqlew-codex-skills](https://github.com/sqlew-io/sqlew-codex-skills).
+
+Source: https://github.com/sqlew-io/sqlew-plugin
 
 ## Grok Build
 
@@ -88,14 +101,16 @@ Source: https://github.com/sqlew-io/sqlew-plugin
 
 | Feature | Claude Code | Codex | Grok Build |
 |---------|-------------|-------|------------|
-| MCP server | Auto-configured | Manual (config.toml) | Plugin `.mcp.json` |
-| Plan-to-ADR | Skills + Hooks | Skills + System prompt | Skills + Hooks |
-| PR enrichment | Skill (sqlew-pr-adr) | Skill (sqlew-pr-adr) | Skill (sqlew-pr-adr) |
+| Install | `claude plugin install` | `codex plugin install` | `grok plugin install` |
+| MCP server | Plugin `.mcp.json` | Plugin `.mcp.json` | Plugin `.mcp.json` |
+| Plan-to-ADR | Skills + Hooks | Skills + Hooks | Skills + Hooks |
+| PR enrichment | Skill + Hook | Skill + Hook | Skill + Hook |
 | Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) |
 
 ## Version History
 
+- **v5.2.1**: Codex plugin support via sqlew-plugin (`.codex-plugin`, marketplace, hook normalization, transcript-based plan extraction)
 - **v5.2.0**: Grok Build support via sqlew-plugin (hook normalization, Grok plan path, skills-based plan guidance)
-- **v5.0.0**: Plugin-first architecture (sqlew-plugin for Claude Code, sqlew-codex for Codex)
+- **v5.0.0**: Plugin-first architecture (sqlew-plugin for Claude Code; manual sqlew-codex-skills for Codex — now deprecated)
 - **v4.3.0**: Plan-to-ADR - Automatic ADR from Plan Mode
 - **v4.1.0**: Initial Claude Code Hooks integration

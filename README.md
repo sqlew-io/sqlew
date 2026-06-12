@@ -54,9 +54,14 @@ claude plugin install sqlew
 
 The plugin automatically configures MCP server, Skills (Plan Mode guidance), and Hooks (automatic decision capture).
 
-#### Codex CLI
+#### Codex CLI (Plugin)
 
-See [sqlew-codex](https://github.com/sqlew-io/sqlew-codex) for Codex CLI integration.
+```bash
+codex plugin marketplace add sqlew-io/sqlew-plugin
+codex plugin install sqlew --source sqlew-plugin
+```
+
+After install, open `/hooks` in Codex and trust the bundled sqlew hooks. Enable Plan Mode with `collaboration_modes = true` under `[features]` in your Codex config. The plugin configures MCP server, Skills (plan mode guidance), and Hooks (plan enforcement, PR ADR guard, decision extraction). See [Hooks Guide](docs/HOOKS_GUIDE.md) for caveats (do not duplicate skills in `~/.codex/skills/` or add `[mcp_servers.sqlew]` to `config.toml`).
 
 #### Grok Build (Plugin)
 
@@ -96,7 +101,7 @@ No special commands needed — just plan your work normally, and sqlew captures 
 - **Fast Queries** — 2-50ms retrieval via SQL, even with thousands of decisions
 - **Duplicate Detection** — Three-tier similarity scoring (0-100) prevents redundant decisions
 - **Constraint Tracking** — Architectural rules and principles as first-class entities
-- **Auto-Capture** — Hooks automatically record decisions from Plan Mode (Claude Code and Grok Build via sqlew-plugin)
+- **Auto-Capture** — Hooks automatically record decisions from Plan Mode (Claude Code, Codex, and Grok Build via sqlew-plugin)
 - **Multi-Database** — SQLite (default), PostgreSQL, MySQL/MariaDB, or Cloud
 - **Git Worktree Ready** — Each worktree shares the same context database
 

@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.2.1] - 2026-06-12
 
+### Added
+
+**Codex hook support (paired with sqlew-plugin v5.2.1)**
+
+MCP hook layer for OpenAI Codex, following the same normalization pattern as Grok Build (v5.2.0). Plugin manifests and hook matchers ship in [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) v5.2.1.
+
+- **`normalizeHookInput()` Codex branch** — Maps `shell_command`/`shell`/`exec_command` → `Bash`, `apply_patch` → `Edit`, reads `collaboration_mode` for Plan mode
+- **`codex-transcript.ts`** — Locates `~/.codex/sessions/**/{sessionId}.jsonl` and extracts Plan-mode assistant text for ADR pattern processing
+- **`on-prompt` / `on-exit-plan` Codex paths** — Plan enforcement injection and transcript-based extraction on session `Stop`
+- **`determineProjectRoot()`** — `CODEX_CWD` environment variable support
+- **Unit tests** — `codex-hook-normalization.test.ts`
+- **Docs** — `README.md` and `HOOKS_GUIDE.md` updated; manual `sqlew-codex-skills` copy install deprecated
+
 ### Fixed
 
 **`isPlanMode()` — Grok plan-mode tool names not detected after normalization**

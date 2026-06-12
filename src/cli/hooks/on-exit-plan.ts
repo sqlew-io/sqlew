@@ -15,6 +15,11 @@ import { randomUUID } from 'crypto';
 import { readStdinJson, sendContinue, sendPostToolUseContext, getProjectPath, computeGrokPlanPath } from './stdin-parser.js';
 import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
 import { processPlanPatterns } from './plan-processor.js';
+import {
+  extractPlanMarkdownFromCodexTranscript,
+  findCodexTranscriptPath,
+  materializeCodexPlanFile,
+} from './codex-transcript.js';
 import { debugLog } from '../../utils/debug-logger.js';
 
 // ============================================================================
@@ -31,13 +36,18 @@ export async function onExitPlanCommand(): Promise<void> {
   try {
     const input = await readStdinJson();
 
-    // Only process ExitPlanMode
-    if (input.tool_name !== 'ExitPlanMode') {
+    const projectPath = getProjectPath(input);
+    const isExitPlanTool = input.tool_name === 'ExitPlanMode';
+    const isCodexStopWithPendingPlan =
+      input.client === 'codex' &&
+      input.hook_event_name === 'Stop' &&
+      !!projectPath &&
+      !!loadCurrentPlan(projectPath)?.decision_pending;
+
+    if (!isExitPlanTool && !isCodexStopWithPendingPlan) {
       sendContinue();
       return;
     }
-
-    const projectPath = getProjectPath(input);
     if (!projectPath) {
       debugLog('WARN', '[on-exit-plan] No project path', {
         client: input.client,
@@ -75,6 +85,35 @@ export async function onExitPlanCommand(): Promise<void> {
           enforcement_shown_at: sameSession ? existing?.enforcement_shown_at : undefined,
         };
         saveCurrentPlan(projectPath, planInfo);
+      }
+    }
+
+    if (input.client === 'codex') {
+      const existing = loadCurrentPlan(projectPath);
+      const transcriptPath =
+        input.transcript_path ||
+        existing?.plan_path ||
+        (input.session_id ? findCodexTranscriptPath(input.session_id) : null);
+
+      if (transcriptPath) {
+        const extracted = extractPlanMarkdownFromCodexTranscript(transcriptPath);
+        if (extracted) {
+          const materializedPath = materializeCodexPlanFile(
+            projectPath,
+            input.session_id || existing?.plan_id || 'codex',
+            extracted,
+          );
+          const planInfo: CurrentPlanInfo = {
+            plan_id: existing?.plan_id || randomUUID(),
+            plan_file: 'codex-plan.md',
+            plan_path: materializedPath,
+            plan_updated_at: new Date().toISOString(),
+            recorded: existing?.recorded ?? false,
+            decision_pending: existing?.decision_pending ?? true,
+            enforcement_shown_at: existing?.enforcement_shown_at,
+          };
+          saveCurrentPlan(projectPath, planInfo);
+        }
       }
     }
 
