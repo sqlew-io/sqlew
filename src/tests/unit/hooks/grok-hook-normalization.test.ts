@@ -13,6 +13,7 @@ import { join } from 'path';
 import {
   normalizeHookInput,
   computeGrokPlanPath,
+  isPlanMode,
 } from '../../../cli/hooks/stdin-parser.js';
 import { determineProjectRoot } from '../../../utils/project-root.js';
 
@@ -82,6 +83,50 @@ describe('grok-hook-normalization', () => {
     });
   });
 
+  describe('isPlanMode', () => {
+    it('should detect Claude plan mode via permission_mode', () => {
+      assert.strictEqual(
+        isPlanMode({ hook_event_name: 'UserPromptSubmit', permission_mode: 'plan' }),
+        true,
+      );
+    });
+
+    it('should return false for Claude non-plan prompts', () => {
+      assert.strictEqual(
+        isPlanMode({ hook_event_name: 'UserPromptSubmit', permission_mode: 'default' }),
+        false,
+      );
+    });
+
+    it('should detect Grok plan mode after normalization (enter_plan_mode)', () => {
+      // Regression: normalizeHookInput maps enter_plan_mode -> EnterPlanMode,
+      // so isPlanMode must match the normalized PascalCase name.
+      const normalized = normalizeHookInput({
+        hookEventName: 'pre_tool_use',
+        toolName: 'enter_plan_mode',
+        workspaceRoot: 'C:/project',
+      });
+      assert.strictEqual(isPlanMode(normalized), true);
+    });
+
+    it('should detect Grok plan mode after normalization (exit_plan_mode)', () => {
+      const normalized = normalizeHookInput({
+        hookEventName: 'post_tool_use',
+        toolName: 'exit_plan_mode',
+        workspaceRoot: 'C:/project',
+      });
+      assert.strictEqual(isPlanMode(normalized), true);
+    });
+
+    it('should accept raw snake_case tool names defensively', () => {
+      assert.strictEqual(isPlanMode({ tool_name: 'enter_plan_mode' }), true);
+    });
+
+    it('should return false for unrelated tools', () => {
+      assert.strictEqual(isPlanMode({ tool_name: 'Bash' }), false);
+    });
+  });
+
   describe('computeGrokPlanPath', () => {
     it('should encode Windows workspace path for session directory', () => {
       const workspace = 'C:\\Users\\kitayama\\RustroverProjects\\mcp-sqlew';
@@ -102,16 +147,23 @@ describe('grok-hook-normalization', () => {
   });
 
   describe('determineProjectRoot', () => {
+    // determineProjectRoot uses path.isAbsolute(), which is platform-specific:
+    // 'C:/...' is absolute only on win32. Build paths that are absolute on the
+    // current platform so the precedence assertions hold on Linux CI too.
+    const absRoot = (p: string): string => (process.platform === 'win32' ? `C:${p}` : p);
+
     it('should prefer GROK_WORKSPACE_ROOT over SQLEW_PROJECT_ROOT', () => {
-      process.env.GROK_WORKSPACE_ROOT = 'C:/grok-workspace';
-      process.env.SQLEW_PROJECT_ROOT = 'C:/other';
-      assert.strictEqual(determineProjectRoot({}), 'C:/grok-workspace');
+      const grokRoot = absRoot('/grok-workspace');
+      process.env.GROK_WORKSPACE_ROOT = grokRoot;
+      process.env.SQLEW_PROJECT_ROOT = absRoot('/other');
+      assert.strictEqual(determineProjectRoot({}), grokRoot);
     });
 
     it('should prefer CLAUDE_PROJECT_DIR over GROK_WORKSPACE_ROOT', () => {
-      process.env.CLAUDE_PROJECT_DIR = 'C:/claude-project';
-      process.env.GROK_WORKSPACE_ROOT = 'C:/grok-workspace';
-      assert.strictEqual(determineProjectRoot({}), 'C:/claude-project');
+      const claudeRoot = absRoot('/claude-project');
+      process.env.CLAUDE_PROJECT_DIR = claudeRoot;
+      process.env.GROK_WORKSPACE_ROOT = absRoot('/grok-workspace');
+      assert.strictEqual(determineProjectRoot({}), claudeRoot);
     });
   });
 });

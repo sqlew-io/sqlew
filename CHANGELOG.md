@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.2.1] - 2026-06-12
+
+### Fixed
+
+**`isPlanMode()` — Grok plan-mode tool names not detected after normalization**
+
+`normalizeHookInput()` maps Grok's `enter_plan_mode` / `exit_plan_mode` tool names to the canonical Claude-shaped `EnterPlanMode` / `ExitPlanMode` before any detection runs. `isPlanMode()` only checked the raw snake_case names, so the tool-name branch never matched and Grok Build's plan mode was never detected via tool context.
+
+- **`isPlanMode()`** — Now matches the normalized `EnterPlanMode` / `ExitPlanMode` names. Raw snake_case names are still accepted defensively for callers that bypass normalization.
+- **Tests** — Added `isPlanMode` regression coverage to `grok-hook-normalization.test.ts` (Claude `permission_mode`, normalized Grok payloads, raw snake_case, non-plan tools).
+
+Claude Code was unaffected by this bug because it is detected via `permission_mode === 'plan'`, which is evaluated first.
+
+> **Note:** Plan-mode ADR enforcement requires the sqlew plugin to be enabled in the active scope. Enabling it only per-project (`.claude/settings.local.json`) silently skips enforcement in other projects; enable `sqlew@sqlew-plugin` in the global `~/.claude/settings.json` for always-on coverage.
+
+---
+
 ## [5.2.0] - 2026-06-11
 
 ### Added
