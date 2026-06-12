@@ -1,3 +1,6 @@
+# Jujutsu (colocated with git; local metadata only)
+.jj/
+
 # Claude Code configuration (keep these)
 .claude
 .mcp.json

@@ -403,11 +403,17 @@ export function isPlanMode(input: HookInput): boolean {
   if (input.permission_mode === 'plan') return true;
 
   // Grok Build: plan mode is signaled via the enter_plan_mode / exit_plan_mode tools
-  // (no permission_mode field). The actual "active" state is best detected by the
-  // presence of a tracked plan for the project + tool context, but for simple
-  // enforcement we also accept explicit tool names in the current hook payload.
+  // (no permission_mode field). normalizeHookInput() maps these to the Claude-shaped
+  // EnterPlanMode / ExitPlanMode before any detection runs, so match the normalized
+  // names. Raw snake_case names are also accepted defensively for callers that
+  // bypass normalization.
   const tool = input.tool_name;
-  if (tool === 'enter_plan_mode' || tool === 'exit_plan_mode') {
+  if (
+    tool === 'EnterPlanMode' ||
+    tool === 'ExitPlanMode' ||
+    tool === 'enter_plan_mode' ||
+    tool === 'exit_plan_mode'
+  ) {
     return true;
   }
 
