@@ -147,16 +147,23 @@ describe('grok-hook-normalization', () => {
   });
 
   describe('determineProjectRoot', () => {
+    // determineProjectRoot uses path.isAbsolute(), which is platform-specific:
+    // 'C:/...' is absolute only on win32. Build paths that are absolute on the
+    // current platform so the precedence assertions hold on Linux CI too.
+    const absRoot = (p: string): string => (process.platform === 'win32' ? `C:${p}` : p);
+
     it('should prefer GROK_WORKSPACE_ROOT over SQLEW_PROJECT_ROOT', () => {
-      process.env.GROK_WORKSPACE_ROOT = 'C:/grok-workspace';
-      process.env.SQLEW_PROJECT_ROOT = 'C:/other';
-      assert.strictEqual(determineProjectRoot({}), 'C:/grok-workspace');
+      const grokRoot = absRoot('/grok-workspace');
+      process.env.GROK_WORKSPACE_ROOT = grokRoot;
+      process.env.SQLEW_PROJECT_ROOT = absRoot('/other');
+      assert.strictEqual(determineProjectRoot({}), grokRoot);
     });
 
     it('should prefer CLAUDE_PROJECT_DIR over GROK_WORKSPACE_ROOT', () => {
-      process.env.CLAUDE_PROJECT_DIR = 'C:/claude-project';
-      process.env.GROK_WORKSPACE_ROOT = 'C:/grok-workspace';
-      assert.strictEqual(determineProjectRoot({}), 'C:/claude-project');
+      const claudeRoot = absRoot('/claude-project');
+      process.env.CLAUDE_PROJECT_DIR = claudeRoot;
+      process.env.GROK_WORKSPACE_ROOT = absRoot('/grok-workspace');
+      assert.strictEqual(determineProjectRoot({}), claudeRoot);
     });
   });
 });
