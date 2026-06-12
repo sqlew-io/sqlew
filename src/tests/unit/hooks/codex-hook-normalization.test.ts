@@ -132,10 +132,16 @@ describe('codex-hook-normalization', () => {
   });
 
   describe('determineProjectRoot', () => {
+    // determineProjectRoot uses path.isAbsolute(), which is platform-specific:
+    // 'C:/...' is absolute only on win32. Build paths that are absolute on the
+    // current platform so the precedence assertions hold on Linux CI too.
+    const absRoot = (p: string): string => (process.platform === 'win32' ? `C:${p}` : p);
+
     it('should prefer CODEX_CWD over SQLEW_PROJECT_ROOT', () => {
-      process.env.CODEX_CWD = 'C:/codex-workspace';
-      process.env.SQLEW_PROJECT_ROOT = 'C:/other';
-      assert.strictEqual(determineProjectRoot({}), 'C:/codex-workspace');
+      const codexRoot = absRoot('/codex-workspace');
+      process.env.CODEX_CWD = codexRoot;
+      process.env.SQLEW_PROJECT_ROOT = absRoot('/other');
+      assert.strictEqual(determineProjectRoot({}), codexRoot);
     });
   });
 });
