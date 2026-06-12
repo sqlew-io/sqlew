@@ -90,8 +90,10 @@ export interface HookInput {
   source?: 'startup' | 'resume' | 'clear' | 'compact';
   /** SessionEnd reason: clear | logout | prompt_input_exit | other */
   reason?: 'clear' | 'logout' | 'prompt_input_exit' | 'other';
-  /** Originating client, set by normalizeHookInput() (e.g., 'grok'). undefined = Claude/native. */
-  client?: 'grok' | 'claude';
+  /** Codex collaboration mode (e.g. plan, default). */
+  collaboration_mode?: string;
+  /** Originating client, set by normalizeHookInput() (e.g., 'grok', 'codex'). undefined = Claude/native. */
+  client?: 'grok' | 'codex' | 'claude';
 }
 
 /**
@@ -172,6 +174,69 @@ const GROK_TOOL_MAP: Record<string, string> = {
   read_file: 'Read',
 };
 
+/** Codex CLI tool names mapped to Claude-shaped names used by sqlew hook handlers. */
+const CODEX_TOOL_MAP: Record<string, string> = {
+  shell_command: 'Bash',
+  shell: 'Bash',
+  exec_command: 'Bash',
+  apply_patch: 'Edit',
+  enter_plan_mode: 'EnterPlanMode',
+  exit_plan_mode: 'ExitPlanMode',
+};
+
+const CODEX_NATIVE_TOOLS = new Set(Object.keys(CODEX_TOOL_MAP));
+
+function extractCollaborationMode(raw: Record<string, unknown>): string | undefined {
+  const direct = raw.collaboration_mode ?? raw.collaborationMode;
+  if (typeof direct === 'string') {
+    return direct;
+  }
+  if (direct && typeof direct === 'object') {
+    const record = direct as Record<string, unknown>;
+    if (typeof record.mode === 'string') {
+      return record.mode;
+    }
+    if (typeof record.kind === 'string') {
+      return record.kind;
+    }
+  }
+  const kind = raw.collaboration_mode_kind ?? raw.collaborationModeKind;
+  return typeof kind === 'string' ? kind : undefined;
+}
+
+function isCodexPayload(raw: Record<string, unknown>): boolean {
+  const tool = (raw.tool_name || raw.toolName) as string | undefined;
+  if (tool && CODEX_NATIVE_TOOLS.has(tool)) {
+    return true;
+  }
+  if (extractCollaborationMode(raw)) {
+    return true;
+  }
+  if (process.env.CODEX_SESSION_ID || process.env.CODEX_CWD || process.env.CODEX_HOME) {
+    return true;
+  }
+  return false;
+}
+
+function normalizeCodexPayload(raw: Record<string, unknown>): HookInput {
+  const rawTool = (raw.tool_name || raw.toolName) as string | undefined;
+  const collaborationMode = extractCollaborationMode(raw);
+
+  return {
+    ...(raw as HookInput),
+    client: 'codex',
+    tool_name: rawTool ? CODEX_TOOL_MAP[rawTool] || rawTool : (raw.tool_name as string | undefined),
+    tool_input: (raw.tool_input || raw.toolInput) as ToolInput | undefined,
+    session_id: (raw.session_id || raw.sessionId || process.env.CODEX_SESSION_ID) as string | undefined,
+    cwd: (raw.cwd || process.env.CODEX_CWD || process.env.CLAUDE_PROJECT_DIR) as string | undefined,
+    transcript_path: (raw.transcript_path || raw.transcriptPath) as string | undefined,
+    collaboration_mode: collaborationMode,
+    permission_mode:
+      (raw.permission_mode as string | undefined) ||
+      (collaborationMode?.toLowerCase() === 'plan' ? 'plan' : (raw.permission_mode as string | undefined)),
+  };
+}
+
 /**
  * Normalize a raw hook payload into the canonical (Claude-shaped) HookInput.
  *
@@ -200,8 +265,12 @@ export function normalizeHookInput(raw: unknown): HookInput {
     process.env.GROK_WORKSPACE_ROOT
   );
 
-  // Claude / native: pass through unchanged
-  if (!isGrok) {
+  if (isGrok) {
+    // Grok branch below
+  } else if (isCodexPayload(r)) {
+    return normalizeCodexPayload(r);
+  } else {
+    // Claude / native: pass through unchanged
     return r as HookInput;
   }
 
@@ -399,8 +468,9 @@ export function sendUpdatedInput(originalInput: ToolInput, modifications: Partia
  * @returns true if the current session is in plan mode
  */
 export function isPlanMode(input: HookInput): boolean {
-  // Claude Code
+  // Claude Code / Codex collaboration Plan mode
   if (input.permission_mode === 'plan') return true;
+  if (input.collaboration_mode?.toLowerCase() === 'plan') return true;
 
   // Grok Build: plan mode is signaled via the enter_plan_mode / exit_plan_mode tools
   // (no permission_mode field). normalizeHookInput() maps these to the Claude-shaped
@@ -417,7 +487,6 @@ export function isPlanMode(input: HookInput): boolean {
     return true;
   }
 
-  // Future: Codex, Cursor, etc.
   return false;
 }
 
@@ -473,7 +542,12 @@ export function areAllTodosCompleted(input: HookInput): boolean {
  * @returns Project path or undefined
  */
 export function getProjectPath(input: HookInput): string | undefined {
-  return input.cwd || process.env.CLAUDE_PROJECT_DIR || process.env.GROK_WORKSPACE_ROOT;
+  return (
+    input.cwd ||
+    process.env.CLAUDE_PROJECT_DIR ||
+    process.env.CODEX_CWD ||
+    process.env.GROK_WORKSPACE_ROOT
+  );
 }
 
 /**

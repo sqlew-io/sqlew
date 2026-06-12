@@ -19,8 +19,10 @@
  * @modified v5.0.7 - First/repeat message split, inline template, isPlanMode()
  */
 
+import { randomUUID } from 'crypto';
 import { readStdinJson, isPlanMode, getProjectPath } from './stdin-parser.js';
-import { loadCurrentPlan, saveCurrentPlan } from '../../config/global-config.js';
+import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
+import { findCodexTranscriptPath } from './codex-transcript.js';
 
 // ============================================================================
 // Plan Mode Enforcement Context
@@ -98,7 +100,24 @@ export async function onPromptCommand(): Promise<void> {
       return;
     }
 
-    const planInfo = loadCurrentPlan(projectPath);
+    let planInfo = loadCurrentPlan(projectPath);
+
+    if (input.client === 'codex' && !planInfo) {
+      const transcriptPath =
+        input.transcript_path ||
+        (input.session_id ? findCodexTranscriptPath(input.session_id) : undefined) ||
+        undefined;
+      const codexPlanInfo: CurrentPlanInfo = {
+        plan_id: randomUUID(),
+        plan_file: 'codex-plan.md',
+        plan_path: transcriptPath,
+        plan_updated_at: new Date().toISOString(),
+        recorded: false,
+        decision_pending: true,
+      };
+      saveCurrentPlan(projectPath, codexPlanInfo);
+      planInfo = codexPlanInfo;
+    }
 
     if (!planInfo || !planInfo.enforcement_shown_at) {
       // First prompt in this plan session → full message with inline template
