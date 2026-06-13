@@ -60,6 +60,8 @@ export interface ExtractedConstraint {
   priority?: string;
   /** Tags for the constraint (comma-separated) */
   tags?: string;
+  /** Why this constraint exists (optional) */
+  reason?: string;
 }
 
 /**
@@ -147,6 +149,7 @@ export function extractPatternsFromPlan(content: string): ExtractionResult {
       rule,
       priority: normalizePriority(extractField(body, 'Priority')),
       tags: extractField(body, 'Tags'),
+      reason: extractField(body, 'Reason') || undefined,
     });
   }
 

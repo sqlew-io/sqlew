@@ -10,16 +10,17 @@ import { ActionSpec } from './types.js';
 export const CONSTRAINT_ACTION_SPECS: Record<string, ActionSpec> = {
   add: {
     required: ['category', 'constraint_text', 'priority'],
-    optional: ['layer', 'tags', 'created_by', 'active'],
+    optional: ['layer', 'tags', 'created_by', 'active', 'reason'],
     example: {
       action: 'add',
       category: 'performance',
       constraint_text: 'API response time must be <100ms for 95th percentile',
       priority: 'high',
       layer: 'business',
-      tags: ['api', 'latency']
+      tags: ['api', 'latency'],
+      reason: 'Slow responses above 100ms measurably increase checkout abandonment'
     },
-    hint: "Valid categories: performance, architecture, security, code-style. Valid priorities: low, medium, high, critical (or 1-4). Set active=false for draft constraints. NOTE: rationale is NOT supported - include it in tags or constraint_text if needed."
+    hint: "Valid categories: performance, architecture, security, code-style. Valid priorities: low, medium, high, critical (or 1-4). Set active=false for draft constraints. Use 'reason' to record WHY the constraint exists."
   },
 
   get: {

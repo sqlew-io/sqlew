@@ -187,6 +187,53 @@ runTestsOnAllDatabases('Constraint Operations', (getDb, dbType) => {
       assert.strictEqual(lowPriority.priority, 1);
       assert.strictEqual(highPriority.priority, 4);
     });
+
+    it('should have nullable reason column on t_constraints', async () => {
+      const db = getDb();
+
+      const hasReasonColumn = await db.schema.hasColumn('t_constraints', 'reason');
+      assert.strictEqual(hasReasonColumn, true, 't_constraints should have reason column');
+
+      const constraintTextNoReason = 'Constraint without reason';
+      const constraintId = await insertConstraint(db, {
+        constraint_text: constraintTextNoReason,
+        category_id: categoryCodeStyleId,
+        priority: 2,
+        layer_id: businessLayerId,
+        project_id: projectId,
+        active: 1,
+        ts: Math.floor(Date.now() / 1000),
+      });
+
+      const constraint = await db('t_constraints')
+        .where({ id: constraintId })
+        .first();
+
+      assert.strictEqual(constraint.reason, null, 'reason should be NULL when not specified');
+    });
+
+    it('should store and retrieve reason text', async () => {
+      const db = getDb();
+      const reasonText = 'Prevents SQL injection via parameterized queries';
+
+      const constraintTextWithReason = 'Must use parameterized SQL statements';
+      const constraintId = await insertConstraint(db, {
+        constraint_text: constraintTextWithReason,
+        category_id: categorySecurityId,
+        priority: 4,
+        layer_id: dataLayerId,
+        project_id: projectId,
+        active: 1,
+        ts: Math.floor(Date.now() / 1000),
+        reason: reasonText,
+      });
+
+      const constraint = await db('t_constraints')
+        .where({ id: constraintId })
+        .first();
+
+      assert.strictEqual(constraint.reason, reasonText);
+    });
   });
 
   describe('Tag associations', () => {

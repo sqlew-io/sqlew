@@ -150,6 +150,7 @@ export function processPlanPatterns(projectPath: string): ProcessPlanResult {
       priority: constraint.priority || 'medium',
       layer: 'cross-cutting',
       tags: allTags,
+      reason: constraint.reason,
       active: true,
       plan_id: planInfo.plan_id,
     });

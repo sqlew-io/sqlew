@@ -107,6 +107,7 @@ export async function getConstraints(
         'cat.name as category',
         'l.name as layer',
         'c.constraint_text',
+        'c.reason',
         'c.priority',
         knex.raw(`${db.dateFunction('c.ts')} as created_at`),
         // Tags subquery
@@ -120,9 +121,10 @@ export async function getConstraints(
 
       // Convert priority integer to string and parse tags
       const rows = convertPriorityArray(rawRows) as TaggedConstraint[];
-      const constraints = rows.map(row => ({
+      const constraints = rows.map(({ reason, tags, ...row }) => ({
         ...row,
-        tags: row.tags ? row.tags.split(',') : null,
+        tags: tags ? tags.split(',') : null,
+        ...(reason ? { reason } : {}),
       })) as any[];
 
       return {

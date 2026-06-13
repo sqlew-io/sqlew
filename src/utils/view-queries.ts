@@ -141,6 +141,7 @@ export async function getTaggedConstraints(knex: Knex): Promise<any[]> {
       "c.id",
       "cat.name as category",
       "c.constraint_text",
+      "c.reason",
       "c.priority",
       "l.name as layer",
       knex.raw(`${db.dateFunction("c.ts")} as added_at`),
