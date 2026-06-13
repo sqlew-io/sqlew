@@ -11,6 +11,8 @@ export interface AddConstraintParams {
   created_by?: string;
   /** @since v4.2.1 - Set to false to create inactive constraint (for plan-based workflow) */
   active?: boolean;
+  /** @since v5.3.0 - Why this constraint exists (stored in t_constraints.reason) */
+  reason?: string;
 }
 
 export interface GetConstraintsParams {

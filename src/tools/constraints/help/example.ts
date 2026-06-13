@@ -189,7 +189,7 @@ export function constraintExample(): any {
     best_practices: {
       writing_constraints: [
         'Be specific and measurable (use numbers, percentages, time limits)',
-        'Include rationale in tags or separate documentation',
+        'Use the reason field to record why the constraint exists',
         'Use appropriate priority (critical for must-have, high for important, medium/low for nice-to-have)',
         'Assign to correct layer (where constraint is enforced)',
         'Tag comprehensively for easy retrieval'

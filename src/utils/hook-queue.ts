@@ -124,6 +124,7 @@ export interface ConstraintQueueItem {
     priority?: string;
     layer?: string;
     tags?: string[];
+    reason?: string;
     active?: boolean;
     plan_id?: string;
   };
@@ -695,6 +696,7 @@ export function enqueueConstraintCreate(
     priority?: string;
     layer?: string;
     tags?: string[];
+    reason?: string;
     active?: boolean;
     plan_id?: string;
   }

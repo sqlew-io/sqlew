@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.2.2] - 2026-06-13
+
+### Added
+
+**Optional `reason` field on constraints**
+
+Constraints can now store WHY they exist alongside the rule itself, so future AI agents do not discard rules whose rationale is invisible in the code. Mirrors decision context support; the reason flows from plan `🚫 Constraint` blocks through the hook queue into the database.
+
+- **Migration** — Idempotent `add_constraint_reason` adds a nullable `reason` TEXT column to `t_constraints` (SQLite/MySQL/PostgreSQL).
+- **Write/read path** — `constraint.add` persists `reason`; `constraint.get` and `getTaggedConstraints` select it. Responses omit the field when NULL for token efficiency.
+- **Action spec / types** — `reason` added as an optional `constraint.add` parameter; `AddConstraintParams` and `TaggedConstraint` updated. The hint that "rationale is NOT supported" is replaced with guidance to use `reason`.
+- **Plan-to-ADR hooks** — `plan-pattern-extractor` reads `- **Reason**:` from constraint blocks and threads it through `hook-queue` → `plan-processor` → `queue-watcher` to `constraint.add`.
+- **Enforcement message** — `on-prompt` plan-mode guidance now nudges recording the WHY and skipping facts derivable from code.
+- **Help data** — `constraint.toml` and constraint help examples document the field.
+- **Tests** — Unit (Reason extraction), feature (add → get round-trip, omitted when unset), and native RDBMS schema coverage.
+
+> Pairs with sqlew-plugin: `sqlew-decision-format` adds a `- **Reason**:` line to the `🚫 Constraint` template.
+
+### Fixed
+
+**Stale references to v5.0-dropped help tables**
+
+v5.0 moved help documentation from DB tables to TOML files (`src/help-data/`) and dropped the 7 help tables, but two references were left behind.
+
+- **`verifySchemaIntegrity`** — Removed the 7 dropped help tables from `requiredTables` (now Master 7 / Transaction 11). This validator is currently unused, but would have flagged every v5 database as invalid if invoked.
+- **Native test** — Deleted `src/tests/docker/native/help-system.test.ts`; it verified dropped tables and could not be fixed to test non-existent schema. TOML-based help remains covered by `src/tests/feature/help/help-system.test.ts`.
+
+---
+
 ## [5.2.1] - 2026-06-12
 
 ### Added

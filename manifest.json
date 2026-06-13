@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "sqlew",
   "display_name": "sqlew - Context Manager for AI Agents",
-  "version": "5.2.1",
+  "version": "5.2.2",
   "description": "Token-efficient context management for AI coding agents. Record architectural decisions, constraints, and maintain project knowledge across sessions. Supports SQLite local storage and sqlew.io cloud backend.",
   "author": {
     "name": "sqlew.io",

@@ -43,6 +43,7 @@ export interface TaggedConstraint {
   readonly category: string;
   readonly layer: string | null;
   readonly constraint_text: string;
+  readonly reason?: string | null;
   readonly priority: 'critical' | 'high' | 'medium' | 'low';
   readonly tags: string | null;  // Comma-separated
   readonly created_by: string | null;

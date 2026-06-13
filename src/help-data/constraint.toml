@@ -51,6 +51,12 @@ description = "Add a new constraint with priority"
   description = "Tags for categorization"
   default = "[]"
 
+  [[actions.params]]
+  name = "reason"
+  type = "string"
+  required = false
+  description = "Why this constraint exists (e.g. incident, compliance, team agreement)"
+
   [[actions.examples]]
   title = "Add security constraint"
   code = '''

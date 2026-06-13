@@ -38,7 +38,7 @@ import { findCodexTranscriptPath } from './codex-transcript.js';
 export const ENFORCEMENT_FULL = `[sqlew] Plan mode active. REQUIRED:
 1. suggest { action: "by_context", key: "<keyword>" } BEFORE planning
 2. Include "Related Context (from sqlew)" section
-3. Format decisions/constraints EXACTLY like this:
+3. Record the WHY (rationale + rejected alternatives); skip facts derivable from code. Format EXACTLY:
 
 ### 📌 Decision: key-name
 - **Value**: description

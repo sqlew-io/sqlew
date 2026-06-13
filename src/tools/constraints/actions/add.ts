@@ -99,6 +99,7 @@ export async function addConstraint(
           category_id: categoryId,
           layer_id: layerId,
           constraint_text: normalizedParams.constraint_text,
+          reason: normalizedParams.reason ?? null,
           priority: priority,
           active: activeValue,
           ts: ts,

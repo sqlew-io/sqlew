@@ -239,6 +239,7 @@ export class QueueWatcher extends BaseWatcher {
         priority,
         layer: data.layer,
         tags: data.tags,
+        reason: data.reason,
         active: data.active ?? true,
       });
       debugLog('INFO', `${this.watcherName}: constraint.add returned`, {

@@ -91,16 +91,15 @@ export async function verifySchemaIntegrity(adapter: DatabaseAdapter): Promise<{
 
   // v5.0: All tables use m_ (master) / t_ (transaction) prefixes
   // v5.0: Task and file management tables removed
+  // v5.0: Help system tables removed (help data now lives in src/help-data/*.toml)
   const requiredTables = [
-    // Master tables (10)
+    // Master tables (7)
     'm_projects', 'm_layers', 'm_context_keys', 'm_constraint_categories',
-    'm_help_tools', 'm_help_use_case_cats', 'm_builtin_policies',
-    'm_tags', 'm_scopes', 'm_help_actions',
-    // Transaction tables (15)
+    'm_builtin_policies', 'm_tags', 'm_scopes',
+    // Transaction tables (11)
     't_tag_index', 't_decisions', 't_decisions_numeric', 't_decision_history',
     't_decision_tags', 't_decision_scopes', 't_decision_context', 't_decision_policies',
     't_constraints', 't_constraint_tags', 't_token_usage',
-    't_help_action_params', 't_help_action_examples', 't_help_use_cases', 't_help_action_sequences',
   ];
 
   // v4.0: Views removed for cross-DB compatibility (replaced with application-level queries)
