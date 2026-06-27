@@ -24,6 +24,8 @@ import { resolvePlanPath } from './plan-pattern-extractor.js';
 export interface ToolInput {
   /** File path (Edit, Write tools) */
   file_path?: string;
+  /** File path used by Hermes file tools (write_file/read_file/patch) */
+  path?: string;
   /** Command (Bash tool) */
   command?: string;
   /** Description (Task tool) */
@@ -92,8 +94,8 @@ export interface HookInput {
   reason?: 'clear' | 'logout' | 'prompt_input_exit' | 'other';
   /** Codex collaboration mode (e.g. plan, default). */
   collaboration_mode?: string;
-  /** Originating client, set by normalizeHookInput() (e.g., 'grok', 'codex'). undefined = Claude/native. */
-  client?: 'grok' | 'codex' | 'claude';
+  /** Originating client, set by normalizeHookInput() (e.g., 'grok', 'codex', 'hermes'). undefined = Claude/native. */
+  client?: 'grok' | 'codex' | 'claude' | 'hermes';
 }
 
 /**
@@ -186,6 +188,112 @@ const CODEX_TOOL_MAP: Record<string, string> = {
 
 const CODEX_NATIVE_TOOLS = new Set(Object.keys(CODEX_TOOL_MAP));
 
+/**
+ * Hermes (Claude Code / Nous) shell-hook event names (snake_case) →
+ * sqlew canonical (Claude PascalCase) event names.
+ *
+ * Hermes has no dedicated UserPromptSubmit event; pre_llm_call fires at the
+ * same point and is the only context-injection hook, so we map it to
+ * UserPromptSubmit. post_llm_call is the closest analog to Claude's Stop.
+ */
+const HERMES_EVENT_MAP: Record<string, HookInput['hook_event_name']> = {
+  pre_tool_call: 'PreToolUse',
+  post_tool_call: 'PostToolUse',
+  pre_llm_call: 'UserPromptSubmit',
+  post_llm_call: 'Stop',
+  on_session_start: 'SessionStart',
+  on_session_end: 'SessionEnd',
+  on_session_finalize: 'SessionEnd',
+  subagent_stop: 'SubagentStop',
+  subagent_start: 'PreToolUse',
+};
+
+/**
+ * Hermes built-in tool names → sqlew canonical (Claude) tool names.
+ * Only the names sqlew's hook handlers branch on need mapping; unknown
+ * names pass through unchanged.
+ */
+const HERMES_TOOL_MAP: Record<string, string> = {
+  terminal: 'Bash',
+  write_file: 'Write',
+  patch: 'Edit',
+  read_file: 'Read',
+  todo: 'TodoWrite',
+  delegate_task: 'Task',
+};
+
+const HERMES_NATIVE_TOOLS = new Set(Object.keys(HERMES_TOOL_MAP));
+const HERMES_NATIVE_EVENTS = new Set(Object.keys(HERMES_EVENT_MAP));
+
+function isHermesPayload(raw: Record<string, unknown>): boolean {
+  const event = raw.hook_event_name as string | undefined;
+  if (event && HERMES_NATIVE_EVENTS.has(event)) {
+    return true;
+  }
+
+  const tool = raw.tool_name as string | undefined;
+  if (tool && HERMES_NATIVE_TOOLS.has(tool)) {
+    return true;
+  }
+
+  // Claude/Codex use PascalCase event names; do not classify as Hermes even when
+  // HERMES_* env vars are set in the parent shell (common on dev machines).
+  if (event && /^[A-Z]/.test(event)) {
+    return false;
+  }
+
+  const hasHermesEnv = !!(
+    process.env.HERMES_SESSION_ID ||
+    process.env.HERMES_HOME ||
+    process.env._HERMES_GATEWAY
+  );
+
+  if (raw.extra && typeof raw.extra === 'object' && hasHermesEnv) {
+    return true;
+  }
+
+  // Env-only fallback for empty or lifecycle payloads spawned by Hermes hooks.
+  if (hasHermesEnv && !event && !tool) {
+    // Empty stdin is ambiguous — prefer Codex/Grok env when those clients spawned the hook.
+    if (process.env.CODEX_SESSION_ID || process.env.CODEX_CWD || process.env.CODEX_HOME) {
+      return false;
+    }
+    if (process.env.GROK_HOOK_EVENT || process.env.GROK_WORKSPACE_ROOT) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+function normalizeHermesPayload(raw: Record<string, unknown>): HookInput {
+  const rawEvent = raw.hook_event_name as string | undefined;
+  const rawTool = raw.tool_name as string | undefined;
+  const toolInput = (raw.tool_input as ToolInput | undefined) ?? undefined;
+
+  const normalizedToolInput: ToolInput | undefined = toolInput
+    ? {
+        ...toolInput,
+        file_path:
+          (toolInput.file_path as string | undefined) ??
+          (toolInput.path as string | undefined),
+      }
+    : undefined;
+
+  return {
+    ...(raw as HookInput),
+    client: 'hermes',
+    hook_event_name: rawEvent
+      ? HERMES_EVENT_MAP[rawEvent] || (rawEvent as HookInput['hook_event_name'])
+      : (raw.hook_event_name as HookInput['hook_event_name']),
+    tool_name: rawTool ? HERMES_TOOL_MAP[rawTool] || rawTool : (raw.tool_name as string | undefined),
+    tool_input: normalizedToolInput,
+    session_id: (raw.session_id || process.env.HERMES_SESSION_ID) as string | undefined,
+    cwd: (raw.cwd || process.env.TERMINAL_CWD) as string | undefined,
+  };
+}
+
 function extractCollaborationMode(raw: Record<string, unknown>): string | undefined {
   const direct = raw.collaboration_mode ?? raw.collaborationMode;
   if (typeof direct === 'string') {
@@ -267,6 +375,8 @@ export function normalizeHookInput(raw: unknown): HookInput {
 
   if (isGrok) {
     // Grok branch below
+  } else if (isHermesPayload(r)) {
+    return normalizeHermesPayload(r);
   } else if (isCodexPayload(r)) {
     return normalizeCodexPayload(r);
   } else {
@@ -427,8 +537,20 @@ export function sendBlock(reason: string): void {
   if (process.env.GROK_HOOK_EVENT || process.env.GROK_WORKSPACE_ROOT) {
     console.log(JSON.stringify({ decision: 'deny', reason }));
   }
+  // Hermes: pre_tool_call block is read from stdout JSON (decision/block shape).
+  if (process.env.HERMES_SESSION_ID || process.env.HERMES_HOME || process.env._HERMES_GATEWAY) {
+    console.log(JSON.stringify({ decision: 'block', reason }));
+  }
   console.error(reason);
   process.exit(2);
+}
+
+/**
+ * Emit a Hermes shell-hook context-injection response.
+ * Hermes honors {"context": "..."} only on pre_llm_call.
+ */
+export function sendHermesContext(context: string): void {
+  console.log(JSON.stringify({ context }));
 }
 
 /**
@@ -499,7 +621,7 @@ export function isPlanMode(input: HookInput): boolean {
  *
  * Plan files can be in:
  * - Global: ~/.claude/plans/*.md (e.g., C:/Users/xxx/.claude/plans/my-plan.md)
- * - Project: .claude/plans/*.md (relative path)
+ * - Project: .claude/plans/*.md or .hermes/plans/*.md (relative path)
  *
  * @param input - Hook input
  * @returns true if the tool is operating on a plan file
@@ -513,10 +635,9 @@ export function isPlanFile(input: HookInput): boolean {
   // Normalize path separators for cross-platform support
   const normalizedPath = filePath.replace(/\\/g, '/');
 
-  // Match both global and project-local plan paths:
-  // - Global: /Users/xxx/.claude/plans/foo.md, C:/Users/xxx/.claude/plans/foo.md
-  // - Project: .claude/plans/foo.md
-  return /[/\\]?\.claude\/plans\/[^/]+\.md$/.test(normalizedPath);
+  // Match global + project-local plan paths for Claude (.claude/plans/) and
+  // Hermes (.hermes/plans/).
+  return /[/\\]?\.(claude|hermes)\/plans\/[^/]+\.md$/.test(normalizedPath);
 }
 
 /**
@@ -546,7 +667,8 @@ export function getProjectPath(input: HookInput): string | undefined {
     input.cwd ||
     process.env.CLAUDE_PROJECT_DIR ||
     process.env.CODEX_CWD ||
-    process.env.GROK_WORKSPACE_ROOT
+    process.env.GROK_WORKSPACE_ROOT ||
+    process.env.TERMINAL_CWD
   );
 }
 

@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.3.0] - 2026-06-27
+
+### Added
+
+**Hermes (Claude Code / Nous) hook adapter**
+
+Hermes uses a different shell-hook wire protocol than Claude Code, Codex, and Grok Build. Without normalization, Hermes payloads (`pre_tool_call` + `terminal`, etc.) fell through to Claude passthrough and every hook handler silently no-oped. sqlew 5.3.0 adds a fourth client adapter in `stdin-parser.ts`, following the Grok/Codex pattern.
+
+- **Event mapping** — `pre_tool_call` → `PreToolUse`, `post_tool_call` → `PostToolUse`, `pre_llm_call` → `UserPromptSubmit`, `on_session_start` → `SessionStart`, `subagent_stop` → `SubagentStop`, and related lifecycle events.
+- **Tool mapping** — `terminal` → `Bash`, `write_file` → `Write`, `patch` → `Edit`, `todo` → `TodoWrite`, `delegate_task` → `Task`, `read_file` → `Read`.
+- **Detection** — `isHermesPayload()` with PascalCase guard (avoids misclassifying Claude/Codex when `HERMES_*` env vars are set in the parent shell), `extra` + env fallback, and empty-stdin env detection.
+- **Plan paths** — `.hermes/plans/*.md` recognized by `isPlanFile()`; `tool_input.path` aliased to `file_path` for Hermes file tools.
+- **Project root** — `TERMINAL_CWD` fallback in `getProjectPath()` and `determineProjectRoot()`.
+- **Output protocol** — `sendHermesContext()` for `pre_llm_call` (`{"context":"..."}`); `sendBlock()` emits `{"decision":"block","reason"}` when `HERMES_SESSION_ID` / `HERMES_HOME` / `_HERMES_GATEWAY` are set.
+- **`on-prompt`** — Every-turn plan guidance for Hermes (FULL on first prompt in session, SHORT after); Hermes has no native `permission_mode: plan`.
+- **Tests** — Unit (`hermes-hook-normalization`) and integration (`hermes-on-prompt`, `hermes-pr-adr`, `hermes-side-effect-hooks`).
+- **Docs** — [docs/HERMES_HOOKS.md](docs/HERMES_HOOKS.md) (setup, config snippet, Claude vs Hermes table); [docs/HOOKS_GUIDE.md](docs/HOOKS_GUIDE.md) Hermes section; [README.md](README.md) quick-start.
+
+### Changed
+
+- **`save` hook** — `.hermes/plans/` paths excluded from implementation-file promotion (same as `.claude/plans/`).
+
+### Plugin (sqlew-plugin v5.3.0)
+
+Install Hermes integration via the `.hermes-plugin/` bundle:
+
+```bash
+npm i -g sqlew
+hermes plugins install sqlew-io/sqlew-plugin/.hermes-plugin
+hermes plugins enable sqlew
+```
+
+The plugin merges `mcp_servers.sqlew` and shell `hooks:` into `~/.hermes/config.yaml`, copies planning skills to `~/.hermes/skills/`, and registers hooks on enable.
+
+### Upgrade
+
+```bash
+npm i -g sqlew@5.3.0
+```
+
+No database migration in this release. Existing Claude/Codex/Grok hook behavior is unchanged.
+
 ## [5.2.2] - 2026-06-13
 
 ### Added

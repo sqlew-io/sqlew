@@ -5,6 +5,7 @@
  * 0. CLAUDE_PROJECT_DIR environment variable (Claude Code / Grok Build hooks)
  * 0b. GROK_WORKSPACE_ROOT environment variable (Grok Build hooks / MCP)
  * 0c. CODEX_CWD environment variable (Codex hooks / MCP)
+ * 0d. TERMINAL_CWD environment variable (Hermes hooks)
  * 1. SQLEW_PROJECT_ROOT environment variable (MCP client can set this)
  * 2. CLI --db-path argument (absolute path) → use dirname
  * 3. CLI --config-path argument (absolute path) → use dirname
@@ -101,6 +102,12 @@ export function determineProjectRoot(options: ProjectRootOptions = {}): string {
   const codexCwd = process.env.CODEX_CWD;
   if (codexCwd && path.isAbsolute(codexCwd)) {
     return codexCwd.replace(/\\/g, '/');
+  }
+
+  // Priority 0d: TERMINAL_CWD (Hermes shell hooks inject workspace cwd)
+  const terminalCwd = process.env.TERMINAL_CWD;
+  if (terminalCwd && path.isAbsolute(terminalCwd)) {
+    return terminalCwd.replace(/\\/g, '/');
   }
 
   // Priority 1: SQLEW_PROJECT_ROOT environment variable

@@ -39,7 +39,7 @@ function isImplementationFile(filePath: string | undefined): boolean {
   if (normalized.endsWith('.md')) return false;
 
   // Exclude plan files explicitly
-  if (normalized.includes('.claude/plans/')) return false;
+  if (normalized.includes('.claude/plans/') || normalized.includes('.hermes/plans/')) return false;
 
   // Exclude documentation directories
   if (normalized.includes('/docs/')) return false;

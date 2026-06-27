@@ -29,6 +29,9 @@ describe('codex-hook-normalization', () => {
     delete process.env.GROK_WORKSPACE_ROOT;
     delete process.env.CLAUDE_PROJECT_DIR;
     delete process.env.SQLEW_PROJECT_ROOT;
+    delete process.env.HERMES_SESSION_ID;
+    delete process.env.HERMES_HOME;
+    delete process.env._HERMES_GATEWAY;
   });
 
   afterEach(() => {

@@ -43,37 +43,85 @@ npm install -g sqlew
 
 ### 2. Setup
 
-Choose the setup that matches your environment:
+Choose the setup that matches your environment. Each client has its own install and uninstall steps.
 
 #### Claude Code (Plugin)
+
+**Install:**
 
 ```bash
 claude plugin marketplace add sqlew-io/sqlew-plugin
 claude plugin install sqlew
 ```
 
-The plugin automatically configures MCP server, Skills (Plan Mode guidance), and Hooks (automatic decision capture).
+Configures MCP server, Skills (Plan Mode guidance), and Hooks (automatic decision capture).
+
+**Uninstall:**
+
+```bash
+claude plugin remove sqlew
+```
 
 #### Codex CLI (Plugin)
+
+**Install:**
 
 ```bash
 codex plugin marketplace add sqlew-io/sqlew-plugin
 codex plugin install sqlew --source sqlew-plugin
 ```
 
-After install, open `/hooks` in Codex and trust the bundled sqlew hooks. Enable Plan Mode with `collaboration_modes = true` under `[features]` in your Codex config. The plugin configures MCP server, Skills (plan mode guidance), and Hooks (plan enforcement, PR ADR guard, decision extraction). See [Hooks Guide](docs/HOOKS_GUIDE.md) for caveats (do not duplicate skills in `~/.codex/skills/` or add `[mcp_servers.sqlew]` to `config.toml`).
+After install, open `/hooks` in Codex and trust the bundled sqlew hooks. Enable Plan Mode with `collaboration_modes = true` under `[features]` in your Codex config.
+
+> Do not duplicate skills in `~/.codex/skills/` or add `[mcp_servers.sqlew]` to `config.toml` when using the plugin. See [Hooks Guide](docs/HOOKS_GUIDE.md).
+
+**Uninstall:**
+
+```bash
+codex plugin remove sqlew
+```
 
 #### Grok Build (Plugin)
 
+**Install:**
+
 ```bash
-npm install -g sqlew
 grok plugin install sqlew-io/sqlew-plugin --trust
 grok plugin update
 ```
 
-The plugin configures MCP server, Skills (plan mode guidance), and Hooks (automatic decision capture on `exit_plan_mode`). See [Hooks Guide](docs/HOOKS_GUIDE.md) for setup details and caveats (do not duplicate hooks in `~/.grok/hooks/` or `config.toml`).
+Configures MCP server, Skills (plan mode guidance), and Hooks (automatic decision capture on `exit_plan_mode`).
 
-#### Manual
+> Do not duplicate hooks in `~/.grok/hooks/` or add `[mcp_servers.sqlew]` to `~/.grok/config.toml`. See [Hooks Guide](docs/HOOKS_GUIDE.md).
+
+**Uninstall:**
+
+```bash
+grok plugin remove sqlew
+```
+
+#### Hermes (Plugin)
+
+Requires sqlew **>= 5.3.0**. Hermes uses a separate plugin bundle (`.hermes-plugin/`), not the Claude/Codex plugin manifest.
+
+**Install:**
+
+```bash
+hermes plugins install sqlew-io/sqlew-plugin/.hermes-plugin
+hermes plugins enable sqlew
+```
+
+Merges MCP + shell hooks into `~/.hermes/config.yaml` and copies planning skills to `~/.hermes/skills/`. See [Hermes Hooks Guide](docs/HERMES_HOOKS.md) for wire-protocol details and manual `config.yaml` setup.
+
+**Uninstall:**
+
+```bash
+hermes plugins remove sqlew
+```
+
+If you merged hooks manually before using the plugin, also remove `mcp_servers.sqlew` and sqlew `hooks:` entries from `~/.hermes/config.yaml`. Skills under `~/.hermes/skills/sqlew-*` are not removed automatically.
+
+#### Manual (MCP only)
 
 Add to `.mcp.json` in your project root:
 
@@ -101,7 +149,7 @@ No special commands needed — just plan your work normally, and sqlew captures 
 - **Fast Queries** — 2-50ms retrieval via SQL, even with thousands of decisions
 - **Duplicate Detection** — Three-tier similarity scoring (0-100) prevents redundant decisions
 - **Constraint Tracking** — Architectural rules and principles as first-class entities
-- **Auto-Capture** — Hooks automatically record decisions from Plan Mode (Claude Code, Codex, and Grok Build via sqlew-plugin)
+- **Auto-Capture** — Hooks automatically record decisions from Plan Mode (Claude Code, Codex, Grok Build, and Hermes via sqlew-plugin)
 - **Multi-Database** — SQLite (default), PostgreSQL, MySQL/MariaDB, or Cloud
 - **Git Worktree Ready** — Each worktree shares the same context database
 
@@ -157,7 +205,8 @@ name = "your-project-name"
 |-------|-------------|
 | [ADR Concepts](docs/ADR_CONCEPTS.md) | Architecture Decision Records explained |
 | [Configuration](docs/CONFIGURATION.md) | Config file setup, database options |
-| [Hooks Guide](docs/HOOKS_GUIDE.md) | Claude Code, Codex, and Grok Build integration |
+| [Hooks Guide](docs/HOOKS_GUIDE.md) | Claude Code, Codex, Grok Build, and Hermes integration |
+| [Hermes Hooks Guide](docs/HERMES_HOOKS.md) | Hermes-specific setup and wire-protocol notes |
 | [Cross Database](docs/CROSS_DATABASE.md) | Multi-database support |
 | [CLI Usage](docs/CLI_USAGE.md) | Database migration, export/import |
 
@@ -178,15 +227,16 @@ Support development via [GitHub Sponsors](https://github.com/sponsors/sqlew-io).
 
 ## Version
 
-Current version: **5.2.0**
+Current version: **5.3.0**
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 
-**What's New in v5.2.0:**
+**What's New in v5.3.0:**
 
-- **Grok Build support** — Plan-to-ADR via [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) (`grok plugin install sqlew-io/sqlew-plugin --trust`)
-- **Grok plan.md injection** — Decision/Constraint template appended on `enter_plan_mode`
-- **Hook normalization** — Single CLI hook handlers work under both Claude Code and Grok Build
+- **Hermes support** — Plan-to-ADR via [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) `.hermes-plugin` bundle (`hermes plugins install sqlew-io/sqlew-plugin/.hermes-plugin`)
+- **Hook normalization** — Hermes `pre_tool_call` / `pre_llm_call` payloads mapped to canonical Claude-shaped events and tools
+- **Every-turn plan guidance** — `on-prompt` injects FULL/SHORT context via Hermes `pre_llm_call` (`{"context":"..."}`)
+- **`.hermes/plans/`** — Plan files written by the Hermes `plan` skill are tracked for decision extraction
 
 ## License
 
