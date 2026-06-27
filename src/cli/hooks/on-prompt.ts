@@ -20,7 +20,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { readStdinJson, isPlanMode, getProjectPath } from './stdin-parser.js';
+import { readStdinJson, isPlanMode, getProjectPath, sendHermesContext } from './stdin-parser.js';
 import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
 import { findCodexTranscriptPath } from './codex-transcript.js';
 
@@ -84,6 +84,38 @@ export async function onPromptCommand(): Promise<void> {
     // Grok Build: UserPromptSubmit is a passive hook — stdout is ignored.
     // Plan mode guidance is delivered via plugin skills instead.
     if (input.client === 'grok') {
+      return;
+    }
+
+    // Hermes: pre_llm_call is the only context-injection point and there is no
+    // plan permission mode. Inject FULL guidance once per session, SHORT after.
+    if (input.client === 'hermes') {
+      const hermesProjectPath = getProjectPath(input);
+      if (!hermesProjectPath) {
+        sendHermesContext(ENFORCEMENT_FULL);
+        return;
+      }
+
+      let hermesPlanInfo = loadCurrentPlan(hermesProjectPath);
+      if (!hermesPlanInfo || !hermesPlanInfo.enforcement_shown_at) {
+        sendHermesContext(ENFORCEMENT_FULL);
+        if (hermesPlanInfo) {
+          hermesPlanInfo.enforcement_shown_at = new Date().toISOString();
+          saveCurrentPlan(hermesProjectPath, hermesPlanInfo);
+        } else {
+          const info: CurrentPlanInfo = {
+            plan_id: randomUUID(),
+            plan_file: 'hermes-plan.md',
+            plan_updated_at: new Date().toISOString(),
+            recorded: false,
+            decision_pending: true,
+            enforcement_shown_at: new Date().toISOString(),
+          };
+          saveCurrentPlan(hermesProjectPath, info);
+        }
+      } else {
+        sendHermesContext(ENFORCEMENT_SHORT);
+      }
       return;
     }
 
