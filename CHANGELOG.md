@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.3.1] - 2026-06-29
+
+### Added
+
+**Tool-call-level project targeting for desktop AI agents**
+
+Desktop AI agents (Claude Desktop, Hermes Desktop, ...) spawn the MCP server from a fixed cwd such as the user home folder, so sqlew's startup-time project detection cannot identify the active project. This release extends project resolution from "once per process" to "per tool call" without breaking any existing path.
+
+- **`_sqlew_project` parameter** — Reserved per-call scope accepted by `decision`, `constraint`, `suggest`, and `queue`. Targets a project by `root` (absolute repo path), `name`, or `ref` (e.g. `sqlew_proj_3`); overrides startup detection for that call only. Resolution is implemented with `AsyncLocalStorage` (`runWithProjectScope` in `project-context.ts`), so it is concurrency-safe and required no changes to the ~25 internal `getProjectContext()` call sites.
+- **`project` tool** — New MCP tool with actions `current` / `resolve` / `list` / `validate`. Desktop flow: call `project.resolve { root }` once, then pass `_sqlew_project: { ref }` on subsequent calls.
+- **Pollution guard (P0)** — When the server is launched from an ambiguous directory (user home or a system directory) with no explicit project signal, sqlew no longer auto-registers a directory-name project or writes `config.toml`. The context is left *unbound*; project-scoped writes/reads fail-closed with `SQLEW_PROJECT_REQUIRED` until a project is specified, while `help` / `example` / `use_case` / `project` remain usable.
+
+### Compatibility
+
+- Fully backward compatible. With `_sqlew_project` omitted and any explicit signal present (`CLAUDE_PROJECT_DIR`, `GROK_WORKSPACE_ROOT`, `CODEX_CWD`, `TERMINAL_CWD`, `SQLEW_PROJECT_ROOT`, `--db-path`, `--config-path`, or a config `database.path`), or a normal repo-cwd launch, behavior is unchanged.
+- No database schema change (no migration). `m_projects.name` remains unique; a name that already exists with a different root is rejected on writes (`SQLEW_PROJECT_NAME_COLLISION`).
+- The existing read-only `_reference_project` parameter is unchanged.
+
+---
+
 ## [5.3.0] - 2026-06-27
 
 ### Added

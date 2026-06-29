@@ -1,0 +1,191 @@
+# Project Tool - Per-call Project Resolution
+# Target a specific project for desktop AI agents and multi-project setups.
+
+[tool]
+name = "project"
+description = "Project resolution for tool-call-level project targeting. Desktop AI agents (Claude Desktop, Hermes Desktop) launch the MCP server from a fixed cwd, so the active project cannot be inferred. Resolve a project by root path or name to obtain a stable ref, then pass _sqlew_project: { ref } on decision/constraint/suggest/queue calls."
+
+# =============================================================================
+# ACTIONS
+# =============================================================================
+
+[[actions]]
+name = "current"
+description = "Show the active project for this session/call, or an unbound status when the server was launched from an ambiguous directory"
+
+  [[actions.params]]
+  name = "action"
+  type = "string"
+  required = true
+  description = "Must be \"current\""
+
+  [[actions.examples]]
+  title = "Show current project"
+  code = '''
+{
+  "action": "current"
+}
+'''
+  explanation = "Returns the bound project (id, name, root, ref) or { bound: false } with a hint when unbound"
+
+# -----------------------------------------------------------------------------
+
+[[actions]]
+name = "resolve"
+description = "Resolve (and optionally register) a project by root path, name, or ref. Returns a stable ref to reuse on subsequent calls."
+
+  [[actions.params]]
+  name = "action"
+  type = "string"
+  required = true
+  description = "Must be \"resolve\""
+
+  [[actions.params]]
+  name = "root"
+  type = "string"
+  required = false
+  description = "Absolute path to the project root. Name is derived from config.toml/git/dir; creates the project if missing."
+
+  [[actions.params]]
+  name = "name"
+  type = "string"
+  required = false
+  description = "Project name registered in m_projects. Looks up existing; creation requires allow_create."
+
+  [[actions.params]]
+  name = "ref"
+  type = "string"
+  required = false
+  description = "Existing stable ref (e.g. \"sqlew_proj_3\")"
+
+  [[actions.params]]
+  name = "allow_create"
+  type = "boolean"
+  required = false
+  description = "Allow creating a new project when resolving by name"
+
+  [[actions.examples]]
+  title = "Resolve by repo path"
+  code = '''
+{
+  "action": "resolve",
+  "root": "C:/Users/me/RustroverProjects/mcp-sqlew"
+}
+'''
+  explanation = "Returns { project: { id, name, root, ref }, usage: { _sqlew_project: { ref } } }. Pass the ref on later decision/constraint calls."
+
+# -----------------------------------------------------------------------------
+
+[[actions]]
+name = "list"
+description = "List all registered projects with their refs"
+
+  [[actions.params]]
+  name = "action"
+  type = "string"
+  required = true
+  description = "Must be \"list\""
+
+  [[actions.examples]]
+  title = "List projects"
+  code = '''
+{
+  "action": "list"
+}
+'''
+  explanation = "Returns all m_projects rows (id, name, root, detection_source, ref) ordered by most recently active"
+
+# -----------------------------------------------------------------------------
+
+[[actions]]
+name = "validate"
+description = "Check whether a root/name/ref resolves cleanly, without creating anything (read-only probe)"
+
+  [[actions.params]]
+  name = "action"
+  type = "string"
+  required = true
+  description = "Must be \"validate\""
+
+  [[actions.params]]
+  name = "root"
+  type = "string"
+  required = false
+  description = "Absolute path to the project root to validate"
+
+  [[actions.params]]
+  name = "name"
+  type = "string"
+  required = false
+  description = "Project name to validate"
+
+  [[actions.params]]
+  name = "ref"
+  type = "string"
+  required = false
+  description = "Project ref to validate"
+
+  [[actions.examples]]
+  title = "Validate a name"
+  code = '''
+{
+  "action": "validate",
+  "name": "mcp-sqlew"
+}
+'''
+  explanation = "Returns { ok: true, project } when registered, or { ok: false, error, message } (e.g. SQLEW_PROJECT_NOT_FOUND / SQLEW_PROJECT_NAME_COLLISION)"
+
+# -----------------------------------------------------------------------------
+
+[[actions]]
+name = "help"
+description = "Get project tool documentation"
+
+  [[actions.params]]
+  name = "action"
+  type = "string"
+  required = true
+  description = "Must be \"help\""
+
+  [[actions.examples]]
+  title = "Get help"
+  code = '''
+{
+  "action": "help"
+}
+'''
+  explanation = "Display project tool documentation"
+
+# -----------------------------------------------------------------------------
+
+[[actions]]
+name = "example"
+description = "Get project tool usage examples"
+
+  [[actions.params]]
+  name = "action"
+  type = "string"
+  required = true
+  description = "Must be \"example\""
+
+  [[actions.examples]]
+  title = "Get examples"
+  code = '''
+{
+  "action": "example"
+}
+'''
+  explanation = "Display project tool usage examples"
+
+# =============================================================================
+# USE CASES
+# =============================================================================
+
+[[use_cases]]
+title = "Record a decision from Claude Desktop / Hermes Desktop"
+description = "The MCP server is launched from the user home folder, so no project is bound. Establish the project once, then target it explicitly."
+steps = [
+  "1. project.resolve { root: \"C:/path/to/repo\" } -> copy usage._sqlew_project.ref",
+  "2. decision.set { key, value, _sqlew_project: { ref } }",
+  "3. Reuse the same _sqlew_project.ref for further decision/constraint calls"
+]

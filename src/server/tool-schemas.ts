@@ -15,6 +15,20 @@
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
+// Shared: per-call project scope (desktop AI agents / multi-project)
+// Reserved parameter `_sqlew_project` targets a specific project for this call,
+// overriding the startup-detected project. Resolved by root path, name, or ref.
+// ---------------------------------------------------------------------------
+export const projectContextSchema = z.object({
+  _sqlew_project: z.object({
+    root: z.string().describe('Absolute path to the project root (repo directory)').optional(),
+    name: z.string().describe('Project name registered in m_projects').optional(),
+    ref: z.string().describe('Stable project ref from the "project" tool (e.g. "sqlew_proj_3")').optional(),
+    allow_create: z.boolean().describe('Allow creating a new project when resolving by name').optional(),
+  }).describe('Per-call project target (overrides startup detection). Use the "project" tool to obtain a ref.').optional(),
+});
+
+// ---------------------------------------------------------------------------
 // decision: action enum + passthrough (additionalProperties: true)
 // ---------------------------------------------------------------------------
 export const decisionSchema = z.object({
@@ -26,7 +40,7 @@ export const decisionSchema = z.object({
     'create_policy', 'list_policies', 'set_from_policy',
     'help', 'example', 'use_case',
   ]).describe('Action'),
-}).passthrough();
+}).merge(projectContextSchema).passthrough();
 
 // ---------------------------------------------------------------------------
 // constraint: action enum + passthrough (additionalProperties: true)
@@ -36,7 +50,7 @@ export const constraintSchema = z.object({
     'add', 'get', 'deactivate', 'suggest_pending',
     'help', 'example', 'use_case',
   ]).describe('Action'),
-}).passthrough();
+}).merge(projectContextSchema).passthrough();
 
 // ---------------------------------------------------------------------------
 // help: all params explicitly defined (additionalProperties: false by default)
@@ -101,7 +115,7 @@ export const suggestSchema = z.object({
   priority: z.number().describe('Priority level (optional)').optional(),
   limit: z.number().describe('Max suggestions (default: 5)').optional(),
   min_score: z.number().describe('Minimum relevance score (default: 30)').optional(),
-}).strict();
+}).merge(projectContextSchema).strict();
 
 // ---------------------------------------------------------------------------
 // queue: strict (additionalProperties: false)
@@ -111,6 +125,19 @@ export const queueSchema = z.object({
     'list', 'clear', 'remove', 'help', 'example',
   ]).describe('Queue action to perform'),
   index: z.number().describe('Item index for remove action (0-based)').optional(),
+}).merge(projectContextSchema).strict();
+
+// ---------------------------------------------------------------------------
+// project: per-call project resolution for desktop AI agents (strict)
+// ---------------------------------------------------------------------------
+export const projectSchema = z.object({
+  action: z.enum([
+    'current', 'resolve', 'list', 'validate', 'help', 'example',
+  ]).describe('Project action to perform'),
+  root: z.string().describe('Absolute path to the project root (for resolve, validate)').optional(),
+  name: z.string().describe('Project name (for resolve, validate)').optional(),
+  ref: z.string().describe('Stable project ref, e.g. "sqlew_proj_3" (for resolve, validate)').optional(),
+  allow_create: z.boolean().describe('Allow creating a new project when resolving by name').optional(),
 }).strict();
 
 // ---------------------------------------------------------------------------
@@ -121,6 +148,7 @@ export const queueSchema = z.object({
 export const TOOL_SCHEMAS: Record<string, z.ZodType> = {
   decision: decisionSchema,
   constraint: constraintSchema,
+  project: projectSchema,
   help: helpSchema,
   example: exampleSchema,
   use_case: useCaseSchema,
@@ -132,6 +160,15 @@ export const TOOL_SCHEMAS: Record<string, z.ZodType> = {
 export const TOOL_DESCRIPTIONS: Record<string, string> = {
   decision: 'Context Management - Store decisions with versioning and metadata. Use action: "help" for documentation.',
   constraint: 'Architectural Rules - Define and manage project constraints with priorities. Use action: "help" for documentation.',
+  project: `Project Resolution - Target a specific project per tool call (desktop AI agents / multi-project).
+
+Actions:
+- current: Show the active project (or unbound status)
+- resolve: Resolve/register a project by root path or name; returns a stable ref
+- list: List all registered projects
+- validate: Check whether a root/name/ref resolves cleanly (read-only)
+
+Desktop flow: call project.resolve { root } once, then pass _sqlew_project: { ref } on subsequent decision/constraint calls. Use action: "help" for documentation.`,
   help: `**REQUIRED PARAMETER**: action (must be specified in ALL calls)
 
 Help System - Query action documentation, parameters, and workflow guidance

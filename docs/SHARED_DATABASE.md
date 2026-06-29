@@ -89,6 +89,66 @@ path = ".sqlew/sqlew.db"    # project-local database
 
 Project-level config always overrides global config, so you can use the global shared database by default and opt specific projects out as needed.
 
+## Desktop AI Agents (Claude Desktop / Hermes Desktop)
+
+CLI-based agents (Claude Code, Codex, Grok Build, Hermes hooks) launch the MCP server in your project's working directory or inject a workspace environment variable, so sqlew detects the correct project automatically. Desktop apps are different: they spawn the MCP server from a fixed cwd (often the user home folder), so the launch directory does not identify which project you are working on.
+
+sqlew handles this in two ways.
+
+### 1. Pollution guard (automatic)
+
+If the server starts from an ambiguous directory (the user home folder or a system directory) with no explicit project signal, sqlew does **not** invent a project from the folder name or write a `config.toml` there. The session is left **unbound**. Project-scoped tools then fail-closed rather than writing decisions to the wrong place:
+
+```json
+{
+  "error": "SQLEW_PROJECT_REQUIRED",
+  "message": "sqlew has no bound project ... Pass _sqlew_project.root or .name on this call, or call the \"project\" tool (action: resolve) first to obtain a ref."
+}
+```
+
+`help`, `example`, `use_case`, and the `project` tool stay usable so the agent can recover.
+
+### 2. Per-call project targeting
+
+Pass the reserved `_sqlew_project` parameter on `decision`, `constraint`, `suggest`, and `queue` calls to target a specific project for that call. It accepts a `root` (absolute repo path), a `name`, or a `ref`:
+
+```json
+{
+  "action": "set",
+  "key": "auth/method",
+  "value": "JWT with refresh",
+  "_sqlew_project": { "root": "C:/Users/me/RustroverProjects/mcp-sqlew" }
+}
+```
+
+The recommended desktop flow uses the `project` tool to resolve once and reuse a stable `ref`:
+
+```json
+// 1) Resolve the project (creates it if missing when given a root)
+{ "action": "resolve", "root": "C:/Users/me/RustroverProjects/mcp-sqlew" }
+// -> { "project": { ..., "ref": "sqlew_proj_3" }, "usage": { "_sqlew_project": { "ref": "sqlew_proj_3" } } }
+
+// 2) Reuse the ref on subsequent calls
+{ "action": "set", "key": "...", "value": "...", "_sqlew_project": { "ref": "sqlew_proj_3" } }
+```
+
+`project` tool actions: `current` (active project or unbound status), `resolve` (resolve/register, returns a ref), `list` (all registered projects), `validate` (read-only check).
+
+### Single-project shortcut (env var)
+
+If a desktop server instance only ever works on one project, set `SQLEW_PROJECT_ROOT` in the MCP server's `env` block. This counts as an explicit signal, so the session binds normally and `_sqlew_project` is not needed:
+
+```json
+{
+  "mcpServers": {
+    "sqlew-mcp-sqlew": {
+      "command": "sqlew",
+      "env": { "SQLEW_PROJECT_ROOT": "C:/Users/me/RustroverProjects/mcp-sqlew" }
+    }
+  }
+}
+```
+
 ## FAQ
 
 ### Can I still use project-local databases?
@@ -106,3 +166,7 @@ No change. External database connections configured in `config.toml` work exactl
 ### Is data shared between projects?
 
 Yes, all projects using the default global database share the same `sqlew-shared.db` file. Each project's data is scoped by `project_id`, so there's no data mixing. This is the same model used when multiple projects connect to a shared MySQL/PostgreSQL instance.
+
+### My desktop agent writes to the wrong project (or none). What do I do?
+
+Desktop apps launch the MCP server from a fixed cwd, so it can't detect your project. Either set `SQLEW_PROJECT_ROOT` in the server's `env` (single-project), or pass `_sqlew_project` per call / use the `project` tool to resolve a `ref` (multi-project). See [Desktop AI Agents](#desktop-ai-agents-claude-desktop--hermes-desktop) above.

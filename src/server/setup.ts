@@ -23,7 +23,7 @@ import { detectVCS, GitAdapter } from '../utils/vcs-adapter.js';
 import { startQueueWatcher } from '../watcher/queue-watcher.js';
 import { initDebugLogger, debugLog } from '../utils/debug-logger.js';
 import { ensureSqlewDirectory } from '../config/example-generator.js';
-import { determineProjectRoot } from '../utils/project-root.js';
+import { determineProjectRoot, isAmbiguousProjectRoot, wasProjectRootExplicit } from '../utils/project-root.js';
 import { ParsedArgs } from './arg-parser.js';
 import { initializeSqlewRules } from '../init-rules.js';
 import { loadGlobalConfig, getDefaultDbPath } from '../config/global-config.js';
@@ -314,6 +314,10 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
     // Local/RDBMS mode: Detect project name with priority order
     const knex = getAdapter().getKnex();
 
+    // P0: stays true only when we deliberately leave the project unbound
+    // (ambiguous desktop launch) — see the pollution guard below.
+    let unbound = false;
+
     // Priority order: CLI --project-name > config.toml > git remote > directory name
     if (parsedArgs.projectName) {
       projectName = parsedArgs.projectName;
@@ -344,8 +348,24 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
         debugLog('INFO', 'Project name from directory (no VCS)', { projectName });
       }
 
-      // Write to config.toml if not present AND not CLI override
-      if (!parsedArgs.projectName) {
+      // P0 pollution guard: when the name came purely from the directory AND the
+      // root came from the bare cwd fallback AND that cwd is ambiguous (user home
+      // / system dir — e.g. a desktop AI agent launch), do NOT auto-register a
+      // directory-name project or write config.toml. Leave the context unbound so
+      // project-scoped tools require an explicit _sqlew_project (fail-closed).
+      const explicitRoot = wasProjectRootExplicit({
+        cliDbPath: parsedArgs.dbPath,
+        cliConfigPath: parsedArgs.configPath,
+        configDbPath: fileConfig.database?.path,
+      });
+      if (detectionSource === 'directory' && !explicitRoot && isAmbiguousProjectRoot(finalProjectRoot)) {
+        unbound = true;
+        projectContext.markUnbound(`launched from ambiguous directory: ${finalProjectRoot}`);
+        debugLog('WARN', 'Project left unbound (ambiguous launch directory)', { finalProjectRoot });
+      }
+
+      // Write to config.toml if not present AND not CLI override (skip when unbound)
+      if (!unbound && !parsedArgs.projectName) {
         const configWritten = ensureProjectConfig(finalProjectRoot, projectName, {
           configPath: parsedArgs.configPath,
         });
@@ -360,22 +380,24 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
       }
     }
 
-    // Initialize with database
-    await projectContext.ensureProject(knex, projectName, detectionSource, {
-      projectRootPath: finalProjectRoot,
-    });
+    // Initialize with database (skip when unbound — nothing to register)
+    if (!unbound) {
+      await projectContext.ensureProject(knex, projectName, detectionSource, {
+        projectRootPath: finalProjectRoot,
+      });
 
-    debugLog('INFO', 'ProjectContext initialized', {
-      projectId: projectContext.getProjectId(),
-      projectName: projectContext.getProjectName(),
-    });
+      debugLog('INFO', 'ProjectContext initialized', {
+        projectId: projectContext.getProjectId(),
+        projectName: projectContext.getProjectName(),
+      });
+    }
   }
 
-  // Log successful initialization
+  // Log successful initialization (unbound contexts have no project to report)
   debugLog('INFO', 'MCP Shared Context Server initialized', {
     dbPath,
-    projectId: projectContext.getProjectId(),
-    projectName: projectContext.getProjectName(),
+    projectId: projectContext.isUnbound() ? null : projectContext.getProjectId(),
+    projectName: projectContext.isUnbound() ? '<unbound>' : projectContext.getProjectName(),
     debugLogLevel: debugLogLevel
   });
 

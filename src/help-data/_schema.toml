@@ -12,7 +12,7 @@ parameter_naming = "snake_case"
 
 [tools]
 # List of available tools (for quick reference)
-available = ["decision", "constraint", "suggest", "help", "example", "use_case"]
+available = ["decision", "constraint", "project", "suggest", "help", "example", "use_case"]
 
 [complexity_levels]
 # Use case complexity definitions

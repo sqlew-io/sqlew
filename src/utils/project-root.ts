@@ -23,6 +23,7 @@
  */
 
 import * as path from 'path';
+import * as os from 'os';
 
 export interface ProjectRootOptions {
   /**
@@ -172,4 +173,71 @@ export function isSystemDirectory(dirPath: string): boolean {
   ];
 
   return systemDirs.some(sysDir => normalizedPath.includes(sysDir));
+}
+
+/**
+ * Whether the project root was determined from an explicit signal rather than
+ * the bare process.cwd() fallback.
+ *
+ * Mirrors the priority-0..4 checks in determineProjectRoot(): if any of the
+ * recognized environment variables or CLI/config path arguments are present
+ * (as absolute paths), the integrator clearly intended a specific project, so
+ * the launch is trusted and never treated as ambiguous.
+ *
+ * @param options - Same options passed to determineProjectRoot()
+ * @returns true if an explicit root signal was provided
+ */
+export function wasProjectRootExplicit(options: ProjectRootOptions = {}): boolean {
+  const envSignals = [
+    process.env.CLAUDE_PROJECT_DIR,
+    process.env.GROK_WORKSPACE_ROOT,
+    process.env.CODEX_CWD,
+    process.env.TERMINAL_CWD,
+    process.env.SQLEW_PROJECT_ROOT,
+  ];
+  if (envSignals.some(value => value && path.isAbsolute(value))) {
+    return true;
+  }
+  if (options.cliDbPath && path.isAbsolute(options.cliDbPath)) return true;
+  if (options.cliConfigPath && path.isAbsolute(options.cliConfigPath)) return true;
+  if (options.configDbPath && path.isAbsolute(options.configDbPath)) return true;
+  return false;
+}
+
+/**
+ * Whether a directory is too ambiguous to safely auto-register as a project.
+ *
+ * Desktop AI agents (Claude Desktop, Hermes Desktop, etc.) often spawn the MCP
+ * server with a fixed cwd such as the user home folder or a system directory.
+ * Auto-deriving a project name from those locations pollutes the shared DB
+ * (e.g. a "kitayama" project from C:\Users\kitayama). This guard is kept
+ * intentionally conservative so legitimate first-run CLI usage from a plain
+ * project folder is NOT affected:
+ *
+ * - Windows system directories (System32, Program Files, ...)
+ * - The user home directory itself
+ *
+ * Workspace-container detection (~/Projects, ~/Documents, ...) is deliberately
+ * left out for now to avoid false positives; it can be layered on later.
+ *
+ * @param root - Project root directory to evaluate
+ * @returns true if the directory is an ambiguous launch location
+ */
+export function isAmbiguousProjectRoot(root: string): boolean {
+  if (!root) {
+    return true;
+  }
+  if (isSystemDirectory(root)) {
+    return true;
+  }
+
+  const normalizedRoot = path.resolve(root).replace(/\\/g, '/').toLowerCase();
+  const home = path.resolve(os.homedir()).replace(/\\/g, '/').toLowerCase();
+
+  // The user home directory itself is ambiguous (the canonical desktop case).
+  if (normalizedRoot === home) {
+    return true;
+  }
+
+  return false;
 }
