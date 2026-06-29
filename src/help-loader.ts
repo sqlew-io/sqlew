@@ -167,7 +167,7 @@ export class HelpSystemLoader {
 
     try {
       // Load tool files
-      const toolFiles = ['decision', 'constraint', 'suggest', 'help', 'example', 'use_case', 'queue'];
+      const toolFiles = ['decision', 'constraint', 'project', 'suggest', 'help', 'example', 'use_case', 'queue'];
       for (const toolName of toolFiles) {
         const filePath = path.join(this.helpDataDir, `${toolName}.toml`);
         if (fs.existsSync(filePath)) {

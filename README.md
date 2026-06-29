@@ -217,9 +217,9 @@ name = "your-project-name"
 
 ### MCP Tools
 
-7 action-based tools: `decision`, `constraint`, `suggest`, `help`, `example`, `use_case`, `queue`
+8 action-based tools: `decision`, `constraint`, `project`, `suggest`, `help`, `example`, `use_case`, `queue`
 
-All tools support `action: "help"` for documentation.
+All tools support `action: "help"` for documentation. The `project` tool targets a project per call for desktop AI agents (Claude Desktop, Hermes Desktop) — see [Shared Database](docs/SHARED_DATABASE.md).
 
 ## Support
 

@@ -106,7 +106,11 @@ async function startMcpServer(): Promise<void> {
       safeConsoleError(`  Database: ${dbPath} (from ${source})`);
     }
 
-    safeConsoleError(`  Project: ${setupResult.projectContext.getProjectName()} (ID: ${setupResult.projectContext.getProjectId()}, source: ${setupResult.detectionSource})`);
+    if (setupResult.projectContext.isUnbound()) {
+      safeConsoleError(`  Project: <unbound> (${setupResult.projectContext.getUnboundReason() || 'ambiguous launch directory'}) - pass _sqlew_project or use the "project" tool`);
+    } else {
+      safeConsoleError(`  Project: ${setupResult.projectContext.getProjectName()} (ID: ${setupResult.projectContext.getProjectId()}, source: ${setupResult.detectionSource})`);
+    }
 
     // Detect parent process exit (stdin pipe closed)
     // StdioServerTransport only listens for 'data'/'error', not 'end'

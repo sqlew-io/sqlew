@@ -33,7 +33,36 @@ import {
   listQueue, clearQueue, removeFromQueue
 } from '../tools/queue/index.js';
 import { getHelpLoader } from '../help-loader.js';
-import { ProjectContext } from '../utils/project-context.js';
+import {
+  projectCurrent, projectResolve, projectList, projectValidate,
+  projectHelp, projectExample
+} from '../tools/project/index.js';
+import {
+  ProjectContext, getProjectContext, runWithProjectScope
+} from '../utils/project-context.js';
+import {
+  resolveProjectScope, type SqlewProjectInput
+} from '../utils/project-scope-resolver.js';
+
+/** Tools whose actions operate on a specific project (need a bound project). */
+const PROJECT_SCOPED_TOOLS = new Set(['decision', 'constraint', 'suggest', 'queue']);
+
+/** Actions that never touch a project (documentation), allowed even when unbound. */
+const PROJECT_AGNOSTIC_ACTIONS = new Set(['help', 'example', 'use_case']);
+
+/** Per-tool write actions (mutate data) — drive create-on-missing / collision checks. */
+const WRITE_ACTIONS: Record<string, Set<string>> = {
+  decision: new Set([
+    'set', 'quick_set', 'set_batch', 'set_from_template', 'set_from_policy',
+    'create_template', 'create_policy', 'hard_delete', 'add_decision_context',
+  ]),
+  constraint: new Set(['add', 'activate', 'activate_by_tag', 'deactivate']),
+  queue: new Set(['clear', 'remove']),
+};
+
+function isWriteAction(tool: string, action: string): boolean {
+  return WRITE_ACTIONS[tool]?.has(action) ?? false;
+}
 
 /**
  * LocalBackend implementation
@@ -53,6 +82,61 @@ export class LocalBackend implements ToolBackend {
   ): Promise<TResponse> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = params as any;
+
+    // Extract & strip the reserved per-call project scope before dispatch, so
+    // it never reaches action validators (validateActionParams rejects unknown
+    // keys) and is resolved here at the single tool entry point instead.
+    const projectInput: SqlewProjectInput | undefined = p._sqlew_project;
+    if (projectInput !== undefined) {
+      delete p._sqlew_project;
+    }
+
+    const needsProject =
+      PROJECT_SCOPED_TOOLS.has(tool) && !PROJECT_AGNOSTIC_ACTIONS.has(action);
+
+    // Per-call project targeting: resolve and run the dispatch inside a
+    // request-scoped ProjectContext. AsyncLocalStorage propagates the scope
+    // across awaits, so every getProjectContext() call (including deep helpers
+    // and transaction callbacks) observes the target project — concurrency-safe.
+    if (projectInput && needsProject) {
+      const metadata = await resolveProjectScope(projectInput, {
+        forWrite: isWriteAction(tool, action),
+      });
+      const scoped = ProjectContext.createScoped(metadata);
+      return await runWithProjectScope(scoped, () =>
+        this.dispatch<TResponse>(tool, action, p)
+      );
+    }
+
+    // Fail-closed when the server is unbound (ambiguous desktop cwd) and the
+    // caller did not specify a project. help/example/use_case and the `project`
+    // tool stay usable so the agent can recover.
+    if (needsProject && getProjectContext().isUnbound()) {
+      throw new Error(
+        JSON.stringify({
+          error: 'SQLEW_PROJECT_REQUIRED',
+          message:
+            'sqlew has no bound project (the MCP server was launched from an ambiguous ' +
+            'directory). Pass _sqlew_project.root or .name on this call, or call the ' +
+            '"project" tool (action: resolve) first to obtain a ref.',
+          reason: getProjectContext().getUnboundReason() || undefined,
+        })
+      );
+    }
+
+    return await this.dispatch<TResponse>(tool, action, p);
+  }
+
+  /**
+   * Dispatch a validated tool/action to its handler. Runs inside the active
+   * ProjectContext scope (singleton or request-scoped) when called from execute().
+   */
+  private async dispatch<TResponse = unknown>(
+    tool: string,
+    action: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p: any
+  ): Promise<TResponse> {
     let result: unknown;
 
     switch (tool) {
@@ -61,6 +145,9 @@ export class LocalBackend implements ToolBackend {
         break;
       case 'constraint':
         result = await this.executeConstraint(action, p);
+        break;
+      case 'project':
+        result = await this.executeProject(action, p);
         break;
       case 'help':
         result = await this.executeHelp(action, p);
@@ -384,11 +471,33 @@ export class LocalBackend implements ToolBackend {
    * Priority: ProjectContext.project_root_path > process.cwd()
    */
   private getProjectRoot(): string {
-    const ctx = ProjectContext.getInstance();
+    // Use the active context (request-scoped when _sqlew_project is supplied,
+    // singleton otherwise) so queue file paths follow the targeted project.
+    const ctx = getProjectContext();
     if (ctx.isInitialized()) {
       return ctx.getProjectMetadata().project_root_path || process.cwd();
     }
     return process.cwd();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async executeProject(action: string, params: any): Promise<unknown> {
+    switch (action) {
+      case 'current':
+        return projectCurrent();
+      case 'resolve':
+        return await projectResolve(params);
+      case 'list':
+        return await projectList();
+      case 'validate':
+        return await projectValidate(params);
+      case 'help':
+        return await projectHelp();
+      case 'example':
+        return await projectExample();
+      default:
+        throw new Error(`Unknown project action: ${action}`);
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
