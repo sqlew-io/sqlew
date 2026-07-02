@@ -12,6 +12,7 @@
  */
 
 import { Knex } from 'knex';
+import { levenshteinDistance } from './levenshtein.js';
 
 export interface SuggestionContext {
   key: string;
@@ -36,41 +37,6 @@ export interface ScoredSuggestion {
   tags: string[];  // For match detail analysis
   layer?: string;  // For match detail analysis
   updated_ts: number;  // For version info
-}
-
-/**
- * Calculate Levenshtein distance between two strings
- * Used for key pattern similarity scoring
- */
-function levenshteinDistance(a: string, b: string): number {
-  // Guard against undefined/null values
-  if (!a || !b) return Math.max(a?.length || 0, b?.length || 0);
-
-  const matrix: number[][] = [];
-
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
-  }
-
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
-  }
-
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-
-  return matrix[b.length][a.length];
 }
 
 /**

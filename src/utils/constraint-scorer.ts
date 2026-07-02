@@ -59,44 +59,10 @@ export interface ConstraintScoringContext {
   priority?: number;
 }
 
-/**
- * Calculate Levenshtein distance between two strings
- * Used for text similarity scoring
- *
- * @param a - First string
- * @param b - Second string
- * @returns Edit distance between strings
- */
-export function levenshteinDistance(a: string, b: string): number {
-  // Guard against undefined/null values
-  if (!a || !b) return Math.max(a?.length || 0, b?.length || 0);
-
-  const matrix: number[][] = [];
-
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
-  }
-
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
-  }
-
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-
-  return matrix[b.length][a.length];
-}
+// Shared implementation; re-exported because external callers and tests
+// import levenshteinDistance from this module
+import { levenshteinDistance } from './levenshtein.js';
+export { levenshteinDistance };
 
 /**
  * Calculate text similarity score (0-20 points)
