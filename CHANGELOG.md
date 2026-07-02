@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+
+**Session context injection (multi-harness, v5.4.0)**
+
+Proactively injects recent decisions and active constraints at session start so agents do not need to call `suggest` first.
+
+- **Snapshot file** — MCP server writes `.sqlew/session-context.json` (top 15 decisions + top 15 active constraints). Hooks read the file only; they never open the database.
+- **`[hooks]` config** — `session_context_budget` (default `500` tokens, `0` disables injection and snapshot writes). First config source wins; no deep merge between local and global.
+- **Delivery** — Claude Code: `SessionStart` (startup/clear). Hermes: first `pre_llm_call` combined with plan guidance. Codex: `SessionStart` or `UserPromptSubmit` fallback with session-id dedup.
+- **Dedup marker** — `~/.config/sqlew/session-cache/<project>.context.json` prevents double injection across SessionStart and on-prompt.
+
+### Documentation
+
+- **Harness Compatibility** — New [docs/HARNESS_COMPATIBILITY.md](docs/HARNESS_COMPATIBILITY.md) matrix: which features work on Claude Code, Codex, Grok Build, Hermes, and other harness (MCP server only) setups.
+
+### Limitations
+
+- **Grok Build** — Passive hooks ignore stdout; session context injection is not available in v5.4. Use skills or `/sqlew search` manually.
+
+---
+
 ## [5.3.2] - 2026-07-02
 
 ### Added

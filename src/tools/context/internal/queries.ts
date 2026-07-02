@@ -15,6 +15,7 @@ import { parseStringArray } from '../../../utils/param-parser.js';
 import { incrementSemver, isValidSemver } from '../../../utils/semver.js';
 import { validateAgainstPolicies } from '../../../utils/policy-validator.js';
 import { ftsUpsertDecision } from '../../../utils/fts.js';
+import { scheduleSnapshotRefresh } from '../../../utils/session-snapshot.js';
 import { handleSuggestAction } from '../../suggest/index.js';
 import { constraintByContext } from '../../suggest/actions/constraint-by-context.js';
 import type { SetDecisionParams, SetDecisionResponse } from '../types.js';
@@ -749,6 +750,7 @@ export async function setDecisionInternal(
     keyName: params.key,
     value: String(value),
   });
+  scheduleSnapshotRefresh();
 
   // Build response object
   const response: SetDecisionResponse = {

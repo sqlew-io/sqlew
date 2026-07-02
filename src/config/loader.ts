@@ -64,6 +64,10 @@ export function loadConfigFile(projectRoot: string = process.cwd(), configPath?:
         ...DEFAULT_CONFIG.debug,
         ...parsed.debug,
       },
+      hooks: {
+        ...DEFAULT_CONFIG.hooks,
+        ...parsed.hooks,
+      },
     };
 
     // Validate the merged configuration
@@ -258,6 +262,14 @@ export function validateConfig(config: SqlewConfig): { valid: boolean; errors: s
       if (config.autodelete.file_history_days < 1 || config.autodelete.file_history_days > 365) {
         errors.push('autodelete.file_history_days must be between 1 and 365');
       }
+    }
+  }
+
+  // Validate hooks settings
+  if (config.hooks?.session_context_budget !== undefined) {
+    const budget = config.hooks.session_context_budget;
+    if (!Number.isInteger(budget) || budget < 0 || budget > 10000) {
+      errors.push('hooks.session_context_budget must be an integer between 0 and 10000');
     }
   }
 

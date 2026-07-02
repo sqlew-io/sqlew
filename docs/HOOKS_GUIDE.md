@@ -2,6 +2,8 @@
 
 sqlew integrates with AI coding assistants through plugins.
 
+> **Feature × harness matrix:** See [HARNESS_COMPATIBILITY.md](HARNESS_COMPATIBILITY.md) for which capabilities (MCP, session context, Plan-to-ADR, PR guard, etc.) work on Claude Code, Codex, Grok Build, Hermes, and other harness setups (MCP only).
+
 ## Prerequisites
 
 Install the sqlew MCP server globally:
@@ -131,8 +133,38 @@ Merged `config.yaml` entries and skills under `~/.hermes/skills/sqlew-*` are not
 | PR enrichment | Skill + Hook | Skill + Hook | Skill + Hook | Hook (`pr-adr`) |
 | Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill |
 
+## Session Context Injection (v5.4.0+)
+
+sqlew proactively injects recent decisions and active constraints at session start so agents do not need to call `suggest` first.
+
+### Architecture
+
+The MCP server writes `.sqlew/session-context.json` (top-N decisions + active constraints). Hooks read this file only — they never open the database. This mirrors the existing hook queue (`.sqlew/queue/pending.json`) in the reverse direction.
+
+```
+decision.set / constraint.add  →  session-context.json  →  on-session-start / on-prompt
+```
+
+Snapshot writes are fail-soft: a snapshot failure never fails the primary MCP operation.
+
+Harness support (✓ / △ / — / ◎ / ✎): [HARNESS_COMPATIBILITY.md](HARNESS_COMPATIBILITY.md) feature matrix.
+
+### Configuration
+
+```toml
+[hooks]
+session_context_budget = 500   # default; set 0 to disable injection and snapshot writes
+```
+
+See [CONFIGURATION.md](CONFIGURATION.md) for priority rules (local config overrides global; no deep merge).
+
+### Grok Build limitation
+
+Grok Build hooks are passive — stdout injection is ignored. Session context injection is not available in v5.4. Use `/sqlew search` or the `sqlew-plan-guidance` skill to recall context manually.
+
 ## Version History
 
+- **v5.4.0**: Session context injection (snapshot file, multi-harness delivery, `[hooks]` config)
 - **v5.3.0**: Hermes hook adapter (event/tool normalization, `.hermes/plans`, `pre_llm_call` context injection)
 - **v5.2.1**: Codex plugin support via sqlew-plugin (`.codex-plugin`, marketplace, hook normalization, transcript-based plan extraction)
 - **v5.2.0**: Grok Build support via sqlew-plugin (hook normalization, Grok plan path, skills-based plan guidance)

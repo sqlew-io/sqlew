@@ -21,6 +21,7 @@ import { ensureProjectConfig } from '../config/writer.js';
 import { ProjectContext } from '../utils/project-context.js';
 import { detectVCS, GitAdapter } from '../utils/vcs-adapter.js';
 import { startQueueWatcher } from '../watcher/queue-watcher.js';
+import { refreshSnapshotNow } from '../utils/session-snapshot.js';
 import { initDebugLogger, debugLog } from '../utils/debug-logger.js';
 import { ensureSqlewDirectory } from '../config/example-generator.js';
 import { determineProjectRoot, isAmbiguousProjectRoot, wasProjectRootExplicit } from '../utils/project-root.js';
@@ -137,6 +138,7 @@ async function loadConfigWithPriority(
       database: mergedDatabase,
       autodelete: { ...DEFAULT_CONFIG.autodelete, ...globalConfig.autodelete },
       debug: { ...DEFAULT_CONFIG.debug, ...globalConfig.debug },
+      hooks: { ...DEFAULT_CONFIG.hooks, ...globalConfig.hooks },
     };
     return {
       config,
@@ -419,6 +421,13 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
   } catch (error) {
     debugLog('WARN', 'Failed to start queue watcher', { error });
     // Non-fatal - hooks will still enqueue, processed on next startup
+  }
+
+  // 10. Write initial session context snapshot for hook injection
+  try {
+    await refreshSnapshotNow();
+  } catch (error) {
+    debugLog('WARN', 'Failed to refresh session snapshot', { error });
   }
 
   return {

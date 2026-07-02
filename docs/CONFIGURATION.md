@@ -81,6 +81,21 @@ Requires `SQLEW_API_KEY` (see [Environment Variables](#environment-variables)).
 
 Authentication, encryption, and scaling are managed by the sqlew cloud service — no local database setup needed.
 
+## [hooks] — Hook Behavior (v5.4.0+)
+
+```toml
+[hooks]
+session_context_budget = 500   # Token budget for session-start context injection (default: 500)
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `session_context_budget` | `500` | Estimated token budget for injected session context. Set to `0` to disable both injection and snapshot writes. Valid range: `0`–`10000` (integer). |
+
+**Priority:** Config loading uses first-match-wins (local `.sqlew/config.toml` > worktree parent > global `~/.config/sqlew/config.toml` > defaults). There is no deep merge — if a local config file exists, global `[hooks]` settings are not applied.
+
+See [HOOKS_GUIDE.md](HOOKS_GUIDE.md#session-context-injection-v540) for architecture and [HARNESS_COMPATIBILITY.md](HARNESS_COMPATIBILITY.md) for per-harness support.
+
 ## [debug] — Debug Logging
 
 ```toml

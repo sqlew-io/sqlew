@@ -125,6 +125,17 @@ export interface PostToolUseHookOutput {
 }
 
 /**
+ * Hook-specific output for SessionStart (v5.4.0+)
+ * Used for injecting context at session start
+ */
+export interface SessionStartHookOutput {
+  /** Hook event name */
+  hookEventName: 'SessionStart';
+  /** Additional context to inject into Claude's context */
+  additionalContext?: string;
+}
+
+/**
  * Hook output to Claude Code
  */
 export interface HookOutput {
@@ -138,8 +149,8 @@ export interface HookOutput {
   systemMessage?: string;
   /** Whether to suppress output */
   suppressOutput?: boolean;
-  /** Hook-specific output (PreToolUse, PostToolUse) - v4.2.0+ */
-  hookSpecificOutput?: PreToolUseHookOutput | PostToolUseHookOutput;
+  /** Hook-specific output (PreToolUse, PostToolUse, SessionStart) - v4.2.0+ */
+  hookSpecificOutput?: PreToolUseHookOutput | PostToolUseHookOutput | SessionStartHookOutput;
   /** @deprecated Use hookSpecificOutput.updatedInput instead */
   updatedInput?: ToolInput;
 }
@@ -521,6 +532,26 @@ export function sendPostToolUseContext(additionalContext: string): void {
     continue: true,
     hookSpecificOutput: {
       hookEventName: 'PostToolUse',
+      additionalContext,
+    },
+  };
+  writeHookOutput(output);
+}
+
+/**
+ * Send a continue response with context for SessionStart
+ *
+ * Uses both top-level additionalContext and hookSpecificOutput for compatibility.
+ * Integration tests verify no double injection; drop top-level if duplicated.
+ *
+ * @param additionalContext - Context to inject at session start
+ */
+export function sendSessionStartContext(additionalContext: string): void {
+  const output: HookOutput = {
+    continue: true,
+    additionalContext,
+    hookSpecificOutput: {
+      hookEventName: 'SessionStart',
       additionalContext,
     },
   };

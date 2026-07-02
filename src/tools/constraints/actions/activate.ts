@@ -13,6 +13,7 @@ import { getProjectContext } from '../../../utils/project-context.js';
 import { normalizeParams, CONSTRAINT_ALIASES } from '../../../utils/param-normalizer.js';
 import connectionManager from '../../../utils/connection-manager.js';
 import { SQLITE_TRUE } from '../../../constants.js';
+import { scheduleSnapshotRefresh } from '../../../utils/session-snapshot.js';
 
 /**
  * Activate constraints by tag response
@@ -72,6 +73,7 @@ export async function activateConstraintsByTag(
         .where('project_id', projectId)
         .update({ active: SQLITE_TRUE });
 
+      scheduleSnapshotRefresh();
       return {
         success: true,
         activated_count: constraintIds.length,
@@ -128,6 +130,7 @@ export async function activateConstraint(
         .where('project_id', projectId)
         .update({ active: SQLITE_TRUE });
 
+      scheduleSnapshotRefresh();
       return {
         success: true,
         id: normalizedParams.id,

@@ -22,6 +22,7 @@ import { normalizeParams, CONSTRAINT_ALIASES } from '../../../utils/param-normal
 import { parseStringArray } from '../../../utils/param-parser.js';
 import { getProjectContext } from '../../../utils/project-context.js';
 import { ftsInsertConstraint } from '../../../utils/fts.js';
+import { scheduleSnapshotRefresh } from '../../../utils/session-snapshot.js';
 import connectionManager from '../../../utils/connection-manager.js';
 import type {
   AddConstraintParams,
@@ -131,6 +132,7 @@ export async function addConstraint(
         return { constraintId: Number(constraintId), alreadyExists: false };
       });
 
+      scheduleSnapshotRefresh();
       return {
         success: true,
         constraint_id: result.constraintId,
