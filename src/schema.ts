@@ -96,10 +96,10 @@ export async function verifySchemaIntegrity(adapter: DatabaseAdapter): Promise<{
     // Master tables (7)
     'm_projects', 'm_layers', 'm_context_keys', 'm_constraint_categories',
     'm_builtin_policies', 'm_tags', 'm_scopes',
-    // Transaction tables (11)
+    // Transaction tables (10)
     't_tag_index', 't_decisions', 't_decisions_numeric', 't_decision_history',
     't_decision_tags', 't_decision_scopes', 't_decision_context', 't_decision_policies',
-    't_constraints', 't_constraint_tags', 't_token_usage',
+    't_constraints', 't_constraint_tags',
   ];
 
   // v4.0: Views removed for cross-DB compatibility (replaced with application-level queries)

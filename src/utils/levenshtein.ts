@@ -1,10 +1,12 @@
 /**
  * Levenshtein Distance Calculation
- * Shared utility for typo detection across validation modules
+ * Shared utility for typo detection and text similarity scoring
  *
  * Used by:
  * - parameter-validator.ts (parameter typo suggestions)
  * - batch-validation.ts (enum value typo suggestions)
+ * - suggestion-scorer.ts (decision key similarity)
+ * - constraint-scorer.ts (constraint text similarity)
  */
 
 /**
@@ -16,8 +18,8 @@
  * @returns Edit distance (number of single-character edits needed)
  */
 export function levenshteinDistance(a: string, b: string): number {
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
+  // Guard against undefined/null values (callers score arbitrary DB text)
+  if (!a || !b) return Math.max(a?.length || 0, b?.length || 0);
 
   const matrix: number[][] = [];
 

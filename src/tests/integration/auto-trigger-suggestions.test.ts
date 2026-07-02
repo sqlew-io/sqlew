@@ -312,7 +312,7 @@ describe('Auto-Trigger Suggestions (Task 407)', () => {
       key: 'CVE-2024-9999-unique',
       value: 'Patched critical vulnerability in authentication middleware',
       tags: [],  // Empty tags might cause low scores
-      layer: 'presentation',  // Use different layer to avoid high similarity
+      layer: 'documentation',  // Layer unused by other CVE fixtures to avoid high similarity
       scopes: ['GLOBAL']
     });
 

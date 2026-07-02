@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.3.2] - 2026-07-02
+
+### Added
+
+**FTS5 hybrid search for constraint text similarity (SQLite)**
+
+`suggest { action: "by_context", target: "constraint" }` and constraint duplicate detection previously loaded every active constraint and scored it in JS (Levenshtein), which does not scale with table size. FTS5 now narrows the candidate set first; the unchanged scorer re-ranks the top bm25 matches, so result order is preserved.
+
+- **Migration** — SQLite-only `add_fts5_search` creates plain FTS5 tables `t_decisions_fts` / `t_constraints_fts` (trigram tokenizer for CJK substring matching) and backfills existing rows. MySQL/PostgreSQL run it as a no-op and keep the full-scan path.
+- **`src/utils/fts.ts`** — availability probe, injection-safe MATCH query builder, search and app-level sync helpers (DB triggers remain prohibited). FTS failures never fail the primary operation; searches fall back to the full scan.
+- **Index sync** — decision `set`/`set_batch`/`quick_set` (via `setDecisionInternal`), decision `hard_delete`, constraint `add`.
+
+### Changed
+
+**Tag overlap scoring is now Jaccard-discounted (BEHAVIOR CHANGE)**
+
+The tag component of suggestion scores (max 40) is the previous count-based score (10 per matching tag) multiplied by |intersection| / |union|. Tag-heavy candidates no longer outrank precise matches; identical tag sets keep their previous score, so the 35/45/60 duplicate-detection thresholds keep working for near-identical decisions. Scores for partial tag matches are lower than before.
+
+### Fixed
+
+**Tag-based suggestions: cross-project leak and layer-less exclusion**
+
+`buildTagIndexQuery` (used by `suggest by_tags`) inner-joined `m_layers`, silently excluding decisions without a layer, and joined `t_decisions` / `t_decision_tags` / `t_decisions_numeric` on `key_id` without a `project_id` condition. Because `m_context_keys` is global, a decision key reused by another project leaked that project's decisions, tags, and numeric values into the results (relevant since the default database became shared). All joins are now project-scoped and `m_layers` is left-joined, matching `buildDecisionQuery`.
+
+### Removed
+
+**`t_token_usage` table and dead token-logging code**
+
+The per-tool token consumption feature never worked: its only writer inserted v3-era column names that do not exist in the current schema, and nothing called it. A new idempotent migration drops the always-empty table (transaction tables: 11 → 10, total 17); `src/utils/token-logging.ts` is deleted. Existing create/rename migrations are untouched per the migration-lock policy.
+
+### Internal
+
+- Unified the three duplicated Levenshtein implementations into `src/utils/levenshtein.ts` (no behavior change).
+- Corrected the misleading `timestampColumn` comment: the SQLite-only DEFAULT is a deliberate policy; all production insert paths set timestamps explicitly (audited).
+
+---
+
+## [Unreleased]
+
+---
+
 ## [5.3.1] - 2026-06-29
 
 ### Added

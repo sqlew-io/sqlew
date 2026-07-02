@@ -134,17 +134,17 @@ describe('Constraint Scorer', () => {
       ...overrides,
     });
 
-    it('should calculate tag overlap score (10 per tag, max 40)', () => {
+    it('should calculate tag overlap score (10 per tag, Jaccard-discounted, max 40)', () => {
       const candidate = createCandidate({ tags: ['api', 'performance', 'latency', 'sla'] });
       const context = createContext({ tags: ['api', 'performance', 'latency', 'sla'] });
 
       const result = scoreConstraint(candidate, context);
-      assert.strictEqual(result.score_breakdown.tag_overlap, 40); // 4 tags * 10 = 40
+      assert.strictEqual(result.score_breakdown.tag_overlap, 40); // identical sets: 4 * 10 * 1.0 = 40
 
-      // Test partial overlap
+      // Partial overlap is discounted by Jaccard (1 match / union of 4)
       const context2 = createContext({ tags: ['api'] });
       const result2 = scoreConstraint(candidate, context2);
-      assert.strictEqual(result2.score_breakdown.tag_overlap, 10); // 1 tag * 10 = 10
+      assert.strictEqual(result2.score_breakdown.tag_overlap, 3); // round(10 * 1/4) = 3
     });
 
     it('should cap tag overlap at 40 points', () => {
@@ -153,6 +153,23 @@ describe('Constraint Scorer', () => {
 
       const result = scoreConstraint(candidate, context);
       assert.strictEqual(result.score_breakdown.tag_overlap, 40); // Capped at 40
+    });
+
+    it('should discount tag-heavy candidates (Jaccard normalization)', () => {
+      // Same 2 matching tags, but the noisy candidate carries 6 extra tags
+      const context = createContext({ tags: ['api', 'performance'] });
+      const precise = scoreConstraint(
+        createCandidate({ tags: ['api', 'performance'] }),
+        context
+      );
+      const noisy = scoreConstraint(
+        createCandidate({ tags: ['api', 'performance', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6'] }),
+        context
+      );
+
+      assert.strictEqual(precise.score_breakdown.tag_overlap, 20); // round(20 * 2/2)
+      assert.strictEqual(noisy.score_breakdown.tag_overlap, 5);    // round(20 * 2/8)
+      assert.ok(precise.score_breakdown.tag_overlap > noisy.score_breakdown.tag_overlap);
     });
 
     it('should calculate layer match score (25 points)', () => {

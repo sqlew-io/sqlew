@@ -126,11 +126,11 @@ describe('Hybrid Similarity Detection (v3.9.0)', () => {
       });
 
       // Create similar decision (should trigger gentle nudge)
-      // Different layer and minimal tag overlap to score in 35-44 range
+      // Different layer, 2/4 tag Jaccard to score in 35-44 range
       const result = await createDecision({
         key: 'test-2024-0002',
         value: 'Implemented input validation for user registration form',
-        tags: ['security', 'validation', 'frontend'],  // Only 1/3 tag match (security)
+        tags: ['security', 'vulnerability', 'frontend'],  // 2 matches, union 4 -> round(20 * 0.5) = 10
         layer: 'presentation',  // Different layer (no layer match bonus)
         version: '1.0.0'
       });
@@ -174,11 +174,11 @@ describe('Hybrid Similarity Detection (v3.9.0)', () => {
         version: '1.0.0'
       });
 
-      // Create similar decision - minimal tag overlap, different layer, different value
+      // Create similar decision - partial tag overlap, different layer, different value
       const result = await createDecision({
         key: 'test-db-002',
         value: 'Added connection pooling to Redis cache layer',  // Different value
-        tags: ['database', 'redis', 'caching'],  // Only 1/3 tag match (database)
+        tags: ['database', 'performance', 'caching'],  // 2 matches, union 4 -> round(20 * 0.5) = 10
         layer: 'infrastructure',  // Different layer to reduce score
         version: '1.0.0'
       });

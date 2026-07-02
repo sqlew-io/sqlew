@@ -117,8 +117,12 @@ export class UniversalKnex {
   /**
    * Adds a timestamp column with current timestamp default
    *
-   * Note: MySQL and PostgreSQL don't support function calls in DEFAULT clauses
-   * for integer columns, so DEFAULT is only added for SQLite.
+   * Policy: the DEFAULT clause is added for SQLite only, deliberately.
+   * PostgreSQL supports expression defaults and MySQL does since 8.0.13,
+   * but adding them now would make fresh MySQL/PG databases diverge from
+   * databases already migrated without defaults, and would raise the
+   * minimum supported MySQL version. Application code MUST set timestamp
+   * columns explicitly on every insert (all current write paths do).
    *
    * @param table - Knex table builder
    * @param columnName - Name of the timestamp column
@@ -135,8 +139,8 @@ export class UniversalKnex {
       col.notNullable();
     }
 
-    // Only SQLite supports function calls in DEFAULT for integer columns
-    // MySQL and PostgreSQL require timestamps to be set in application code
+    // SQLite-only DEFAULT by policy (see doc comment above);
+    // MySQL/PG rely on application code setting the timestamp explicitly
     if (this.isSQLite) {
       col.defaultTo(this.nowTimestamp());
     }

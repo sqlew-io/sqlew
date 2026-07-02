@@ -14,6 +14,7 @@ import { STRING_TO_STATUS, DEFAULT_VERSION, DEFAULT_STATUS, SUGGEST_THRESHOLDS, 
 import { parseStringArray } from '../../../utils/param-parser.js';
 import { incrementSemver, isValidSemver } from '../../../utils/semver.js';
 import { validateAgainstPolicies } from '../../../utils/policy-validator.js';
+import { ftsUpsertDecision } from '../../../utils/fts.js';
 import { handleSuggestAction } from '../../suggest/index.js';
 import { constraintByContext } from '../../suggest/actions/constraint-by-context.js';
 import type { SetDecisionParams, SetDecisionResponse } from '../types.js';
@@ -740,6 +741,14 @@ export async function setDecisionInternal(
       });
     }
   }
+
+  // Keep the FTS search index in sync (SQLite only; failures are logged, never thrown)
+  await ftsUpsertDecision(knex, {
+    keyId,
+    projectId,
+    keyName: params.key,
+    value: String(value),
+  });
 
   // Build response object
   const response: SetDecisionResponse = {

@@ -10,6 +10,7 @@ import { DatabaseAdapter } from '../../../adapters/index.js';
 import { getAdapter } from '../../../database.js';
 import { getProjectContext } from '../../../utils/project-context.js';
 import connectionManager from '../../../utils/connection-manager.js';
+import { ftsDeleteDecision } from '../../../utils/fts.js';
 import { validateActionParams } from '../internal/validation.js';
 import type { HardDeleteDecisionParams, HardDeleteDecisionResponse } from '../types.js';
 
@@ -77,6 +78,9 @@ export async function hardDeleteDecision(
         const deletedScopes = await trx('t_decision_scopes')
           .where({ decision_key_id: keyId, project_id: projectId })
           .delete();
+
+        // Remove the FTS search index row (SQLite only; failures are logged, never thrown)
+        await ftsDeleteDecision(trx, keyId, projectId);
 
         // Calculate total deleted records
         const totalDeleted = deletedString + deletedNumeric + deletedHistory + deletedTags + deletedScopes;
