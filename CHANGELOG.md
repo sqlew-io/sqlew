@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [5.3.2] - 2026-07-02
 
 ### Added
 
@@ -41,6 +41,10 @@ The per-tool token consumption feature never worked: its only writer inserted v3
 
 - Unified the three duplicated Levenshtein implementations into `src/utils/levenshtein.ts` (no behavior change).
 - Corrected the misleading `timestampColumn` comment: the SQLite-only DEFAULT is a deliberate policy; all production insert paths set timestamps explicitly (audited).
+
+---
+
+## [Unreleased]
 
 ---
 
