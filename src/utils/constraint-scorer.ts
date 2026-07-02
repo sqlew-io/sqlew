@@ -2,7 +2,8 @@
  * Constraint scoring algorithm for Constraint Intelligence System
  *
  * Scores constraints based on:
- * - Tag overlap (40 points max, 10 per matching tag)
+ * - Tag overlap (40 points max, 10 per matching tag, discounted by the
+ *   Jaccard coefficient so tag-heavy candidates don't outrank precise matches)
  * - Layer match (25 points)
  * - Text similarity (20 points, Levenshtein distance)
  * - Recency (10 points)
@@ -98,16 +99,34 @@ function calculateTextSimilarity(text1: string, text2: string): number {
 }
 
 /**
- * Calculate tag overlap score (0-40 points, 10 per tag, max 4)
+ * Calculate tag overlap score (0-40 points)
+ *
+ * The count-based score (10 per matching tag, capped at 40) is discounted
+ * by the Jaccard coefficient (|intersection| / |union|), so candidates
+ * carrying many unrelated tags no longer outrank precise matches.
+ * Identical tag sets keep the previous count-based score.
  *
  * @param contextTags - Tags from the scoring context
  * @param constraintTags - Tags from the constraint candidate
- * @returns Tag overlap score (0-40)
+ * @returns Tag overlap score and the number of matching tags
  */
-function calculateTagOverlap(contextTags: string[], constraintTags: string[]): number {
-  if (!contextTags || !constraintTags) return 0;
-  const overlap = contextTags.filter(t => constraintTags.includes(t)).length;
-  return Math.min(overlap * 10, 40);
+function calculateTagOverlap(
+  contextTags: string[],
+  constraintTags: string[]
+): { score: number; matches: number } {
+  if (!contextTags?.length || !constraintTags?.length) {
+    return { score: 0, matches: 0 };
+  }
+
+  const constraintSet = new Set(constraintTags);
+  const matches = contextTags.filter(t => constraintSet.has(t)).length;
+  if (matches === 0) {
+    return { score: 0, matches: 0 };
+  }
+
+  const union = new Set([...contextTags, ...constraintTags]).size;
+  const jaccard = matches / union;
+  return { score: Math.round(Math.min(matches * 10, 40) * jaccard), matches };
 }
 
 /**
@@ -182,7 +201,7 @@ export function scoreConstraint(
   candidate: ConstraintCandidate,
   context: ConstraintScoringContext
 ): ScoredConstraint {
-  const tagOverlap = calculateTagOverlap(context.tags, candidate.tags);
+  const { score: tagOverlap, matches: matchingTags } = calculateTagOverlap(context.tags, candidate.tags);
   const layerMatch = calculateLayerMatch(context.layer, candidate.layer);
   const textSimilarity = calculateTextSimilarity(context.text, candidate.constraint_text);
   const recency = calculateRecencyScore(candidate.ts);
@@ -192,7 +211,7 @@ export function scoreConstraint(
 
   // Generate human-readable reason
   const reasons: string[] = [];
-  if (tagOverlap >= 20) reasons.push(`${tagOverlap / 10} matching tags`);
+  if (matchingTags >= 2) reasons.push(`${matchingTags} matching tags`);
   if (layerMatch > 0) reasons.push('same layer');
   if (textSimilarity >= 15) reasons.push('similar constraint text');
   if (recency >= 5) reasons.push('recently updated');

@@ -2,7 +2,8 @@
  * Suggestion scoring algorithm for Decision Intelligence System
  *
  * Scores suggestions based on:
- * - Tag overlap (40 points max)
+ * - Tag overlap (40 points max, 10 per matching tag, discounted by the
+ *   Jaccard coefficient so tag-heavy candidates don't outrank precise matches)
  * - Layer match (25 points)
  * - Key pattern similarity (20 points)
  * - Recency (10 points)
@@ -83,11 +84,30 @@ function calculateKeySimilarity(key1: string, key2: string): number {
 }
 
 /**
- * Calculate tag overlap score (0-40 points, 10 per tag, max 4)
+ * Calculate tag overlap score (0-40 points)
+ *
+ * The count-based score (10 per matching tag, capped at 40) is discounted
+ * by the Jaccard coefficient (|intersection| / |union|), so candidates
+ * carrying many unrelated tags no longer outrank precise matches.
+ * Identical tag sets keep the previous count-based score.
  */
-function calculateTagOverlap(contextTags: string[], decisionTags: string[]): number {
-  const overlap = contextTags.filter(t => decisionTags.includes(t)).length;
-  return Math.min(overlap * 10, 40);
+function calculateTagOverlap(
+  contextTags: string[],
+  decisionTags: string[]
+): { score: number; matches: number } {
+  if (!contextTags?.length || !decisionTags?.length) {
+    return { score: 0, matches: 0 };
+  }
+
+  const decisionSet = new Set(decisionTags);
+  const matches = contextTags.filter(t => decisionSet.has(t)).length;
+  if (matches === 0) {
+    return { score: 0, matches: 0 };
+  }
+
+  const union = new Set([...contextTags, ...decisionTags]).size;
+  const jaccard = matches / union;
+  return { score: Math.round(Math.min(matches * 10, 40) * jaccard), matches };
 }
 
 /**
@@ -147,7 +167,7 @@ export function scoreAndRankSuggestions(
   }>
 ): ScoredSuggestion[] {
   const scored = candidates.map(candidate => {
-    const tagOverlap = calculateTagOverlap(context.tags, candidate.tags);
+    const { score: tagOverlap, matches: matchingTags } = calculateTagOverlap(context.tags, candidate.tags);
     const layerMatch = calculateLayerMatch(context.layer, candidate.layer);
     const keySimilarity = calculateKeySimilarity(context.key, candidate.key);
     const recency = calculateRecencyScore(candidate.updated_ts);
@@ -157,7 +177,7 @@ export function scoreAndRankSuggestions(
 
     // Generate human-readable reason
     const reasons: string[] = [];
-    if (tagOverlap >= 20) reasons.push(`${tagOverlap / 10} matching tags`);
+    if (matchingTags >= 2) reasons.push(`${matchingTags} matching tags`);
     if (layerMatch > 0) reasons.push('same layer');
     if (keySimilarity >= 15) reasons.push('similar key pattern');
     if (recency >= 5) reasons.push('recently updated');
