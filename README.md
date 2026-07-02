@@ -121,7 +121,9 @@ hermes plugins remove sqlew
 
 If you merged hooks manually before using the plugin, also remove `mcp_servers.sqlew` and sqlew `hooks:` entries from `~/.hermes/config.yaml`. Skills under `~/.hermes/skills/sqlew-*` are not removed automatically.
 
-#### Manual (MCP only)
+#### Other harness (MCP only)
+
+MCP server only — no sqlew-plugin hooks or skills (Cursor, Claude Desktop, custom clients, …). See [Harness Compatibility](docs/HARNESS_COMPATIBILITY.md#other-harness--what-is-this-column).
 
 Add to `.mcp.json` in your project root:
 
@@ -150,8 +152,24 @@ No special commands needed — just plan your work normally, and sqlew captures 
 - **Duplicate Detection** — Three-tier similarity scoring (0-100) prevents redundant decisions
 - **Constraint Tracking** — Architectural rules and principles as first-class entities
 - **Auto-Capture** — Hooks automatically record decisions from Plan Mode (Claude Code, Codex, Grok Build, and Hermes via sqlew-plugin)
+- **Session Context Injection** — Recent decisions and active constraints injected at session start (Claude Code, Hermes, Codex partial; not Grok Build — see matrix)
 - **Multi-Database** — SQLite (default), PostgreSQL, MySQL/MariaDB, or Cloud
 - **Git Worktree Ready** — Each worktree shares the same context database
+
+### Harness compatibility
+
+Not every feature works the same on every client. **Grok Build** uses passive hooks (no stdout injection), so session context and plan-mode hook enforcement are skill-based only (◎).
+
+| Feature | Claude | Codex | Grok | Hermes |
+|---------|:------:|:-----:|:----:|:------:|
+| MCP tools | ✓ | ✓ | ✓ | ✓ |
+| Session context injection | ✓ | △ | — | ✓ |
+| Plan-to-ADR (auto) | ✓ | △ | △ | △ |
+| Plan mode hook enforcement | ✓ | △ | ◎ | ✓ |
+
+✓ full · △ partial · ◎ skills only · ✎ manual MCP · — not available
+
+Full matrix (hooks, **Other harness** column, fallbacks): **[Harness Compatibility](docs/HARNESS_COMPATIBILITY.md)**
 
 ## For Teams (sqlew.io)
 
@@ -205,6 +223,7 @@ name = "your-project-name"
 |-------|-------------|
 | [ADR Concepts](docs/ADR_CONCEPTS.md) | Architecture Decision Records explained |
 | [Configuration](docs/CONFIGURATION.md) | Config file setup, database options |
+| [Harness Compatibility](docs/HARNESS_COMPATIBILITY.md) | Feature × harness matrix (MCP, hooks, session context, Plan-to-ADR) |
 | [Hooks Guide](docs/HOOKS_GUIDE.md) | Claude Code, Codex, Grok Build, and Hermes integration |
 | [Hermes Hooks Guide](docs/HERMES_HOOKS.md) | Hermes-specific setup and wire-protocol notes |
 | [Cross Database](docs/CROSS_DATABASE.md) | Multi-database support |

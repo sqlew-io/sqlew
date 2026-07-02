@@ -289,6 +289,20 @@ export interface DebugConfig {
 }
 
 /**
+ * Hooks configuration (v5.4.0+)
+ */
+export interface HooksConfig {
+  /**
+   * Token budget for session-start context injection.
+   * Default: 500. Set to 0 to disable injection and snapshot writes.
+   */
+  session_context_budget?: number;
+}
+
+/** Default session context injection token budget */
+export const DEFAULT_SESSION_CONTEXT_BUDGET = 500;
+
+/**
  * Project configuration (v3.7.0+)
  *
  * Multi-project support requires explicit project identification.
@@ -395,6 +409,8 @@ export interface SqlewConfig {
   autodelete?: AutoDeleteConfig;
   /** Debug logging settings */
   debug?: DebugConfig;
+  /** Hooks settings (v5.4.0+) */
+  hooks?: HooksConfig;
 }
 
 /**
@@ -408,5 +424,8 @@ export const DEFAULT_CONFIG: SqlewConfig = {
     ignore_weekend: false,
     message_hours: 24,
     file_history_days: 7,
+  },
+  hooks: {
+    session_context_budget: DEFAULT_SESSION_CONTEXT_BUDGET,
   },
 };

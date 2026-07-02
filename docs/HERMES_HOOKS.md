@@ -2,6 +2,8 @@
 
 sqlew Plan-to-ADR hooks for [Hermes](https://github.com/NousResearch/hermes-agent) (Claude Code / Nous). Requires **sqlew >= 5.3.0**.
 
+Cross-harness feature matrix: [HARNESS_COMPATIBILITY.md](HARNESS_COMPATIBILITY.md).
+
 ## Quick Install (recommended)
 
 Use the [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) Hermes bundle:
@@ -80,13 +82,13 @@ hermes hooks test pre_llm_call
 | Event names | PascalCase (`PreToolUse`) | snake_case (`pre_tool_call`) — normalized by sqlew |
 | Tool names | `Bash`, `Write`, `Edit` | `terminal`, `write_file`, `patch` — normalized by sqlew |
 | Plan mode | `permission_mode: plan` or Enter/ExitPlanMode | No native plan mode; `plan` skill writes `.hermes/plans/*.md` |
-| Context injection | `UserPromptSubmit`, `PostToolUse` | **`pre_llm_call` only** (`{"context":"..."}`) |
+| Context injection | `SessionStart`, `UserPromptSubmit`, `PostToolUse` | **`pre_llm_call` only** (`{"context":"..."}`) — includes session memory + plan guidance |
 | Tool blocking | PreToolUse deny JSON | **`pre_tool_call` only** (`{"decision":"block","reason"}`) |
 | Plan exit hook | `ExitPlanMode` → `on-exit-plan` | **Not available** — use `track-plan`/`save` on `.hermes/plans/` writes |
 
 ## Plan-to-ADR workflow on Hermes
 
-1. **`pre_llm_call`** — sqlew injects plan guidance every turn (FULL on first prompt in session, SHORT after).
+1. **`pre_llm_call`** — sqlew injects session context (recent decisions + active constraints, first prompt per session) combined with plan guidance in one `{"context":"..."}` line (FULL on first prompt, SHORT after).
 2. **Write plan** — use the `plan` skill; files land in `.hermes/plans/*.md`.
 3. **`track-plan`** — fires on `write_file|patch` to plan paths; caches plan metadata.
 4. **`save`** — promotes decisions when implementation files are edited.

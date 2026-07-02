@@ -11,6 +11,7 @@ import { getAdapter } from '../../../database.js';
 import { getProjectContext } from '../../../utils/project-context.js';
 import connectionManager from '../../../utils/connection-manager.js';
 import { ftsDeleteDecision } from '../../../utils/fts.js';
+import { scheduleSnapshotRefresh } from '../../../utils/session-snapshot.js';
 import { validateActionParams } from '../internal/validation.js';
 import type { HardDeleteDecisionParams, HardDeleteDecisionResponse } from '../types.js';
 
@@ -35,7 +36,7 @@ export async function hardDeleteDecision(
   const projectId = getProjectContext().getProjectId();
 
   try {
-    return await connectionManager.executeWithRetry(async () => {
+    const result = await connectionManager.executeWithRetry(async () => {
       return await actualAdapter.transaction(async (trx) => {
         // Get key_id
         const keyResult = await trx('m_context_keys')
@@ -100,6 +101,8 @@ export async function hardDeleteDecision(
         };
       });
     });
+    scheduleSnapshotRefresh();
+    return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to hard delete decision: ${message}`);

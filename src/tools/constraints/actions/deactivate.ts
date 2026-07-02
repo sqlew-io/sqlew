@@ -10,6 +10,7 @@ import { normalizeParams, CONSTRAINT_ALIASES } from '../../../utils/param-normal
 import { getProjectContext } from '../../../utils/project-context.js';
 import connectionManager from '../../../utils/connection-manager.js';
 import { SQLITE_FALSE } from '../../../constants.js';
+import { scheduleSnapshotRefresh } from '../../../utils/session-snapshot.js';
 import type {
   DeactivateConstraintParams,
   DeactivateConstraintResponse
@@ -56,6 +57,7 @@ export async function deactivateConstraint(
         .where({ id: normalizedParams.id, project_id: projectId })
         .update({ active: SQLITE_FALSE });
 
+      scheduleSnapshotRefresh();
       return {
         success: true,
       };

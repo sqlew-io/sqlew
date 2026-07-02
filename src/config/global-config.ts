@@ -58,6 +58,13 @@ export interface GlobalDebugConfig {
 }
 
 /**
+ * Hooks configuration (v5.4.0+)
+ */
+export interface GlobalHooksConfig {
+  session_context_budget?: number;
+}
+
+/**
  * Global configuration structure
  * Stored in user's home directory, applies to all projects
  */
@@ -70,6 +77,8 @@ export interface GlobalConfig {
   autodelete?: GlobalAutodeleteConfig;
   /** Debug settings */
   debug?: GlobalDebugConfig;
+  /** Hooks settings (v5.4.0+) */
+  hooks?: GlobalHooksConfig;
 }
 
 /**
@@ -274,6 +283,10 @@ const CONFIG_TOML_TEMPLATE = `# ~/.config/sqlew/config.toml - Global sqlew confi
 
 # SaaS/Cloud mode:
 # type = "cloud"
+
+[hooks]
+# Token budget for session-start context injection (default: 500, 0 = disabled)
+# session_context_budget = 500
 `;
 
 /**
@@ -328,6 +341,7 @@ export function loadGlobalConfig(): GlobalConfig {
       database: parsed.database,
       autodelete: parsed.autodelete,
       debug: parsed.debug,
+      hooks: parsed.hooks,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -377,6 +391,50 @@ export interface CurrentPlanInfo {
   decision_pending?: boolean;
   /** ISO 8601 timestamp of when full enforcement message was first shown */
   enforcement_shown_at?: string;
+}
+
+/**
+ * Session context injection marker (dedup across SessionStart / on-prompt)
+ *
+ * @since v5.4.0
+ */
+export interface SessionContextMarker {
+  session_id?: string;
+  injected_at: string;
+  harness: string;
+}
+
+/**
+ * Get the session context marker file path for a project
+ *
+ * @param projectPath - Project root path
+ * @returns Absolute path to context marker file
+ */
+export function getSessionContextMarkerPath(projectPath: string): string {
+  return getSessionCachePath(projectPath).replace(/\.json$/, '.context.json');
+}
+
+/**
+ * Load session context injection marker for a project
+ */
+export function loadSessionContextMarker(projectPath: string): SessionContextMarker | null {
+  const markerPath = getSessionContextMarkerPath(projectPath);
+  if (!existsSync(markerPath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(markerPath, 'utf-8')) as SessionContextMarker;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save session context injection marker for a project
+ */
+export function saveSessionContextMarker(projectPath: string, marker: SessionContextMarker): void {
+  const markerPath = getSessionContextMarkerPath(projectPath);
+  writeFileSync(markerPath, JSON.stringify(marker, null, 2), 'utf-8');
 }
 
 /**
