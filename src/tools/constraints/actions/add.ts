@@ -21,6 +21,7 @@ import { validateActionParams } from '../../../utils/parameter-validator.js';
 import { normalizeParams, CONSTRAINT_ALIASES } from '../../../utils/param-normalizer.js';
 import { parseStringArray } from '../../../utils/param-parser.js';
 import { getProjectContext } from '../../../utils/project-context.js';
+import { ftsInsertConstraint } from '../../../utils/fts.js';
 import connectionManager from '../../../utils/connection-manager.js';
 import type {
   AddConstraintParams,
@@ -104,6 +105,14 @@ export async function addConstraint(
           active: activeValue,
           ts: ts,
           project_id: projectId
+        });
+
+        // Keep the FTS search index in sync (SQLite only; failures are logged, never thrown)
+        await ftsInsertConstraint(trx, {
+          constraintId: Number(constraintId),
+          projectId,
+          constraintText: normalizedParams.constraint_text,
+          reason: normalizedParams.reason ?? null,
         });
 
         // Insert m_tags if provided

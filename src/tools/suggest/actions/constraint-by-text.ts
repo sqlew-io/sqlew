@@ -10,6 +10,8 @@ import {
   buildConstraintQuery,
   type ConstraintCandidate as QueryConstraintCandidate,
 } from '../internal/constraint-queries.js';
+import { getProjectContext } from '../../../utils/project-context.js';
+import { ftsSearchConstraintIds } from '../../../utils/fts.js';
 import { transformAndScoreConstraints } from '../../../utils/suggest-helpers.js';
 import type {
   ConstraintScoringContext,
@@ -68,8 +70,28 @@ export async function constraintByText(
   const adapter = getAdapter();
   const knex = adapter.getKnex();
 
+  // FTS candidate narrowing (SQLite only): the top bm25-ranked ids are
+  // loaded and re-ranked by the existing scorer, so result order matches
+  // the full-scan path. null = FTS unavailable -> full scan as before.
+  const projectId = getProjectContext().getProjectId();
+  const ftsIds = await ftsSearchConstraintIds(knex, params.text, projectId);
+
+  if (ftsIds !== null && ftsIds.length === 0) {
+    // FTS is authoritative here: no candidate shares any text fragment,
+    // so nothing could reach a meaningful similarity score
+    return {
+      query_text: params.text,
+      count: 0,
+      suggestions: [],
+    };
+  }
+
   // Build and execute constraint query
   let query = buildConstraintQuery(knex, { distinct: true });
+
+  if (ftsIds !== null) {
+    query = query.whereIn('c.id', ftsIds);
+  }
 
   // Filter by layer if specified
   if (params.layer) {
