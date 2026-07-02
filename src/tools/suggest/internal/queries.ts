@@ -88,21 +88,31 @@ export function buildTagIndexQuery(
     .select(
       'd.key_id',
       'ck.key_name as key',  // Alias to match DecisionCandidate.key
-      knex.raw('COALESCE(d.value, dn.value) as value'),
+      knex.raw('COALESCE(NULLIF(d.value, \'\'), dn.value) as value'),  // NULLIF converts empty string to NULL
       'l.name as layer',
       'd.ts',
       formatGroupConcatTags(knex, true),  // DISTINCT for t_tag_index queries
       knex.raw('COUNT(DISTINCT ti.tag) as tag_count')
     )
+    // key_id is shared across projects (m_context_keys has no project_id),
+    // so every join on key_id must also be scoped by project_id
     .join('t_decisions as d', function() {
       this.on('ti.source_id', '=', 'd.key_id')
-          .andOn('ti.source_type', '=', knex.raw('?', ['decision']));
+          .andOn('ti.source_type', '=', knex.raw('?', ['decision']))
+          .andOn('d.project_id', '=', knex.raw('?', [projectId]));
     })
     .join('m_context_keys as ck', 'd.key_id', 'ck.id')
-    .join('m_layers as l', 'd.layer_id', 'l.id')
-    .leftJoin('t_decision_tags as dt', 'd.key_id', 'dt.decision_key_id')
+    // Use LEFT JOIN for m_layers to include decisions without layer
+    .leftJoin('m_layers as l', 'd.layer_id', 'l.id')
+    .leftJoin('t_decision_tags as dt', function() {
+      this.on('dt.decision_key_id', '=', 'd.key_id')
+          .andOn('dt.project_id', '=', knex.raw('?', [projectId]));
+    })
     .leftJoin('m_tags as t', 'dt.tag_id', 't.id')
-    .leftJoin('t_decisions_numeric as dn', 'd.key_id', 'dn.key_id')
+    .leftJoin('t_decisions_numeric as dn', function() {
+      this.on('dn.key_id', '=', 'd.key_id')
+          .andOn('dn.project_id', '=', knex.raw('?', [projectId]));
+    })
     .whereIn('ti.tag', tags)
     .where('ti.project_id', projectId)
     .where('d.status', 1);
