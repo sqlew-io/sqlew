@@ -272,6 +272,11 @@ export function validateConfig(config: SqlewConfig): { valid: boolean; errors: s
       errors.push('hooks.session_context_budget must be an integer between 0 and 10000');
     }
   }
+  if (config.hooks?.grok_require_patterns !== undefined) {
+    if (typeof config.hooks.grok_require_patterns !== 'boolean') {
+      errors.push('hooks.grok_require_patterns must be a boolean');
+    }
+  }
 
   return {
     valid: errors.length === 0,

@@ -297,10 +297,19 @@ export interface HooksConfig {
    * Default: 500. Set to 0 to disable injection and snapshot writes.
    */
   session_context_budget?: number;
+  /**
+   * Grok Build: deny exit_plan_mode when plan.md has no filled 📌/🚫 blocks.
+   * Default: true. Set false to allow approve without Decision/Constraint sections.
+   * @since v5.5.x
+   */
+  grok_require_patterns?: boolean;
 }
 
 /** Default session context injection token budget */
 export const DEFAULT_SESSION_CONTEXT_BUDGET = 500;
+
+/** Default: require filled Decision/Constraint on Grok exit_plan_mode */
+export const DEFAULT_GROK_REQUIRE_PATTERNS = true;
 
 /**
  * Project configuration (v3.7.0+)
@@ -427,5 +436,6 @@ export const DEFAULT_CONFIG: SqlewConfig = {
   },
   hooks: {
     session_context_budget: DEFAULT_SESSION_CONTEXT_BUDGET,
+    grok_require_patterns: DEFAULT_GROK_REQUIRE_PATTERNS,
   },
 };

@@ -7,7 +7,11 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { extractPatternsFromPlan } from '../../../cli/hooks/plan-pattern-extractor.js';
+import {
+  extractPatternsFromPlan,
+  hasFilledPatterns,
+  hasPatterns,
+} from '../../../cli/hooks/plan-pattern-extractor.js';
 
 describe('plan-pattern-extractor', () => {
   describe('extractPatternsFromPlan - constraint reason', () => {
@@ -121,6 +125,63 @@ describe('plan-pattern-extractor', () => {
 
       assert.strictEqual(result.constraints.length, 1);
       assert.strictEqual(result.constraints[0].reason, 'Keys committed to git cannot be rotated');
+    });
+  });
+
+  describe('hasFilledPatterns', () => {
+    const templateOnly = `
+---
+## 📝 Decision/Constraint Recording (auto-detected on ExitPlanMode)
+
+### 📌 Decision: [key/path]
+- **Value**: Description
+- **Layer**: presentation | business | data | infrastructure | cross-cutting
+- **Rationale**: Why this decision was made
+
+### 🚫 Constraint: [category]
+- **Rule**: Description (category: architecture | security | code-style | performance)
+- **Priority**: critical | high | medium | low
+- **Tags**: comma-separated tags
+
+---
+`;
+
+    it('should return false for empty plan', () => {
+      assert.strictEqual(hasFilledPatterns('# Plan\n\nNo ADR.\n'), false);
+    });
+
+    it('should return false for template placeholders only', () => {
+      assert.strictEqual(hasPatterns(templateOnly), true);
+      assert.strictEqual(hasFilledPatterns(templateOnly), false);
+    });
+
+    it('should return true for a real decision', () => {
+      const content = `
+### 📌 Decision: auth/session
+- **Value**: Redis server-side sessions
+- **Layer**: infrastructure
+`;
+      assert.strictEqual(hasFilledPatterns(content), true);
+    });
+
+    it('should return true for intentional N/A', () => {
+      const content = `
+### 📌 Decision: n/a
+- **Value**: N/A
+- **Layer**: cross-cutting
+`;
+      assert.strictEqual(hasFilledPatterns(content), true);
+    });
+
+    it('should return true when plan body has template plus a real block', () => {
+      const content =
+        templateOnly +
+        `
+### 📌 Decision: data/orm
+- **Value**: Keep Knex
+- **Layer**: data
+`;
+      assert.strictEqual(hasFilledPatterns(content), true);
     });
   });
 });
