@@ -243,6 +243,76 @@ export function hasPatterns(content: string): boolean {
   return /#{2,3}\s*📌\s*Decision:/i.test(content) || /#{2,3}\s*🚫\s*Constraint:/i.test(content);
 }
 
+/** Template / placeholder keys after normalizeKey */
+const PLACEHOLDER_KEYS = new Set(['key/path', 'key-path', 'key-name', 'keyname', 'hierarchical/key']);
+
+/** Template / placeholder values (case-insensitive exact or prefix) */
+const PLACEHOLDER_VALUE_EXACT = new Set(['description', 'description of the decision', 'description of the constraint']);
+
+/**
+ * True when the user intentionally recorded "none" (passes exit gate without real ADR).
+ */
+function isIntentionalNone(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return (
+    t === 'n/a' ||
+    t === 'na' ||
+    t === 'none' ||
+    t === '-' ||
+    t === 'no decisions' ||
+    t === 'no constraints' ||
+    t === 'not applicable'
+  );
+}
+
+function isPlaceholderValue(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return true;
+  if (PLACEHOLDER_VALUE_EXACT.has(t)) return true;
+  // Template constraint rule: "Description (category: architecture | ...)"
+  if (t.startsWith('description (')) return true;
+  return false;
+}
+
+function isFilledDecision(d: ExtractedDecision): boolean {
+  if (isIntentionalNone(d.value) || isIntentionalNone(d.key)) {
+    return true;
+  }
+  if (PLACEHOLDER_KEYS.has(d.key.toLowerCase()) && isPlaceholderValue(d.value)) {
+    return false;
+  }
+  if (isPlaceholderValue(d.value)) {
+    return false;
+  }
+  return d.value.trim().length > 0 && d.key.trim().length > 0;
+}
+
+function isFilledConstraint(c: ExtractedConstraint): boolean {
+  if (isIntentionalNone(c.rule) || isIntentionalNone(c.category)) {
+    return true;
+  }
+  if (isPlaceholderValue(c.rule)) {
+    return false;
+  }
+  // Unfilled template category collapses to architecture via normalizeCategory;
+  // still reject pure template rule text above. Accept any non-empty real rule.
+  return c.rule.trim().length > 0;
+}
+
+/**
+ * True when the plan has at least one **filled** Decision or Constraint
+ * (not the auto-injected placeholder template).
+ *
+ * Intentional empty markers (Value/Rule = "N/A", "none", etc.) count as filled
+ * so agents can exit plan mode when there is nothing to record.
+ *
+ * Used by Grok PreToolUse exit_plan_mode gate (hooks.grok_require_patterns).
+ */
+export function hasFilledPatterns(content: string): boolean {
+  const { decisions, constraints } = extractPatternsFromPlan(content);
+  return decisions.some(isFilledDecision) || constraints.some(isFilledConstraint);
+}
+
 // ============================================================================
 // Path Resolution
 // ============================================================================

@@ -94,7 +94,11 @@ grok inspect              # hooks, MCP, skills visible
 **Important**:
 - Do NOT register sqlew hooks in `~/.grok/hooks/` (causes double-firing with plugin hooks)
 - Do NOT add `[mcp_servers.sqlew]` to `~/.grok/config.toml` (plugin `.mcp.json` handles MCP)
-- Plan mode guidance uses plugin skills (`sqlew-plan-guidance`, `sqlew-decision-format`), not hook injection
+- Plan guidance **format** uses plugin skills (`sqlew-plan-guidance`, `sqlew-decision-format`); Grok ignores hook **stdout**, so format reminders are not injected via `UserPromptSubmit`
+- Decision/Constraint **template sections** are seeded on `plan.md` via file side-effects (not stdout):
+  1. `enter_plan_mode` PreToolUse → `track-plan` creates/appends template
+  2. `UserPromptSubmit` when session `plan_mode.json` is Active/Pending → `on-prompt` ensures template (covers `/plan` without `enter_plan_mode`)
+  3. PostToolUse on `plan.md` write/edit → `track-plan` re-appends if the agent overwrote the template
 - Plan-to-ADR extracts `### 📌 Decision:` / `### 🚫 Constraint:` from `plan.md` on `exit_plan_mode`
 
 Source: https://github.com/sqlew-io/sqlew-plugin
@@ -161,6 +165,10 @@ See [CONFIGURATION.md](CONFIGURATION.md) for priority rules (local config overri
 ### Grok Build limitation
 
 Grok Build hooks are passive — stdout injection is ignored. Session context injection is not available in v5.4. Use `/sqlew search` or the `sqlew-plan-guidance` skill to recall context manually.
+
+**Plan template file injection (v5.5+):** Because stdout cannot carry plan enforcement, sqlew writes the 📌/🚫 template block directly into `~/.grok/sessions/<encoded-cwd>/<sessionId>/plan.md`. Triggers: `enter_plan_mode`, `UserPromptSubmit` while plan mode is Active/Pending (`plan_mode.json`), and PostToolUse after plan.md edits (re-inject if wiped). Skip when the marker or real patterns already exist.
+
+**Exit gate (v5.5+):** PreToolUse on `exit_plan_mode` denies approval when `hooks.grok_require_patterns` is true (default) and `plan.md` has no **filled** Decision/Constraint blocks (placeholders from the auto-template do not count). Fill real 📌/🚫 values, or set Value/Rule to `N/A`, or disable with `grok_require_patterns = false`.
 
 ## Version History
 

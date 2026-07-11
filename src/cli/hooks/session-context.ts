@@ -11,19 +11,20 @@ import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { GitAdapter } from '../../utils/vcs-adapter.js';
 import { resolveConfigPath, loadConfigFile } from '../../config/loader.js';
-import { loadGlobalConfig } from '../../config/global-config.js';
+import {
+  loadGlobalConfig,
+  loadSessionContextMarker,
+  type SessionContextMarker,
+} from '../../config/global-config.js';
 import {
   DEFAULT_SESSION_CONTEXT_BUDGET,
+  DEFAULT_GROK_REQUIRE_PATTERNS,
 } from '../../config/types.js';
 import {
   SESSION_SNAPSHOT_VERSION,
   type SessionSnapshot,
 } from '../../utils/session-snapshot.js';
 import { estimateTokens } from '../../utils/token-estimation.js';
-import {
-  loadSessionContextMarker,
-  type SessionContextMarker,
-} from '../../config/global-config.js';
 
 const STALENESS_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -98,6 +99,31 @@ export async function resolveBudget(projectPath: string): Promise<number> {
 
   const globalConfig = loadGlobalConfig();
   return globalConfig.hooks?.session_context_budget ?? DEFAULT_SESSION_CONTEXT_BUDGET;
+}
+
+/**
+ * Resolve hooks.grok_require_patterns (local → global → default true).
+ * Sync for PreToolUse exit gate (no async in track-plan path).
+ */
+export function resolveGrokRequirePatterns(projectPath?: string): boolean {
+  try {
+    if (projectPath) {
+      const localConfig = join(projectPath, '.sqlew', 'config.toml');
+      if (existsSync(localConfig)) {
+        const config = loadConfigFile(projectPath, '.sqlew/config.toml');
+        if (config.hooks?.grok_require_patterns !== undefined) {
+          return config.hooks.grok_require_patterns;
+        }
+      }
+    }
+    const globalConfig = loadGlobalConfig();
+    if (globalConfig.hooks?.grok_require_patterns !== undefined) {
+      return globalConfig.hooks.grok_require_patterns;
+    }
+  } catch {
+    // fail-open to default
+  }
+  return DEFAULT_GROK_REQUIRE_PATTERNS;
 }
 
 /**

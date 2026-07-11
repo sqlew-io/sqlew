@@ -24,7 +24,7 @@ Minimum sqlew versions: Grok Build **5.2+**, Codex **5.2.1+**, Hermes **5.3.0+**
 |---------|:-----------:|:-----:|:----------:|:------:|:--------------:|
 | **MCP tools** (`decision`, `constraint`, `suggest`, `project`, `queue`, …) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Session context injection** (recent decisions + active constraints at session start) | ✓ | △ | — | ✓ | ✎ |
-| **Plan mode enforcement** (suggest-before-plan, 📌/🚫 format) | ✓ | △ | ◎ | ✓ | ✎ |
+| **Plan mode enforcement** (suggest-before-plan, 📌/🚫 format) | ✓ | △ | ◎+file | ✓ | ✎ |
 | **Plan-to-ADR extraction** (📌 Decision / 🚫 Constraint → DB) | ✓ | △ | △ | △ | ✎ |
 | **Plan file tracking** (`track-plan`) | ✓ | ✓ | ✓ | ✓ | — |
 | **Decision draft on code edit** (`save` hook) | ✓ | ✓ | ✓ | ✓ | — |
@@ -81,7 +81,7 @@ Most hooks work after trusting bundled hooks (`/hooks`). Plan mode needs `collab
 
 ### Grok Build
 
-**Passive hooks:** stdout from hooks is ignored except deny JSON on `pre_tool_use`. Plan guidance and decision format come from **skills** (◎). Plan-to-ADR reads `plan.md` when you **approve the plan**. Do not duplicate hooks in `~/.grok/hooks/`.
+**Passive hooks:** stdout from hooks is ignored except deny JSON on `pre_tool_use`. Plan **format** guidance comes from **skills** (◎). The 📌/🚫 **template block** is maintained on disk in `plan.md` via multi-trigger file injection (`enter_plan_mode`, plan-mode `UserPromptSubmit`, PostToolUse re-inject after overwrites). **Exit gate:** `exit_plan_mode` is denied when `hooks.grok_require_patterns` is true (default) and the plan has no filled 📌/🚫 (template placeholders alone fail). Plan-to-ADR reads `plan.md` when you **approve the plan**. Do not duplicate hooks in `~/.grok/hooks/`.
 
 ### Hermes
 

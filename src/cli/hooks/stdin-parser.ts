@@ -7,9 +7,9 @@
  * @since v4.1.0
  */
 
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { homedir } from 'os';
-import { join } from 'path';
+import { join, resolve as pathResolve } from 'path';
 
 import { loadCurrentPlan } from '../../config/global-config.js';
 import { resolvePlanPath } from './plan-pattern-extractor.js';
@@ -183,7 +183,9 @@ const GROK_TOOL_MAP: Record<string, string> = {
   enter_plan_mode: 'EnterPlanMode',
   exit_plan_mode: 'ExitPlanMode',
   search_replace: 'Edit',
+  write: 'Write',
   run_terminal_cmd: 'Bash',
+  run_terminal_command: 'Bash',
   read_file: 'Read',
 };
 
@@ -428,18 +430,122 @@ export function normalizeHookInput(raw: unknown): HookInput {
  * @param sessionId - Grok session id (UUID-like; sanitized to prevent path traversal)
  * @returns Absolute path to the session's plan.md, or null if sessionId is invalid
  */
-export function computeGrokPlanPath(workspaceRoot: string, sessionId: string): string | null {
-  // Sanitize sessionId: it is interpolated into a filesystem path, so restrict it to
-  // the characters a real Grok session id uses (UUID: hex + hyphen). This blocks any
-  // path-traversal payload (`..`, separators) from escaping ~/.grok/sessions/.
+/**
+ * Grok plan-mode state machine values (from session plan_mode.json).
+ * @see ~/.grok/docs/user-guide/19-plan-mode.md
+ */
+export type GrokPlanModeState = 'Active' | 'Pending' | 'ExitPending' | 'Inactive';
+
+/**
+ * Sanitize Grok session id for path use (blocks traversal).
+ */
+function sanitizeGrokSessionId(sessionId: string | undefined): string | null {
   if (!sessionId || !/^[A-Za-z0-9_-]+$/.test(sessionId)) {
     return null;
   }
-  // encodeURIComponent encodes every path separator in workspaceRoot, so it collapses
-  // to a single safe path segment (no traversal possible from the workspace part), and
-  // sessionId is allowlisted above — both inputs are validated before this join.
+  return sessionId;
+}
+
+/**
+ * Build the absolute path to a Grok Build session directory.
+ *
+ *   ~/.grok/sessions/<encodeURIComponent(workspaceRoot)>/<sessionId>
+ */
+export function computeGrokSessionDir(workspaceRoot: string, sessionId: string): string | null {
+  const sid = sanitizeGrokSessionId(sessionId);
+  if (!sid) {
+    return null;
+  }
   // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
-  return join(homedir(), '.grok', 'sessions', encodeURIComponent(workspaceRoot), sessionId, 'plan.md');
+  return join(homedir(), '.grok', 'sessions', encodeURIComponent(workspaceRoot), sid);
+}
+
+export function computeGrokPlanPath(workspaceRoot: string, sessionId: string): string | null {
+  const sessionDir = computeGrokSessionDir(workspaceRoot, sessionId);
+  if (!sessionDir) {
+    return null;
+  }
+  // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+  return join(sessionDir, 'plan.md');
+}
+
+/**
+ * Read Grok session plan_mode.json state.
+ * Returns null when the file is missing, unreadable, or has an unknown state.
+ *
+ * Note: plan_mode.json is Grok-internal. Callers should keep enter_plan_mode /
+ * PostToolUse re-inject as fallbacks if this API changes.
+ */
+export function readGrokPlanModeState(
+  workspaceRoot: string,
+  sessionId: string,
+): GrokPlanModeState | null {
+  const sessionDir = computeGrokSessionDir(workspaceRoot, sessionId);
+  if (!sessionDir) {
+    return null;
+  }
+  const planModePath = join(sessionDir, 'plan_mode.json');
+  if (!existsSync(planModePath)) {
+    return null;
+  }
+  try {
+    const raw = JSON.parse(readFileSync(planModePath, 'utf-8')) as { state?: string };
+    const state = raw.state;
+    if (
+      state === 'Active' ||
+      state === 'Pending' ||
+      state === 'ExitPending' ||
+      state === 'Inactive'
+    ) {
+      return state;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether Grok plan mode is Active or Pending (template injection should run).
+ */
+export function isGrokPlanModeActive(workspaceRoot: string, sessionId: string): boolean {
+  const state = readGrokPlanModeState(workspaceRoot, sessionId);
+  return state === 'Active' || state === 'Pending';
+}
+
+/**
+ * True when filePath is a Grok Build per-session plan.md under ~/.grok/sessions/.
+ *
+ * When workspaceRoot + sessionId are provided, also accepts an exact match of
+ * computeGrokPlanPath (handles unusual encodings).
+ */
+export function isGrokPlanFile(
+  filePath: string | undefined,
+  workspaceRoot?: string,
+  sessionId?: string,
+): boolean {
+  if (!filePath) {
+    return false;
+  }
+
+  const normalized = filePath.replace(/\\/g, '/');
+  // Typical layout: .../.grok/sessions/<encoded-cwd>/<sessionId>/plan.md
+  if (/(^|\/)\.grok\/sessions\/[^/]+\/[^/]+\/plan\.md$/i.test(normalized)) {
+    return true;
+  }
+
+  if (workspaceRoot && sessionId) {
+    const expected = computeGrokPlanPath(workspaceRoot, sessionId);
+    if (expected) {
+      try {
+        return pathResolve(filePath) === pathResolve(expected);
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  return false;
 }
 
 // ============================================================================

@@ -1,7 +1,7 @@
 {
   "name": "sqlew",
   "description": "Automated ADR (Architecture Decision Records) for AI Coding Agents - MCP server with SQL-backed decision repository",
-  "version": "5.3.2",
+  "version": "5.3.3",
   "main": "dist/index.js",
   "type": "module",
   "bin": {

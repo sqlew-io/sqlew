@@ -17,9 +17,12 @@
  */
 
 import { randomUUID } from 'crypto';
+import { existsSync } from 'fs';
 import {
   readStdinJson,
   isPlanMode,
+  readGrokPlanModeState,
+  computeGrokPlanPath,
   getProjectPath,
   sendHermesContext,
   type HookInput,
@@ -35,6 +38,8 @@ import {
   buildSessionContext,
   shouldInjectOnPrompt,
 } from './session-context.js';
+import { ensureGrokPlanTemplate } from './grok-plan-template.js';
+import { debugLog } from '../../utils/debug-logger.js';
 
 // ============================================================================
 // Plan Mode Enforcement Context
@@ -124,11 +129,47 @@ function getHermesEnforcement(projectPath: string): { message: string; planInfo:
 // Main Entry Point
 // ============================================================================
 
+/**
+ * Grok UserPromptSubmit: stdout is ignored (passive hook).
+ * Side-effect only — seed/maintain plan.md Decision/Constraint template when
+ * plan_mode.json reports Active or Pending (covers /plan without enter_plan_mode).
+ */
+function handleGrokPromptSideEffects(input: HookInput): void {
+  const projectPath = getProjectPath(input);
+  const sessionId = input.session_id;
+  if (!projectPath || !sessionId) {
+    return;
+  }
+
+  // Prefer plan_mode.json Active/Pending. If the file is missing (Grok format
+  // change), fall back when plan.md already exists so mid-session re-inject
+  // still works. Inactive/ExitPending → no inject.
+  const state = readGrokPlanModeState(projectPath, sessionId);
+  let shouldEnsure = state === 'Active' || state === 'Pending';
+  if (!shouldEnsure && state === null) {
+    const planPath = computeGrokPlanPath(projectPath, sessionId);
+    shouldEnsure = !!(planPath && existsSync(planPath));
+  }
+  if (!shouldEnsure) {
+    return;
+  }
+
+  const injected = ensureGrokPlanTemplate(projectPath, sessionId);
+  debugLog('DEBUG', '[on-prompt] Grok plan template ensure', {
+    projectPath,
+    sessionId,
+    state,
+    injected,
+  });
+}
+
 export async function onPromptCommand(): Promise<void> {
   try {
     const input = await readStdinJson();
 
     if (input.client === 'grok') {
+      // No stdout — Grok ignores passive hook output. File side-effect only.
+      handleGrokPromptSideEffects(input);
       return;
     }
 

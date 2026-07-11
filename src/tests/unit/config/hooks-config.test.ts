@@ -88,5 +88,49 @@ describe('hooks-config', () => {
       });
       assert.strictEqual(result.valid, false);
     });
+
+    it('should accept grok_require_patterns true/false', () => {
+      assert.strictEqual(
+        validateConfig({
+          ...DEFAULT_CONFIG,
+          hooks: { grok_require_patterns: false },
+        }).valid,
+        true,
+      );
+      assert.strictEqual(
+        validateConfig({
+          ...DEFAULT_CONFIG,
+          hooks: { grok_require_patterns: true },
+        }).valid,
+        true,
+      );
+    });
+
+    it('should reject non-boolean grok_require_patterns', () => {
+      const result = validateConfig({
+        ...DEFAULT_CONFIG,
+        hooks: { grok_require_patterns: 'yes' as unknown as boolean },
+      });
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('grok_require_patterns')));
+    });
+  });
+
+  describe('loadConfigFile grok_require_patterns', () => {
+    it('should merge grok_require_patterns from file', () => {
+      writeFileSync(
+        TEST_CONFIG_PATH,
+        `[hooks]\ngrok_require_patterns = false\n`,
+        'utf-8',
+      );
+      const config = loadConfigFile(TEST_DIR, 'config.toml');
+      assert.strictEqual(config.hooks?.grok_require_patterns, false);
+    });
+
+    it('should default grok_require_patterns to true', () => {
+      writeFileSync(TEST_CONFIG_PATH, `[database]\npath = ".sqlew/test.db"\n`, 'utf-8');
+      const config = loadConfigFile(TEST_DIR, 'config.toml');
+      assert.strictEqual(config.hooks?.grok_require_patterns, true);
+    });
   });
 });

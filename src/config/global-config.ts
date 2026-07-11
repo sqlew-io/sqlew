@@ -62,6 +62,8 @@ export interface GlobalDebugConfig {
  */
 export interface GlobalHooksConfig {
   session_context_budget?: number;
+  /** Grok: deny exit_plan_mode without filled 📌/🚫 (default true) */
+  grok_require_patterns?: boolean;
 }
 
 /**
@@ -287,6 +289,10 @@ const CONFIG_TOML_TEMPLATE = `# ~/.config/sqlew/config.toml - Global sqlew confi
 [hooks]
 # Token budget for session-start context injection (default: 500, 0 = disabled)
 # session_context_budget = 500
+
+# Grok Build: deny exit_plan_mode when plan.md has no filled Decision/Constraint
+# (default: true). Set false to allow approve without 📌/🚫 blocks.
+# grok_require_patterns = true
 `;
 
 /**

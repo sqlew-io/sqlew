@@ -26,7 +26,31 @@ Proactively injects recent decisions and active constraints at session start so 
 
 ### Limitations
 
-- **Grok Build** — Passive hooks ignore stdout; session context injection is not available in v5.4. Use skills or `/sqlew search` manually.
+- **Grok Build** — Passive hooks ignore stdout; session context injection is not available in v5.4. Use skills or `/sqlew search` manually. Plan template uses multi-trigger file injection (v5.3.3).
+
+---
+
+## [5.3.3] - 2026-07-11
+
+### Fixed
+
+**Grok Build Plan-to-ADR: multi-trigger plan.md template + exit gate**
+
+Grok passive hooks ignore stdout, so Decision/Constraint sections must land on disk. `enter_plan_mode`-only injection was too narrow (`/plan` never fired; full-file writes wiped the template).
+
+- **Multi-trigger file injection** — `injectGrokPlanTemplate` / `ensureGrokPlanTemplate` (`src/cli/hooks/grok-plan-template.ts`):
+  1. `enter_plan_mode` PreToolUse (`track-plan`)
+  2. `UserPromptSubmit` when session `plan_mode.json` is Active/Pending (`on-prompt`, side-effect only)
+  3. PostToolUse on Grok `plan.md` edits (`track-plan` re-append if marker/patterns missing)
+- **Helpers** — `computeGrokSessionDir`, `readGrokPlanModeState`, `isGrokPlanFile`; `GROK_TOOL_MAP` maps `write` → `Write`
+- **Exit gate** — PreToolUse `exit_plan_mode` denies when `hooks.grok_require_patterns` is true (default) and `plan.md` has no **filled** 📌/🚫 (`hasFilledPatterns`; template placeholders do not count). Escape: Value/Rule `N/A`, or `grok_require_patterns = false`
+- **Config** — `[hooks] grok_require_patterns` (boolean, default `true`)
+
+Pair with [sqlew-plugin 5.3.2](https://github.com/sqlew-io/sqlew-plugin) for expanded hook matchers (`write` / `search_replace` / `ExitPlanMode` PreToolUse + PostToolUse `track-plan`).
+
+### Documentation
+
+- **HOOKS_GUIDE / HARNESS_COMPATIBILITY / CONFIGURATION** — Grok multi-trigger injection, exit gate, `grok_require_patterns`
 
 ---
 
