@@ -10,7 +10,7 @@ import {
   getOrCreateScope,
   getLayerId
 } from '../../../database.js';
-import { STRING_TO_STATUS, DEFAULT_VERSION, DEFAULT_STATUS, SUGGEST_THRESHOLDS, SUGGEST_LIMITS, VALID_STATUSES } from '../../../constants.js';
+import { STRING_TO_STATUS, DEFAULT_VERSION, DEFAULT_STATUS, SUGGEST_THRESHOLDS, SUGGEST_LIMITS, VALID_STATUSES, STANDARD_LAYERS } from '../../../constants.js';
 import { parseStringArray } from '../../../utils/param-parser.js';
 import { incrementSemver, isValidSemver } from '../../../utils/semver.js';
 import { validateAgainstPolicies } from '../../../utils/policy-validator.js';
@@ -569,9 +569,8 @@ export async function setDecisionInternal(
   // Validate layer if provided; preserve existing layer if not provided on update
   let layerId: number | null = null;
   if (params.layer) {
-    const validLayers = ['presentation', 'business', 'data', 'infrastructure', 'cross-cutting', 'documentation'];
-    if (!validLayers.includes(params.layer)) {
-      throw new Error(`Invalid layer. Must be one of: ${validLayers.join(', ')}`);
+    if (!STANDARD_LAYERS.includes(params.layer as any)) {
+      throw new Error(`Invalid layer. Must be one of: ${STANDARD_LAYERS.join(', ')}`);
     }
     layerId = await getLayerId(adapter, params.layer, trx);
     if (layerId === null) {

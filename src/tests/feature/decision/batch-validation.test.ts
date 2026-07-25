@@ -250,6 +250,23 @@ describe('Batch Validation Integration - Decision Batch Set', () => {
     assert.strictEqual(result.failed, 0);
   });
 
+  it('should accept valid batch with review layer', async () => {
+    const decisions = [
+      {
+        key: 'review-decision',
+        value: 'review notes',
+        layer: 'review',
+        tags: ['review'],
+      },
+    ];
+
+    const result = await setDecisionBatch({ decisions }, adapter);
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.inserted, 1);
+    assert.strictEqual(result.failed, 0);
+  });
+
   it('should provide actionable fix instructions in error message', async () => {
     const decisions = [
       { key: 'test', value: 'test', status: 'draf' as any }, // Typo in status
@@ -282,6 +299,9 @@ describe('Batch Validation Integration - Decision Batch Set', () => {
         assert.ok(error.message.includes('infrastructure'));
         assert.ok(error.message.includes('cross-cutting'));
         assert.ok(error.message.includes('documentation'));
+        assert.ok(error.message.includes('planning'));
+        assert.ok(error.message.includes('coordination'));
+        assert.ok(error.message.includes('review'));
         return true;
       }
     );

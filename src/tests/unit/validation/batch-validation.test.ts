@@ -68,9 +68,8 @@ describe('Batch Validation - Enum Values', () => {
   });
 
   it('should suggest closest match for typo (busines → business)', () => {
-    const validLayers = ['presentation', 'business', 'data', 'infrastructure', 'cross-cutting'] as const;
     const errors: BatchValidationError[] = [];
-    validateEnum('busines', 'layer', validLayers, 0, 'Item 0', errors);
+    validateEnum('busines', 'layer', STANDARD_LAYERS, 0, 'Item 0', errors);
 
     assert.strictEqual(errors.length, 1);
     assert.ok(errors[0].fix.includes('business'));

@@ -5,6 +5,7 @@
  */
 
 import type { DatabaseAdapter } from '../adapters/index.js';
+import { STANDARD_LAYERS } from '../constants.js';
 
 /**
  * Validates required string parameter (trim and check non-empty)
@@ -81,9 +82,8 @@ export function validatePriorityRange(priority: unknown): number {
  * @throws Error if layer is invalid
  */
 export async function validateLayer(adapter: DatabaseAdapter, layer: string): Promise<number> {
-  const validLayers = ['presentation', 'business', 'data', 'infrastructure', 'cross-cutting'];
-  if (!validLayers.includes(layer)) {
-    throw new Error(`Invalid layer. Must be one of: ${validLayers.join(', ')}`);
+  if (!STANDARD_LAYERS.includes(layer as any)) {
+    throw new Error(`Invalid layer. Must be one of: ${STANDARD_LAYERS.join(', ')}`);
   }
 
   const knex = adapter.getKnex();

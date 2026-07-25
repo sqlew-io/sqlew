@@ -81,6 +81,30 @@ describe('Help System (TOML-based)', () => {
     }
   });
 
+  describe('Decision help accuracy', () => {
+    it('should document scopes parameter for decision.set instead of legacy scope', () => {
+      const action = loader.getAction('decision', 'set');
+
+      assert.ok(action, 'decision.set should exist');
+      const paramNames = action.params.map((param) => param.name);
+
+      assert.ok(paramNames.includes('scopes'), 'decision.set should document scopes');
+      assert.ok(!paramNames.includes('scope'), 'decision.set should not document legacy scope');
+    });
+
+    it('should document required analytics parameters', () => {
+      const action = loader.getAction('decision', 'analytics');
+
+      assert.ok(action, 'decision.analytics should exist');
+      const paramsByName = new Map(action.params.map((param) => [param.name, param]));
+
+      assert.equal(paramsByName.get('key_pattern')?.required, true);
+      assert.equal(paramsByName.get('aggregation')?.required, true);
+      assert.match(paramsByName.get('aggregation')?.description ?? '', /avg/);
+      assert.match(paramsByName.get('aggregation')?.description ?? '', /count/);
+    });
+  });
+
   describe('Example search', () => {
     it('should find examples by keyword', () => {
       const results = loader.searchExamples('decision');

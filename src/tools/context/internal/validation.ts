@@ -4,7 +4,7 @@
 
 import { validateRequired, validateStatus, validateLayer } from '../../../utils/validators.js';
 import { validateActionParams, validateBatchParams } from '../../../utils/parameter-validator.js';
-import { STRING_TO_STATUS } from '../../../constants.js';
+import { STANDARD_LAYERS, STRING_TO_STATUS } from '../../../constants.js';
 import { parseStringArray } from '../../../utils/param-parser.js';
 import type { DatabaseAdapter } from '../../../adapters/types.js';
 import {
@@ -40,11 +40,8 @@ export function validateStatusParam(status?: string): void {
  * Validate layer parameter
  */
 export function validateLayerParam(layer?: string): void {
-  if (layer) {
-    const validLayers = ['presentation', 'business', 'data', 'infrastructure', 'cross-cutting', 'documentation'];
-    if (!validLayers.includes(layer)) {
-      throw new Error(`Invalid layer. Must be one of: ${validLayers.join(', ')}`);
-    }
+  if (layer && !STANDARD_LAYERS.includes(layer as any)) {
+    throw new Error(`Invalid layer. Must be one of: ${STANDARD_LAYERS.join(', ')}`);
   }
 }
 
@@ -112,14 +109,7 @@ export function parseRelativeTime(relativeTime: string): number | null {
 // ============================================================================
 
 const VALID_DECISION_STATUSES = ['active', 'deprecated', 'draft'] as const;
-const VALID_DECISION_LAYERS = [
-  'presentation',
-  'business',
-  'data',
-  'infrastructure',
-  'cross-cutting',
-  'documentation'
-] as const;
+const VALID_DECISION_LAYERS = STANDARD_LAYERS;
 const VALID_AUTO_INCREMENT_LEVELS = ['major', 'minor', 'patch'] as const;
 
 /**

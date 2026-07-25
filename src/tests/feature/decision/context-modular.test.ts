@@ -78,6 +78,18 @@ describe('Modular Context Implementation Tests', () => {
       assert.equal(result.key, 'test-key-1');
     });
 
+    it('should accept review layer from the standard layer set', async () => {
+      const result = await setDecision({
+        key: 'test-review-layer',
+        value: 'review-layer-value',
+        agent: 'test-agent',
+        layer: 'review'
+      });
+
+      assert.equal(result.success, true);
+      assert.equal(result.key, 'test-review-layer');
+    });
+
     it('should update existing decision', async () => {
       // First create
       await setDecision({

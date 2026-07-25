@@ -95,6 +95,19 @@ The per-tool token consumption feature never worked: its only writer inserted v3
 
 ---
 
+## [5.3.5] - 2026-07-25
+
+### Fixed
+
+**Decision help and layer validation alignment**
+
+- **Help (`decision.toml`)** — document `scopes` (string array) instead of legacy `scope`; document required `analytics` params (`key_pattern`, `aggregation`) and optional filters
+- **Layers** — validators and decision set paths use `STANDARD_LAYERS` so `planning` / `coordination` / `review` (and `documentation`) match the rest of the stack
+- **Action specs** — register `decision.analytics` required/optional params; expand list-action layer hint
+- **Tests** — help accuracy, review layer acceptance, batch error messages list full standard layers
+
+---
+
 ## [5.3.4] - 2026-07-25
 
 ### Fixed

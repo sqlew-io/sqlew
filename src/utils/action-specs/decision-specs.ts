@@ -67,7 +67,7 @@ export const DECISION_ACTION_SPECS: Record<string, ActionSpec> = {
       status: 'active',
       include_tags: true
     },
-    hint: "Valid layers: presentation, business, data, infrastructure, cross-cutting. Values truncated to 30 chars; use full_value=true for complete text."
+    hint: "Valid layers: presentation, business, data, infrastructure, cross-cutting, planning, documentation, coordination, review. Values truncated to 30 chars; use full_value=true for complete text."
   },
 
   versions: {
@@ -207,5 +207,17 @@ export const DECISION_ACTION_SPECS: Record<string, ActionSpec> = {
       limit: 50
     },
     hint: "Query decision contexts with optional filters for traceability. Alias: key→decision_key"
+  },
+
+  analytics: {
+    required: ['key_pattern', 'aggregation'],
+    optional: ['layer', 'time_series', 'percentiles'],
+    example: {
+      action: 'analytics',
+      key_pattern: 'metric/api-latency/%',
+      aggregation: 'avg',
+      layer: 'infrastructure'
+    },
+    hint: "Aggregates numeric decisions only. Valid aggregation values: avg, sum, max, min, count."
   }
 };
