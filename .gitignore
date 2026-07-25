@@ -11,6 +11,8 @@ CLAUDE.md
 # Cursor MCP tool descriptors (auto-generated)
 mcps/
 agent-tools/
+terminals/
+.hermes/
 
 # Dependencies
 node_modules/

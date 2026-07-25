@@ -13,10 +13,11 @@
  *
  * Resolution order: ref > root > name.
  *
- * Backward compatibility: the m_projects schema is unchanged. Name remains the
- * unique key, so a name that already exists with a *different* root is treated
- * as a collision and rejected on writes (fail-closed) to avoid writing ADRs to
- * the wrong project.
+ * Identity: m_projects.name is the unique logical project key (same as
+ * ProjectContext.ensureProject). Path is not identity — when the same name is
+ * resolved from a different root (git worktree, alias clone, isolation
+ * worktree), the existing row is reused so ADRs stay shared. To keep projects
+ * separate, set a unique [project].name in each tree's .sqlew/config.toml.
  */
 
 import * as path from 'path';
@@ -39,7 +40,7 @@ export interface SqlewProjectInput {
 }
 
 export interface ResolveOptions {
-  /** Whether the calling action mutates data (create-on-missing, collision check). */
+  /** Whether the calling action mutates data (create-on-missing when unknown). */
   forWrite: boolean;
 }
 
@@ -82,11 +83,6 @@ function rowToMetadata(row: ProjectRow): ProjectMetadata {
     project_root_path: row.project_root_path || undefined,
     metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
   };
-}
-
-/** Normalize a filesystem path for comparison (forward slashes, lowercase). */
-function normalizePath(p: string): string {
-  return path.resolve(p).replace(/\\/g, '/').toLowerCase();
 }
 
 /**
@@ -157,8 +153,10 @@ export async function resolveProjectScope(
 /**
  * Find an existing project by name, or create it when permitted.
  *
- * Collision rule: if the name exists with a different recorded root, reject on
- * write (avoid mis-targeting); allow on read (best-effort cross-project query).
+ * Share rule: name is identity. If the name already exists, return that row
+ * even when the caller's root differs from project_root_path (worktrees /
+ * parallel checkouts). Matches ProjectContext.ensureProject. project_root_path
+ * stays the first-registered path (not updated here).
  */
 async function findOrCreate(
   knex: Knex,
@@ -170,21 +168,6 @@ async function findOrCreate(
   const existing = await knex('m_projects').where({ name }).first<ProjectRow>();
 
   if (existing) {
-    if (
-      root &&
-      existing.project_root_path &&
-      normalizePath(existing.project_root_path) !== normalizePath(root)
-    ) {
-      if (opts.forWrite) {
-        fail(
-          'SQLEW_PROJECT_NAME_COLLISION',
-          `Project "${name}" already exists with a different root ` +
-          `("${existing.project_root_path}" vs "${root}"). Set a unique [project].name ` +
-          `in .sqlew/config.toml for this repo to avoid mixing ADRs.`
-        );
-      }
-      // read: fall through and use the existing row (best-effort)
-    }
     return rowToMetadata(existing);
   }
 

@@ -35,8 +35,10 @@ name = "my-project"              # Required. Alphanumeric, hyphens, underscores.
 display_name = "My Project"      # Optional. Human-readable name (spaces allowed).
 ```
 
-- `name` is auto-detected on first run and written to config.toml. Once set, it becomes the permanent project identifier.
+- `name` is auto-detected on first run and written to config.toml. Once set, it becomes the permanent project identifier (logical project identity in the shared database).
 - Changing `name` requires MCP server restart.
+- **Worktrees / alias clones:** use the **same** `name` so ADRs stay shared across directories. Path is not the identity.
+- **Separate ADR spaces:** set a **different** `name` in each tree's config. Do not rely on “different folder path” alone to split projects.
 
 ## [database] — Database Settings
 
