@@ -134,6 +134,17 @@ The recommended desktop flow uses the `project` tool to resolve once and reuse a
 
 `project` tool actions: `current` (active project or unbound status), `resolve` (resolve/register, returns a ref), `list` (all registered projects), `validate` (read-only check).
 
+### Same project name, different directories (worktrees / alias clones)
+
+Logical project identity is **`[project].name`**, not the filesystem path. Git worktrees, alias clones, and isolation worktrees that share the same name resolve to the **same** `project_id` and share ADRs — including when you pass `_sqlew_project.root` or call `project.resolve { root }` with a different absolute path.
+
+| Goal | What to set |
+|------|-------------|
+| Share ADRs across checkouts | Same `[project].name` in each tree (or same auto-detected name from git remote / basename) |
+| Keep ADR spaces separate | Different `[project].name` in each `.sqlew/config.toml` |
+
+`project_root_path` in `m_projects` records the first-registered root and is not rewritten when another path reuses the name.
+
 ### Single-project shortcut (env var)
 
 If a desktop server instance only ever works on one project, set `SQLEW_PROJECT_ROOT` in the MCP server's `env` block. This counts as an explicit signal, so the session binds normally and `_sqlew_project` is not needed:
@@ -170,3 +181,7 @@ Yes, all projects using the default global database share the same `sqlew-shared
 ### My desktop agent writes to the wrong project (or none). What do I do?
 
 Desktop apps launch the MCP server from a fixed cwd, so it can't detect your project. Either set `SQLEW_PROJECT_ROOT` in the server's `env` (single-project), or pass `_sqlew_project` per call / use the `project` tool to resolve a `ref` (multi-project). See [Desktop AI Agents](#desktop-ai-agents-claude-desktop--hermes-desktop) above.
+
+### I use a worktree / second clone and expected a separate project (or shared ADRs)
+
+Identity is the project **name**. Same name → shared ADRs across paths; different name → separate spaces. See [Same project name, different directories](#same-project-name-different-directories-worktrees--alias-clones).

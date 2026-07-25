@@ -1,8 +1,9 @@
 /**
- * Desktop AI agent project resolution tests (v5.4)
+ * Desktop AI agent project resolution tests (v5.4+)
  *
  * Covers:
- * - resolveProjectScope: root (create), name (find / not-found), ref, collision
+ * - resolveProjectScope: root (create), name (find / not-found), ref
+ * - Same name + different root shares one project (worktree / alias clone)
  * - AsyncLocalStorage request-scope isolation (concurrency-safe project switch)
  * - P0 unbound guard: fail-closed writes, help allowed, recovery via _sqlew_project
  * - Per-call project targeting end-to-end through LocalBackend.execute
@@ -87,7 +88,7 @@ describe('resolveProjectScope', () => {
     assert.strictEqual(byRef.id, created.id);
   });
 
-  it('rejects a name collision (same name, different root) on write', async () => {
+  it('shares project when same name has different root on write', async () => {
     const knex = getAdapter().getKnex();
     const now = Math.floor(Date.now() / 1000);
     // Pre-register a project named "myproj" rooted elsewhere.
@@ -100,14 +101,55 @@ describe('resolveProjectScope', () => {
       last_active_ts: now,
       metadata: null,
     });
-    // A different directory whose basename is also "myproj".
+    const existing = await knex('m_projects').where({ name: 'myproj' }).first<{ id: number }>();
+    assert.ok(existing);
+
+    // A different directory whose basename is also "myproj" (worktree / alias clone).
     const repo = path.join(tempDir, 'myproj');
     fs.mkdirSync(repo);
 
-    await assert.rejects(
-      () => resolveProjectScope({ root: repo }, { forWrite: true }),
-      (err: unknown) => parseError(err).error === 'SQLEW_PROJECT_NAME_COLLISION'
-    );
+    const meta = await resolveProjectScope({ root: repo }, { forWrite: true });
+    assert.strictEqual(meta.id, existing.id);
+    assert.strictEqual(meta.name, 'myproj');
+    // First-registered path is kept (not rewritten to the second root).
+    assert.strictEqual(meta.project_root_path, '/somewhere/else/myproj');
+  });
+
+  it('read with mismatched root still resolves existing project', async () => {
+    const knex = getAdapter().getKnex();
+    const now = Math.floor(Date.now() / 1000);
+    await knex('m_projects').insert({
+      name: 'myproj',
+      display_name: 'myproj',
+      detection_source: 'config',
+      project_root_path: '/somewhere/else/myproj',
+      created_ts: now,
+      last_active_ts: now,
+      metadata: null,
+    });
+    const existing = await knex('m_projects').where({ name: 'myproj' }).first<{ id: number }>();
+    const repo = path.join(tempDir, 'myproj');
+    fs.mkdirSync(repo);
+
+    const meta = await resolveProjectScope({ root: repo }, { forWrite: false });
+    assert.strictEqual(meta.id, existing!.id);
+  });
+
+  it('name-only resolve does not require root match', async () => {
+    const knex = getAdapter().getKnex();
+    const now = Math.floor(Date.now() / 1000);
+    await knex('m_projects').insert({
+      name: 'named-only',
+      display_name: 'named-only',
+      detection_source: 'config',
+      project_root_path: '/original/named-only',
+      created_ts: now,
+      last_active_ts: now,
+      metadata: null,
+    });
+    const found = await resolveProjectScope({ name: 'named-only' }, { forWrite: false });
+    assert.strictEqual(found.name, 'named-only');
+    assert.strictEqual(found.project_root_path, '/original/named-only');
   });
 });
 
@@ -197,6 +239,27 @@ describe('project tool', () => {
     assert.strictEqual(result.usage._sqlew_project.ref, result.project.ref);
   });
 
+  it('project.resolve by second root returns same ref as first', async () => {
+    const backend = new LocalBackend();
+    // Two directories with the same basename → same detected project name.
+    const rootA = path.join(tempDir, 'clone-a', 'shared-app');
+    const rootB = path.join(tempDir, 'clone-b', 'shared-app');
+    fs.mkdirSync(rootA, { recursive: true });
+    fs.mkdirSync(rootB, { recursive: true });
+
+    const first = (await backend.execute('project', 'resolve', { root: rootA })) as {
+      project: { id: number; ref: string; name: string };
+    };
+    const second = (await backend.execute('project', 'resolve', { root: rootB })) as {
+      project: { id: number; ref: string; name: string };
+    };
+
+    assert.strictEqual(first.project.name, 'shared-app');
+    assert.strictEqual(second.project.name, 'shared-app');
+    assert.strictEqual(second.project.id, first.project.id);
+    assert.strictEqual(second.project.ref, first.project.ref);
+  });
+
   it('list returns registered projects', async () => {
     const backend = new LocalBackend();
     const repo = fs.mkdtempSync(path.join(tempDir, 'repo-'));
@@ -246,5 +309,69 @@ describe('Per-call project targeting (bound singleton)', () => {
     })) as { count: number; decisions: Array<{ value: string }> };
     assert.strictEqual(targeted.count, 1);
     assert.strictEqual(targeted.decisions[0].value, 'PostgreSQL');
+  });
+
+  it('write via _sqlew_project.root on second path hits same project', async () => {
+    const backend = new LocalBackend();
+    const rootA = path.join(tempDir, 'wt-a', 'shared-app');
+    const rootB = path.join(tempDir, 'wt-b', 'shared-app');
+    fs.mkdirSync(rootA, { recursive: true });
+    fs.mkdirSync(rootB, { recursive: true });
+
+    await backend.execute('decision', 'set', {
+      key: 'auth/session',
+      value: 'cookie',
+      _sqlew_project: { root: rootA },
+    });
+
+    // Second checkout (same basename → same name) should see the decision.
+    const fromB = (await backend.execute('decision', 'list', {
+      _sqlew_project: { root: rootB },
+    })) as { count: number; decisions: Array<{ value: string }> };
+    assert.strictEqual(fromB.count, 1);
+    assert.strictEqual(fromB.decisions[0].value, 'cookie');
+
+    // Write from B is still the same project space.
+    await backend.execute('decision', 'set', {
+      key: 'auth/session',
+      value: 'cookie-v2',
+      _sqlew_project: { root: rootB },
+    });
+    const fromA = (await backend.execute('decision', 'list', {
+      _sqlew_project: { root: rootA },
+    })) as { count: number; decisions: Array<{ key: string; value: string }> };
+    assert.strictEqual(fromA.count, 1);
+    assert.strictEqual(fromA.decisions[0].value, 'cookie-v2');
+  });
+
+  it('different project names stay isolated across roots', async () => {
+    const backend = new LocalBackend();
+    const rootAlpha = path.join(tempDir, 'alpha-root');
+    const rootBeta = path.join(tempDir, 'beta-root');
+    fs.mkdirSync(rootAlpha, { recursive: true });
+    fs.mkdirSync(rootBeta, { recursive: true });
+
+    await backend.execute('decision', 'set', {
+      key: 'feature/flag',
+      value: 'alpha-only',
+      _sqlew_project: { root: rootAlpha },
+    });
+    await backend.execute('decision', 'set', {
+      key: 'feature/flag',
+      value: 'beta-only',
+      _sqlew_project: { root: rootBeta },
+    });
+
+    const alpha = (await backend.execute('decision', 'list', {
+      _sqlew_project: { root: rootAlpha },
+    })) as { count: number; decisions: Array<{ value: string }> };
+    const beta = (await backend.execute('decision', 'list', {
+      _sqlew_project: { root: rootBeta },
+    })) as { count: number; decisions: Array<{ value: string }> };
+
+    assert.strictEqual(alpha.count, 1);
+    assert.strictEqual(alpha.decisions[0].value, 'alpha-only');
+    assert.strictEqual(beta.count, 1);
+    assert.strictEqual(beta.decisions[0].value, 'beta-only');
   });
 });

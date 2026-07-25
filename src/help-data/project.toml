@@ -133,7 +133,7 @@ description = "Check whether a root/name/ref resolves cleanly, without creating 
   "name": "mcp-sqlew"
 }
 '''
-  explanation = "Returns { ok: true, project } when registered, or { ok: false, error, message } (e.g. SQLEW_PROJECT_NOT_FOUND / SQLEW_PROJECT_NAME_COLLISION)"
+  explanation = "Returns { ok: true, project } when registered, or { ok: false, error, message } (e.g. SQLEW_PROJECT_NOT_FOUND). Same name at a different root shares the existing project (worktree / alias clone)."
 
 # -----------------------------------------------------------------------------
 

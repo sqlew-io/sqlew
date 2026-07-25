@@ -95,6 +95,20 @@ The per-tool token consumption feature never worked: its only writer inserted v3
 
 ---
 
+## [5.3.4] - 2026-07-25
+
+### Fixed
+
+**Same project name + different root no longer errors on per-call resolve**
+
+Git worktrees, alias clones, and isolation worktrees often share `[project].name` (or the same detected basename / git remote name) while living at different absolute paths. Startup-time `ensureProject` already treated name as identity and reused the existing row; per-call resolution (`resolveProjectScope` / `project.resolve { root }` / `_sqlew_project.root`) incorrectly rejected writes with `SQLEW_PROJECT_NAME_COLLISION`.
+
+- **Behavior:** name match always reuses the existing `m_projects` row, even when `root` differs from the recorded `project_root_path` (aligned with startup). `project_root_path` stays the first-registered path.
+- **Separation:** set a unique `[project].name` per tree when ADR spaces must not be shared.
+- **Docs:** [SHARED_DATABASE.md](docs/SHARED_DATABASE.md), [CONFIGURATION.md](docs/CONFIGURATION.md).
+
+---
+
 ## [5.3.1] - 2026-06-29
 
 ### Added
