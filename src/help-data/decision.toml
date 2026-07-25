@@ -46,10 +46,10 @@ note = "This action does NOT support rationale, alternatives, or tradeoffs param
   description = "Architecture layer: presentation, business, data, infrastructure, cross-cutting, documentation, planning, coordination, review"
 
   [[actions.params]]
-  name = "scope"
-  type = "string"
+  name = "scopes"
+  type = "string[]"
   required = false
-  description = "Module or component scope"
+  description = "Module or component scopes"
 
   [[actions.params]]
   name = "version"
@@ -87,7 +87,7 @@ note = "This action does NOT support rationale, alternatives, or tradeoffs param
   "value": 20,
   "tags": ["database", "performance"],
   "layer": "data",
-  "scope": "api-service"
+  "scopes": ["api-service"]
 }
 '''
   explanation = "Store a numeric decision scoped to a specific service"
@@ -645,7 +645,7 @@ description = "List decision contexts with filtering"
 
 [[actions]]
 name = "analytics"
-description = "Get decision analytics and statistics"
+description = "Get analytics and statistics for numeric decisions"
 
   [[actions.params]]
   name = "action"
@@ -653,14 +653,46 @@ description = "Get decision analytics and statistics"
   required = true
   description = "Must be \"analytics\""
 
+  [[actions.params]]
+  name = "key_pattern"
+  type = "string"
+  required = true
+  description = "SQL LIKE pattern for numeric decision keys (e.g., \"metric/%\")"
+
+  [[actions.params]]
+  name = "aggregation"
+  type = "string"
+  required = true
+  description = "Aggregation type for numeric decisions: avg, sum, max, min, count"
+
+  [[actions.params]]
+  name = "layer"
+  type = "string"
+  required = false
+  description = "Optional layer filter"
+
+  [[actions.params]]
+  name = "time_series"
+  type = "object"
+  required = false
+  description = "Optional time series options: { bucket, start_ts, end_ts }"
+
+  [[actions.params]]
+  name = "percentiles"
+  type = "number[]"
+  required = false
+  description = "Optional percentiles to calculate (e.g., [50, 90, 95, 99])"
+
   [[actions.examples]]
   title = "Get analytics"
   code = '''
 {
-  "action": "analytics"
+  "action": "analytics",
+  "key_pattern": "metric/api-latency/%",
+  "aggregation": "avg"
 }
 '''
-  explanation = "View statistics about decisions (count by layer, status, tags, etc.)"
+  explanation = "Aggregate numeric decisions matching the key pattern"
 
 # -----------------------------------------------------------------------------
 
