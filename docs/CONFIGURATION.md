@@ -89,12 +89,14 @@ Authentication, encryption, and scaling are managed by the sqlew cloud service �
 [hooks]
 session_context_budget = 500   # Token budget for session-start context injection (default: 500)
 grok_require_patterns = true   # Grok: deny exit_plan_mode without filled 📌/🚫 (default: true)
+omp_require_patterns = true    # omp: deny xd://propose without filled 📌/🚫 (default: true)
 ```
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `session_context_budget` | `500` | Estimated token budget for injected session context. Set to `0` to disable both injection and snapshot writes. Valid range: `0`–`10000` (integer). |
 | `grok_require_patterns` | `true` | Grok Build only. When `true`, PreToolUse on `exit_plan_mode` **denies** approval if `plan.md` has no filled `### 📌 Decision:` / `### 🚫 Constraint:` blocks (template placeholders alone do not count). Set `Value`/`Rule` to `N/A` if nothing to record, or set this to `false` to disable the gate. |
+| `omp_require_patterns` | `true` | oh-my-pi (omp) only. When `true`, Extension blocks write to `xd://propose` / `/xdev/propose` if the materialized plan has no filled 📌/🚫 blocks. |
 
 **Priority:** Config loading uses first-match-wins (local `.sqlew/config.toml` > worktree parent > global `~/.config/sqlew/config.toml` > defaults). There is no deep merge — if a local config file exists, global `[hooks]` settings are not applied.
 

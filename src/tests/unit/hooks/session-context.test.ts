@@ -136,5 +136,15 @@ describe('session-context helpers', () => {
       });
       assert.strictEqual(shouldInjectOnPrompt(testProjectPath, 'same-session'), false);
     });
+
+    it('should dedup omp harness marker for same session_id', () => {
+      saveSessionContextMarker(testProjectPath, {
+        session_id: 'omp-session',
+        injected_at: new Date().toISOString(),
+        harness: 'omp',
+      });
+      assert.strictEqual(shouldInjectOnPrompt(testProjectPath, 'omp-session'), false);
+      assert.strictEqual(shouldInjectOnPrompt(testProjectPath, 'other-omp'), true);
+    });
   });
 });

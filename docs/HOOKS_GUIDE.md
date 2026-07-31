@@ -127,15 +127,60 @@ hermes plugins remove sqlew
 
 Merged `config.yaml` entries and skills under `~/.hermes/skills/sqlew-*` are not removed automatically.
 
+## oh-my-pi (omp)
+
+Requires sqlew **>= 5.4.0** with the `sqlew/hooks` package export. Uses an in-process **Extension** (`.omp-plugin/`), not Claude-style shell hooks.
+
+**Install:**
+
+```bash
+npm i -g sqlew
+omp --extension /path/to/sqlew-plugin/.omp-plugin
+# or:
+omp plugin install /path/to/sqlew-plugin/.omp-plugin
+```
+
+Sync skills into the bundle before install:
+
+```powershell
+pwsh ./scripts/sync-omp-skills.ps1
+```
+
+**Event map (Extension):**
+
+| omp event | Behavior |
+|-----------|----------|
+| `session_start` | Load snapshot → pending session context + marker (`harness: omp`) |
+| `before_agent_start` | Deliver session context once (first message wins) |
+| `turn_start` (plan mode) | FULL then SHORT plan guidance via `sendMessage` |
+| `tool_call` write `local://*-plan.md` | Ensure 📌/🚫 template; materialize `.sqlew/plans/` |
+| `tool_call` write `xd://propose` | Optional filled-pattern gate; `processPlanPatterns` |
+| `tool_result` implementation write | `sqlew save` CLI |
+| `session_stop` | Fallback extract if `decision_pending && !recorded` |
+
+**Config:**
+
+```toml
+[hooks]
+session_context_budget = 500
+omp_require_patterns = true   # block propose without filled 📌/🚫 (default)
+```
+
+Plans are mirrored to `<project>/.sqlew/plans/<slug>-plan.md` so extraction always has an absolute `plan_path`.
+
+MCP: keep using project `.mcp.json`; the Extension does not re-register MCP when already present.
+
+Source: https://github.com/sqlew-io/sqlew-plugin (`.omp-plugin/`)
+
 ## What Gets Configured
 
-| Feature | Claude Code | Codex | Grok Build | Hermes |
-|---------|-------------|-------|------------|--------|
-| Install | `claude plugin install` | `codex plugin install` | `grok plugin install` | `hermes plugins install …/.hermes-plugin` |
-| MCP server | Plugin `.mcp.json` | Plugin `.mcp.json` | Plugin `.mcp.json` | `config.yaml` merge |
-| Plan-to-ADR | Skills + Hooks | Skills + Hooks | Skills + Hooks | Skills + shell hooks |
-| PR enrichment | Skill + Hook | Skill + Hook | Skill + Hook | Hook (`pr-adr`) |
-| Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill |
+| Feature | Claude Code | Codex | Grok Build | Hermes | omp |
+|---------|-------------|-------|------------|--------|-----|
+| Install | `claude plugin install` | `codex plugin install` | `grok plugin install` | `hermes plugins install …/.hermes-plugin` | `omp --extension …/.omp-plugin` |
+| MCP server | Plugin `.mcp.json` | Plugin `.mcp.json` | Plugin `.mcp.json` | `config.yaml` merge | Project `.mcp.json` |
+| Plan-to-ADR | Skills + Hooks | Skills + Hooks | Skills + Hooks | Skills + shell hooks | Extension + `sqlew/hooks` |
+| PR enrichment | Skill + Hook | Skill + Hook | Skill + Hook | Hook (`pr-adr`) | Extension → `pr-adr` CLI |
+| Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill | Skill |
 
 ## Session Context Injection (v5.4.0+)
 
@@ -172,7 +217,7 @@ Grok Build hooks are passive — stdout injection is ignored. Session context in
 
 ## Version History
 
-- **v5.4.0**: Session context injection (snapshot file, multi-harness delivery, `[hooks]` config)
+- **v5.4.0**: Session context injection (snapshot file, multi-harness delivery, `[hooks]` config); oh-my-pi (omp) Extension (`sqlew/hooks` export, plan materialize, propose gate)
 - **v5.3.0**: Hermes hook adapter (event/tool normalization, `.hermes/plans`, `pre_llm_call` context injection)
 - **v5.2.1**: Codex plugin support via sqlew-plugin (`.codex-plugin`, marketplace, hook normalization, transcript-based plan extraction)
 - **v5.2.0**: Grok Build support via sqlew-plugin (hook normalization, Grok plan path, skills-based plan guidance)

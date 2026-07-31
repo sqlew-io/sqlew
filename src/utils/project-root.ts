@@ -6,6 +6,7 @@
  * 0b. GROK_WORKSPACE_ROOT environment variable (Grok Build hooks / MCP)
  * 0c. CODEX_CWD environment variable (Codex hooks / MCP)
  * 0d. TERMINAL_CWD environment variable (Hermes hooks)
+ * 0e. OMP_PROJECT_ROOT environment variable (oh-my-pi extension / MCP)
  * 1. SQLEW_PROJECT_ROOT environment variable (MCP client can set this)
  * 2. CLI --db-path argument (absolute path) → use dirname
  * 3. CLI --config-path argument (absolute path) → use dirname
@@ -110,6 +111,11 @@ export function determineProjectRoot(options: ProjectRootOptions = {}): string {
   if (terminalCwd && path.isAbsolute(terminalCwd)) {
     return terminalCwd.replace(/\\/g, '/');
   }
+  // Priority 0e: OMP_PROJECT_ROOT (oh-my-pi extension / MCP)
+  const ompProjectRoot = process.env.OMP_PROJECT_ROOT;
+  if (ompProjectRoot && path.isAbsolute(ompProjectRoot)) {
+    return ompProjectRoot.replace(/\\/g, '/');
+  }
 
   // Priority 1: SQLEW_PROJECT_ROOT environment variable
   // MCP clients (Junie, Claude Desktop, etc.) can set this to specify project directory
@@ -193,6 +199,7 @@ export function wasProjectRootExplicit(options: ProjectRootOptions = {}): boolea
     process.env.GROK_WORKSPACE_ROOT,
     process.env.CODEX_CWD,
     process.env.TERMINAL_CWD,
+    process.env.OMP_PROJECT_ROOT,
     process.env.SQLEW_PROJECT_ROOT,
   ];
   if (envSignals.some(value => value && path.isAbsolute(value))) {

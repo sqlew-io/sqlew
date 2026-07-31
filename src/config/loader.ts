@@ -277,6 +277,11 @@ export function validateConfig(config: SqlewConfig): { valid: boolean; errors: s
       errors.push('hooks.grok_require_patterns must be a boolean');
     }
   }
+  if (config.hooks?.omp_require_patterns !== undefined) {
+    if (typeof config.hooks.omp_require_patterns !== 'boolean') {
+      errors.push('hooks.omp_require_patterns must be a boolean');
+    }
+  }
 
   return {
     valid: errors.length === 0,

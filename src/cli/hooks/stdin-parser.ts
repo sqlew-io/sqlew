@@ -94,8 +94,8 @@ export interface HookInput {
   reason?: 'clear' | 'logout' | 'prompt_input_exit' | 'other';
   /** Codex collaboration mode (e.g. plan, default). */
   collaboration_mode?: string;
-  /** Originating client, set by normalizeHookInput() (e.g., 'grok', 'codex', 'hermes'). undefined = Claude/native. */
-  client?: 'grok' | 'codex' | 'claude' | 'hermes';
+  /** Originating client, set by normalizeHookInput() (e.g., 'grok', 'codex', 'hermes', 'omp'). undefined = Claude/native. */
+  client?: 'grok' | 'codex' | 'claude' | 'hermes' | 'omp';
 }
 
 /**
@@ -236,6 +236,29 @@ const HERMES_TOOL_MAP: Record<string, string> = {
 };
 
 const HERMES_NATIVE_TOOLS = new Set(Object.keys(HERMES_TOOL_MAP));
+
+/** omp (oh-my-pi) tool names → Claude canonical tool names. */
+export const OMP_TOOL_MAP: Record<string, string> = {
+  write: 'Write',
+  edit: 'Edit',
+  bash: 'Bash',
+  todo: 'TodoWrite',
+  task: 'Task',
+  read: 'Read',
+};
+
+/**
+ * True when filePath is an omp plan artifact, materialize path, or propose device.
+ */
+export function isOmpPlanPath(filePath: string | undefined): boolean {
+  if (!filePath) return false;
+  const p = filePath.replace(/\\/g, '/');
+  if (/local:\/\/[^/]+-plan\.md$/i.test(p)) return true;
+  if (/(^|\/)[^/]+-plan\.md$/i.test(p) && !p.includes('/node_modules/')) return true;
+  if (/\/\.sqlew\/plans\/[^/]+\.md$/i.test(p)) return true;
+  if (p === 'xd://propose' || p === '/xdev/propose' || p.endsWith('/xdev/propose')) return true;
+  return false;
+}
 const HERMES_NATIVE_EVENTS = new Set(Object.keys(HERMES_EVENT_MAP));
 
 function isHermesPayload(raw: Record<string, unknown>): boolean {
@@ -773,8 +796,11 @@ export function isPlanFile(input: HookInput): boolean {
   const normalizedPath = filePath.replace(/\\/g, '/');
 
   // Match global + project-local plan paths for Claude (.claude/plans/) and
-  // Hermes (.hermes/plans/).
-  return /[/\\]?\.(claude|hermes)\/plans\/[^/]+\.md$/.test(normalizedPath);
+  // Hermes (.hermes/plans/), plus omp plan artifacts / materialize dir.
+  if (/[/\\]?\.(claude|hermes)\/plans\/[^/]+\.md$/.test(normalizedPath)) {
+    return true;
+  }
+  return isOmpPlanPath(filePath);
 }
 
 /**
@@ -805,7 +831,9 @@ export function getProjectPath(input: HookInput): string | undefined {
     process.env.CLAUDE_PROJECT_DIR ||
     process.env.CODEX_CWD ||
     process.env.GROK_WORKSPACE_ROOT ||
-    process.env.TERMINAL_CWD
+    process.env.TERMINAL_CWD ||
+    process.env.OMP_PROJECT_ROOT ||
+    process.env.SQLEW_PROJECT_ROOT
   );
 }
 
