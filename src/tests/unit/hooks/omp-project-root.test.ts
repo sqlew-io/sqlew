@@ -22,6 +22,11 @@ const ENV_KEYS = [
 
 const saved: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
 
+// determineProjectRoot uses path.isAbsolute(), which is platform-specific:
+// 'C:/...' is absolute only on win32. Build paths that are absolute on the
+// current platform so the precedence assertions hold on Linux CI too.
+const absRoot = (p: string): string => (process.platform === 'win32' ? `C:${p}` : p);
+
 function stashEnv(): void {
   for (const k of ENV_KEYS) {
     saved[k] = process.env[k];
@@ -44,24 +49,28 @@ describe('OMP_PROJECT_ROOT', () => {
 
   it('wins over bare cwd when set', () => {
     stashEnv();
-    process.env.OMP_PROJECT_ROOT = 'C:/Users/kitayama/RustroverProjects/demo';
+    const ompRoot = absRoot('/Users/kitayama/RustroverProjects/demo');
+    process.env.OMP_PROJECT_ROOT = ompRoot;
     const root = determineProjectRoot();
-    assert.equal(root, 'C:/Users/kitayama/RustroverProjects/demo');
+    assert.equal(root, ompRoot.replace(/\\/g, '/'));
     assert.equal(wasProjectRootExplicit(), true);
   });
 
   it('does not override CLAUDE_PROJECT_DIR', () => {
     stashEnv();
-    process.env.CLAUDE_PROJECT_DIR = 'C:/claude-project';
-    process.env.OMP_PROJECT_ROOT = 'C:/omp-project';
+    const claudeRoot = absRoot('/claude-project');
+    const ompRoot = absRoot('/omp-project');
+    process.env.CLAUDE_PROJECT_DIR = claudeRoot;
+    process.env.OMP_PROJECT_ROOT = ompRoot;
     const root = determineProjectRoot();
-    assert.equal(root, 'C:/claude-project');
+    assert.equal(root, claudeRoot.replace(/\\/g, '/'));
   });
 
   it('is used by getProjectPath fallback', async () => {
     stashEnv();
-    process.env.OMP_PROJECT_ROOT = 'C:/omp-only';
+    const ompRoot = absRoot('/omp-only');
+    process.env.OMP_PROJECT_ROOT = ompRoot;
     const { getProjectPath } = await import('../../../cli/hooks/stdin-parser.js');
-    assert.equal(getProjectPath({}), 'C:/omp-only');
+    assert.equal(getProjectPath({}), ompRoot);
   });
 });
