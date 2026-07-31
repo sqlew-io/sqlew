@@ -153,7 +153,7 @@ pwsh ./scripts/sync-omp-skills.ps1
 | `session_start` | Load snapshot → pending session context + marker (`harness: omp`) |
 | `before_agent_start` | Deliver session context once (first message wins) |
 | `turn_start` (plan mode) | FULL then SHORT plan guidance via `sendMessage` |
-| `tool_call` write `local://*-plan.md` | Ensure 📌/🚫 template; materialize `.sqlew/plans/` |
+| `tool_call` write `local://*-plan.md` | Ensure 📌/🚫 template; track session `local://` path as `plan_path` |
 | `tool_call` write `xd://propose` | Optional filled-pattern gate; `processPlanPatterns` |
 | `tool_result` implementation write | `sqlew save` CLI |
 | `session_stop` | Fallback extract if `decision_pending && !recorded` |
@@ -166,7 +166,7 @@ session_context_budget = 500
 omp_require_patterns = true   # block propose without filled 📌/🚫 (default)
 ```
 
-Plans are mirrored to `<project>/.sqlew/plans/<slug>-plan.md` so extraction always has an absolute `plan_path`.
+`local://` plans resolve to the session artifacts file (`<sessionDir>/local/<slug>-plan.md`) so extraction has an absolute `plan_path` without copying into the project. Legacy fallback writes `.sqlew/plans/` only when resolve fails.
 
 MCP: keep using project `.mcp.json`; the Extension does not re-register MCP when already present.
 

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.3.7] - 2026-07-31
+
+### Changed
+
+**omp Plan-to-ADR: session-local plan_path (no project copy by default)**
+
+- **`resolveOmpPlanFsPath` / `resolveOmpLocalRoot`** — resolve `local://*-plan.md` to the session artifacts file (`<sessionFile-without-.jsonl>/local/...`, Win long-path short root fallback) without depending on `@oh-my-pi/pi-coding-agent`.
+- **`materializeOmpPlan`** — tracks `CurrentPlanInfo.plan_path` only (no write). Project `.sqlew/plans/` mirror remains **legacy fallback** when resolve fails.
+- **`hooks-api`** — exports the new resolve helpers for the omp Extension.
+- **Docs / tests** — HOOKS_GUIDE, HARNESS_COMPATIBILITY, CONFIGURATION; unit + integration cover session-local track and no default mirror.
+
+Pair with sqlew-plugin `.omp-plugin` that passes `sessionFile` + `planPath` into track/materialize.
+
+
 ## [5.3.6] - 2026-07-31
 
 ### Added

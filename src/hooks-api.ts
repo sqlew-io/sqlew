@@ -57,6 +57,9 @@ export {
   trackOmpPlanFromPath,
   extractSlugFromOmpPlanPath,
   ensureOmpPlanTemplate,
+  resolveOmpPlanFsPath,
+  resolveOmpLocalRoot,
+  type OmpLocalResolveOpts,
 } from './cli/hooks/omp-plan.js';
 
 export {

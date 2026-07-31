@@ -65,7 +65,7 @@ Plugin skills (`sqlew-decision-format`) remind the agent of this format when nee
 | **Codex** | **Plan mode** (enable `[features] collaboration_modes = true` first) | When the agent **stops** after planning | Trust bundled hooks via `/hooks` after install. |
 | **Grok Build** | **Plan mode** | When you **approve the plan** | Skills guide 📌/🚫 format; hooks read `plan.md` on approve (stdout injection is passive). |
 | **Hermes** | **`/plan <prompt>`** (plan skill → `.hermes/plans/*.md`) | When the **plan file is written or updated** | No native Plan mode — extraction runs on plan-file saves; `save` promotes drafts when you edit code. |
-| **oh-my-pi (omp)** | **Plan mode** + `local://*-plan.md` | When you **write xd://propose** (approve) | Extension maps events in-process; plans materialize under `.sqlew/plans/`. |
+| **oh-my-pi (omp)** | **Plan mode** + `local://*-plan.md` | When you **write xd://propose** (approve) | Extension maps events in-process; `plan_path` points at the session `local://` file (no project `.sqlew/plans/` copy by default). |
 | **Other harness** | No auto flow | When **you** call MCP `decision` / `constraint` | Use `decision set` and `constraint add` explicitly. |
 
 ---
@@ -90,7 +90,7 @@ Context injection only on `pre_llm_call` and `pre_tool_call` block. No `ExitPlan
 
 ### oh-my-pi (omp)
 
-In-process **Extension** (not shell `hooks.json`). Install `.omp-plugin` from sqlew-plugin; requires `sqlew` with `sqlew/hooks` export. Session context via `before_agent_start`; Plan-to-ADR on `xd://propose` / `/xdev/propose`; plans materialize to `.sqlew/plans/<slug>-plan.md`. Propose gate: `hooks.omp_require_patterns` (default true). MCP still comes from project `.mcp.json`.
+In-process **Extension** (not shell `hooks.json`). Install `.omp-plugin` from sqlew-plugin; requires `sqlew` with `sqlew/hooks` export. Session context via `before_agent_start`; Plan-to-ADR on `xd://propose` / `/xdev/propose`; `local://*-plan.md` is resolved to the session artifacts path and stored as `plan_path` (legacy fallback: `.sqlew/plans/<slug>-plan.md` only if resolve fails). Propose gate: `hooks.omp_require_patterns` (default true). MCP still comes from project `.mcp.json`.
 
 ### Other harness
 
