@@ -19,6 +19,7 @@ import {
 import {
   DEFAULT_SESSION_CONTEXT_BUDGET,
   DEFAULT_GROK_REQUIRE_PATTERNS,
+  DEFAULT_OMP_REQUIRE_PATTERNS,
 } from '../../config/types.js';
 import {
   SESSION_SNAPSHOT_VERSION,
@@ -124,6 +125,31 @@ export function resolveGrokRequirePatterns(projectPath?: string): boolean {
     // fail-open to default
   }
   return DEFAULT_GROK_REQUIRE_PATTERNS;
+}
+
+/**
+ * Resolve hooks.omp_require_patterns (local → global → default true).
+ * Sync for omp propose exit gate.
+ */
+export function resolveOmpRequirePatterns(projectPath?: string): boolean {
+  try {
+    if (projectPath) {
+      const localConfig = join(projectPath, '.sqlew', 'config.toml');
+      if (existsSync(localConfig)) {
+        const config = loadConfigFile(projectPath, '.sqlew/config.toml');
+        if (config.hooks?.omp_require_patterns !== undefined) {
+          return config.hooks.omp_require_patterns;
+        }
+      }
+    }
+    const globalConfig = loadGlobalConfig();
+    if (globalConfig.hooks?.omp_require_patterns !== undefined) {
+      return globalConfig.hooks.omp_require_patterns;
+    }
+  } catch {
+    // fail-open to default
+  }
+  return DEFAULT_OMP_REQUIRE_PATTERNS;
 }
 
 /**

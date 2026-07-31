@@ -176,16 +176,27 @@ export async function onPromptCommand(): Promise<void> {
     const projectPath = getProjectPath(input);
     const sessionId = resolveSessionId(input);
 
-    // Hermes: pre_llm_call — session context + plan guidance in one JSON line
-    if (input.client === 'hermes') {
+    // Hermes / omp CLI fallback: session context + plan guidance as plain/JSON
+    if (input.client === 'hermes' || input.client === 'omp') {
       if (!projectPath) {
-        sendHermesContext(ENFORCEMENT_FULL);
+        if (input.client === 'hermes') {
+          sendHermesContext(ENFORCEMENT_FULL);
+        } else {
+          process.stdout.write(ENFORCEMENT_FULL);
+        }
         return;
       }
 
-      const sessionBlock = await maybeSessionContextBlock(projectPath, sessionId, 'hermes');
+      const harness = input.client;
+      const sessionBlock = await maybeSessionContextBlock(projectPath, sessionId, harness);
       const { message } = getHermesEnforcement(projectPath);
-      sendHermesContext(combineContext(sessionBlock, message));
+      const combined = combineContext(sessionBlock, message);
+      if (input.client === 'hermes') {
+        sendHermesContext(combined);
+      } else {
+        // omp CLI fallback: plain text (extension uses library path, not this)
+        process.stdout.write(combined);
+      }
       return;
     }
 

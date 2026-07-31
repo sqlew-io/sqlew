@@ -64,6 +64,8 @@ export interface GlobalHooksConfig {
   session_context_budget?: number;
   /** Grok: deny exit_plan_mode without filled 📌/🚫 (default true) */
   grok_require_patterns?: boolean;
+  /** omp: deny xd://propose without filled 📌/🚫 (default true) */
+  omp_require_patterns?: boolean;
 }
 
 /**

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.3.6] - 2026-07-31
+
+### Added
+
+**oh-my-pi (omp) hooks library + Plan-to-ADR support**
+
+omp has no Claude-style shell `hooks.json`; it runs in-process TypeScript Extensions. This release exports a library surface and plumbing so [sqlew-plugin `.omp-plugin`](https://github.com/sqlew-io/sqlew-plugin) can inject session context and extract Plan-to-ADR.
+
+- **`sqlew/hooks` export** — `src/hooks-api.ts` re-exports pure helpers (`buildSessionContext`, `processPlanPatterns`, plan markers, queue enqueue, enforcement strings). Import does not boot the MCP server.
+- **omp plan materialize** — `src/cli/hooks/omp-plan.ts` mirrors `local://*-plan.md` under `.sqlew/plans/<slug>-plan.md` with absolute `plan_path` for `processPlanPatterns`.
+- **Client plumbing** — `HookInput.client` includes `'omp'`; `isOmpPlanPath` / `OMP_TOOL_MAP`; `OMP_PROJECT_ROOT` in `determineProjectRoot` / `getProjectPath`; `save` excludes `.sqlew/plans/`; CLI fallback on `on-prompt` / `on-session-start`.
+- **Config** — `[hooks] omp_require_patterns` (boolean, default `true`) gates empty proposes (same idea as Grok exit gate).
+
+Pair with sqlew-plugin `.omp-plugin` (`sqlew-omp` Extension).
+
+### Documentation
+
+- **HARNESS_COMPATIBILITY / HOOKS_GUIDE / CONFIGURATION** — omp column, install, event map, `omp_require_patterns`
+
+### Tests
+
+- Unit: `omp-plan`, `omp-project-root`, session-context omp marker dedup
+- Integration: `omp-plan-to-adr` (materialize → queue → already_recorded)
+
+---
+
 ## [Unreleased]
 
 ### Added

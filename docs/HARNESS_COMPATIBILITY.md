@@ -2,7 +2,7 @@
 
 Which sqlew features work on which AI harness (client). Install [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) for hooks and skills unless you use an **Other harness** setup (MCP server only, no plugin).
 
-**Harnesses:** Claude Code · Codex · Grok Build · Hermes · **Other harness** (MCP tools only — Cursor, Claude Desktop, custom clients, …)
+**Harnesses:** Claude Code · Codex · Grok Build · Hermes · oh-my-pi (omp) · **Other harness** (MCP tools only — Cursor, Claude Desktop, custom clients, …)
 
 ## Legend
 
@@ -14,27 +14,27 @@ Which sqlew features work on which AI harness (client). Install [sqlew-plugin](h
 | ✎ | Manual — call MCP tools yourself (`decision`, `suggest`, …); no automation |
 | — | Not available |
 
-Minimum sqlew versions: Grok Build **5.2+**, Codex **5.2.1+**, Hermes **5.3.0+**, session context injection **5.4.0+** (unreleased until tagged).
+Minimum sqlew versions: Grok Build **5.2+**, Codex **5.2.1+**, Hermes **5.3.0+**, oh-my-pi (omp) Extension **5.4.0+**, session context injection **5.4.0+** (unreleased until tagged).
 
 ---
 
 ## Feature matrix
 
-| Feature | Claude Code | Codex | Grok Build | Hermes | Other harness |
-|---------|:-----------:|:-----:|:----------:|:------:|:--------------:|
-| **MCP tools** (`decision`, `constraint`, `suggest`, `project`, `queue`, …) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **Session context injection** (recent decisions + active constraints at session start) | ✓ | △ | — | ✓ | ✎ |
-| **Plan mode enforcement** (suggest-before-plan, 📌/🚫 format) | ✓ | △ | ◎+file | ✓ | ✎ |
-| **Plan-to-ADR extraction** (📌 Decision / 🚫 Constraint → DB) | ✓ | △ | △ | △ | ✎ |
-| **Plan file tracking** (`track-plan`) | ✓ | ✓ | ✓ | ✓ | — |
-| **Decision draft on code edit** (`save` hook) | ✓ | ✓ | ✓ | ✓ | — |
-| **Related-context suggest** (`suggest` on Task / delegate) | ✓ | ✓ | △ | △ | ✎ |
-| **PR ADR guard** (`pr-adr` on `gh pr create`) | ✓ | ✓ | △ | ✓ | — |
-| **Todo completion → decision status** (`check-completion`) | ✓ | ✓ | △ | ✓ | — |
-| **Plan-to-ADR rescue on session clear** (`on-session-start`, source=clear) | ✓ | △ | — | — | — |
-| **PR body ADR enrichment** (`sqlew-pr-adr` skill) | ✓ | ✓ | ◎ | ◎ | — |
-| **Slash command** `/sqlew` | ✓ | △ | △ | — | — |
-| **Desktop project targeting** (`project` tool / `_sqlew_project`) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Feature | Claude Code | Codex | Grok Build | Hermes | omp | Other harness |
+|---------|:-----------:|:-----:|:----------:|:------:|:---:|:--------------:|
+| **MCP tools** (`decision`, `constraint`, `suggest`, `project`, `queue`, …) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Session context injection** (recent decisions + active constraints at session start) | ✓ | △ | — | ✓ | ✓ | ✎ |
+| **Plan mode enforcement** (suggest-before-plan, 📌/🚫 format) | ✓ | △ | ◎+file | ✓ | ✓ | ✎ |
+| **Plan-to-ADR extraction** (📌 Decision / 🚫 Constraint → DB) | ✓ | △ | △ | △ | ✓ | ✎ |
+| **Plan file tracking** (`track-plan`) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Decision draft on code edit** (`save` hook) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Related-context suggest** (`suggest` on Task / delegate) | ✓ | ✓ | △ | △ | △ | ✎ |
+| **PR ADR guard** (`pr-adr` on `gh pr create`) | ✓ | ✓ | △ | ✓ | ✓ | — |
+| **Todo completion → decision status** (`check-completion`) | ✓ | ✓ | △ | ✓ | ✓ | — |
+| **Plan-to-ADR rescue on session clear** (`on-session-start`, source=clear) | ✓ | △ | — | — | △ | — |
+| **PR body ADR enrichment** (`sqlew-pr-adr` skill) | ✓ | ✓ | ◎ | ◎ | ◎ | — |
+| **Slash command** `/sqlew` | ✓ | △ | △ | — | — | — |
+| **Desktop project targeting** (`project` tool / `_sqlew_project`) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ### Other harness — what is this column?
 
@@ -65,6 +65,7 @@ Plugin skills (`sqlew-decision-format`) remind the agent of this format when nee
 | **Codex** | **Plan mode** (enable `[features] collaboration_modes = true` first) | When the agent **stops** after planning | Trust bundled hooks via `/hooks` after install. |
 | **Grok Build** | **Plan mode** | When you **approve the plan** | Skills guide 📌/🚫 format; hooks read `plan.md` on approve (stdout injection is passive). |
 | **Hermes** | **`/plan <prompt>`** (plan skill → `.hermes/plans/*.md`) | When the **plan file is written or updated** | No native Plan mode — extraction runs on plan-file saves; `save` promotes drafts when you edit code. |
+| **oh-my-pi (omp)** | **Plan mode** + `local://*-plan.md` | When you **write xd://propose** (approve) | Extension maps events in-process; plans materialize under `.sqlew/plans/`. |
 | **Other harness** | No auto flow | When **you** call MCP `decision` / `constraint` | Use `decision set` and `constraint add` explicitly. |
 
 ---
@@ -86,6 +87,10 @@ Most hooks work after trusting bundled hooks (`/hooks`). Plan mode needs `collab
 ### Hermes
 
 Context injection only on `pre_llm_call` and `pre_tool_call` block. No `ExitPlanMode` — extraction relies on writes to `.hermes/plans/`. Install via `.hermes-plugin` bundle, not the Claude/Codex manifest.
+
+### oh-my-pi (omp)
+
+In-process **Extension** (not shell `hooks.json`). Install `.omp-plugin` from sqlew-plugin; requires `sqlew` with `sqlew/hooks` export. Session context via `before_agent_start`; Plan-to-ADR on `xd://propose` / `/xdev/propose`; plans materialize to `.sqlew/plans/<slug>-plan.md`. Propose gate: `hooks.omp_require_patterns` (default true). MCP still comes from project `.mcp.json`.
 
 ### Other harness
 

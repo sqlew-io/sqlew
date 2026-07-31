@@ -303,6 +303,12 @@ export interface HooksConfig {
    * @since v5.5.x
    */
   grok_require_patterns?: boolean;
+  /**
+   * oh-my-pi (omp): deny xd://propose when plan has no filled 📌/🚫 blocks.
+   * Default: true.
+   * @since v5.4.0
+   */
+  omp_require_patterns?: boolean;
 }
 
 /** Default session context injection token budget */
@@ -310,6 +316,9 @@ export const DEFAULT_SESSION_CONTEXT_BUDGET = 500;
 
 /** Default: require filled Decision/Constraint on Grok exit_plan_mode */
 export const DEFAULT_GROK_REQUIRE_PATTERNS = true;
+
+/** Default: require filled Decision/Constraint on omp propose */
+export const DEFAULT_OMP_REQUIRE_PATTERNS = true;
 
 /**
  * Project configuration (v3.7.0+)
@@ -437,5 +446,6 @@ export const DEFAULT_CONFIG: SqlewConfig = {
   hooks: {
     session_context_budget: DEFAULT_SESSION_CONTEXT_BUDGET,
     grok_require_patterns: DEFAULT_GROK_REQUIRE_PATTERNS,
+    omp_require_patterns: DEFAULT_OMP_REQUIRE_PATTERNS,
   },
 };
