@@ -2,6 +2,7 @@
  * omp Plan-to-ADR integration tests (no omp binary required)
  *
  * @since v5.4.0
+ * @modified v5.4.2 — session-local plan_path (no project mirror)
  */
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
@@ -9,7 +10,11 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { materializeOmpPlan, ensureOmpPlanTemplate } from '../../cli/hooks/omp-plan.js';
+import {
+  materializeOmpPlan,
+  ensureOmpPlanTemplate,
+  ompPlansDir,
+} from '../../cli/hooks/omp-plan.js';
 import { processPlanPatterns } from '../../cli/hooks/plan-processor.js';
 import { hasFilledPatterns } from '../../cli/hooks/plan-pattern-extractor.js';
 import { saveCurrentPlan, loadCurrentPlan } from '../../config/global-config.js';
@@ -23,6 +28,7 @@ const FILLED_PLAN = `# Demo plan
 `;
 
 let testProjectPath: string;
+let sessionPlanPath: string;
 
 describe('omp plan-to-adr', () => {
   beforeEach(() => {
@@ -30,7 +36,10 @@ describe('omp plan-to-adr', () => {
       tmpdir(),
       `sqlew-omp-adr-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
-    mkdirSync(join(testProjectPath, '.sqlew', 'plans'), { recursive: true });
+    mkdirSync(testProjectPath, { recursive: true });
+    const localDir = join(testProjectPath, 'session-local');
+    mkdirSync(localDir, { recursive: true });
+    sessionPlanPath = join(localDir, 'demo-plan.md');
   });
 
   afterEach(() => {
@@ -39,13 +48,17 @@ describe('omp plan-to-adr', () => {
     }
   });
 
-  it('processPlanPatterns enqueues decision from materialized plan', () => {
+  it('processPlanPatterns enqueues decision from session-local plan', () => {
+    writeFileSync(sessionPlanPath, FILLED_PLAN, 'utf-8');
     const { planPath } = materializeOmpPlan({
       projectPath: testProjectPath,
       slug: 'demo',
       content: FILLED_PLAN,
+      planPath: sessionPlanPath,
     });
     assert.ok(existsSync(planPath));
+    assert.equal(planPath.replace(/\\/g, '/'), sessionPlanPath.replace(/\\/g, '/'));
+    assert.equal(existsSync(ompPlansDir(testProjectPath)), false);
     assert.equal(hasFilledPatterns(FILLED_PLAN), true);
 
     const result = processPlanPatterns(testProjectPath);
@@ -66,10 +79,12 @@ describe('omp plan-to-adr', () => {
   });
 
   it('second processPlanPatterns returns already_recorded', () => {
+    writeFileSync(sessionPlanPath, FILLED_PLAN, 'utf-8');
     materializeOmpPlan({
       projectPath: testProjectPath,
       slug: 'demo',
       content: FILLED_PLAN,
+      planPath: sessionPlanPath,
     });
     const first = processPlanPatterns(testProjectPath);
     assert.equal(first.processed, true);
@@ -89,17 +104,16 @@ describe('omp plan-to-adr', () => {
 
     // Propose gate uses hasFilledPatterns; processPlanPatterns still sees
     // raw 📌/🚫 headings via hasPatterns — gate is what blocks empty proposes.
-    writeFileSync(join(testProjectPath, '.sqlew', 'plans', 'empty-plan.md'), content, 'utf-8');
+    writeFileSync(sessionPlanPath, content, 'utf-8');
     saveCurrentPlan(testProjectPath, {
       plan_id: 'empty-1',
-      plan_file: 'empty-plan.md',
-      plan_path: join(testProjectPath, '.sqlew', 'plans', 'empty-plan.md').replace(/\\/g, '/'),
+      plan_file: 'demo-plan.md',
+      plan_path: sessionPlanPath.replace(/\\/g, '/'),
       plan_updated_at: new Date().toISOString(),
       recorded: false,
       decision_pending: true,
     });
 
-    // If extraction yields only placeholders, hasFilledPatterns remains the gate.
-    assert.equal(hasFilledPatterns(readFileSync(join(testProjectPath, '.sqlew', 'plans', 'empty-plan.md'), 'utf-8')), false);
+    assert.equal(hasFilledPatterns(readFileSync(sessionPlanPath, 'utf-8')), false);
   });
 });
