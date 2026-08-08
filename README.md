@@ -5,31 +5,45 @@
 [![npm version](https://img.shields.io/npm/v/sqlew.svg)](https://www.npmjs.com/package/sqlew)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-> **Design decisions, remembered by SQL** — an MCP server for AI agents
+> **Design intent on tap** — stop agents from re-auditing the whole repo every turn
 
 ## What is sqlew?
 
 ### The Problem
 
-Every AI coding session starts from scratch. Your agent doesn't remember that you chose PostgreSQL over MongoDB last week, or that the team agreed on a specific API versioning strategy. Without persistent memory, agents repeat mistakes, contradict earlier decisions, and waste tokens re-discovering context.
+Strong coding agents no longer "forget" the stack between sessions the way older models did. They treat the **codebase as ground truth** — and that is good for correctness.
+
+The new failure mode is cost and thrash:
+
+- Specs, plans, and ADRs already say *why* a choice was made
+- The agent still re-opens large swaths of source "just to be sure"
+- Rejected alternatives and non-local constraints are expensive (or impossible) to re-derive from code alone
+- Every turn pays the same investigation tax; multi-agent and multi-day work multiplies it
+
+Code answers *what is implemented*. It is a poor, high-token index for *why we chose it*, *what we forbade*, and *what we already rejected*.
 
 ### The Solution
 
-sqlew stores your architectural decisions in a structured SQL database. When a new session starts, the AI agent queries past decisions in milliseconds — not by reading through scattered Markdown files, but through efficient SQL lookups with metadata, tags, and similarity detection.
+sqlew is an MCP server that stores **architectural decisions and constraints** in a SQL database — with rationale, tags, layers, and rejected alternatives. Agents **query intent first** (`suggest`, session context, targeted `decision` / `constraint` lookups) instead of re-deriving design context from a full-tree read every turn.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Before sqlew                 │  After sqlew                │
-│───────────────────────────────│─────────────────────────────│
-│  Session 1: "Use PostgreSQL"  │  Session 1: "Use PostgreSQL"│
-│  Session 2: "Use MongoDB?"    │    → decision recorded      │
-│  Session 3: "Use PostgreSQL"  │  Session 2: query → got it  │
-│  (same debate, every time)    │  Session 3: query → got it  │
-│                               │    (instant recall)         │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  Without sqlew                         │  With sqlew                 │
+│────────────────────────────────────────│─────────────────────────────│
+│  Plan/spec: "use Postgres, no Mongo"   │  Plan approved → ADR saved  │
+│  Next turn: re-read half the repo      │  Next turn: suggest/query   │
+│  "just to confirm the architecture"    │  → intent in milliseconds   │
+│  Tokens burned; same audit next agent  │  Code read only for the diff│
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-sqlew is built on the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), so it works with any MCP-compatible AI coding tool.
+sqlew does **not** replace reading code for implementation detail. It replaces **ritual whole-repo archaeology for design intent** with structured recall:
+
+1. **Capture** — Plan Mode + hooks record decisions/constraints when you approve a plan (zero extra ceremony with sqlew-plugin)
+2. **Recall** — Session start injects recent context (where the harness supports it); `suggest` finds related ADRs before the agent expands search
+3. **Enforce** — Constraints stay first-class rules; duplicate/similarity checks stop circular re-decisions
+
+Built on the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), so it works with any MCP-compatible AI coding tool.
 
 > _This software does not send any data to external networks. We NEVER collect any data or usage statistics._
 
@@ -121,6 +135,23 @@ hermes plugins remove sqlew
 
 If you merged hooks manually before using the plugin, also remove `mcp_servers.sqlew` and sqlew `hooks:` entries from `~/.hermes/config.yaml`. Skills under `~/.hermes/skills/sqlew-*` are not removed automatically.
 
+#### oh-my-pi / omp (Extension)
+
+Requires sqlew with the `sqlew/hooks` export (see [Harness Compatibility](docs/HARNESS_COMPATIBILITY.md) for the minimum version). omp uses an in-process **Extension** (`.omp-plugin/`), not Claude-style shell hooks.
+
+**Install:**
+
+```bash
+npm i -g sqlew
+omp --extension /path/to/sqlew-plugin/.omp-plugin
+# or:
+omp plugin install /path/to/sqlew-plugin/.omp-plugin
+```
+
+Session context via `before_agent_start`; Plan-to-ADR when you approve via `xd://propose` / `/xdev/propose`. Plans live as session-local `local://*-plan.md` (no project `.sqlew/plans/` copy by default). See [Hooks Guide](docs/HOOKS_GUIDE.md#oh-my-pi-omp).
+
+MCP still comes from the project `.mcp.json` (Extension does not re-register MCP when already present).
+
 #### Other harness (MCP only)
 
 MCP server only — no sqlew-plugin hooks or skills (Cursor, Claude Desktop, custom clients, …). See [Harness Compatibility](docs/HARNESS_COMPATIBILITY.md#other-harness--what-is-this-column).
@@ -148,24 +179,24 @@ No special commands needed — just plan your work normally, and sqlew captures 
 ## Features
 
 - **Structured Records** — Decisions stored as relational data with metadata, tags, layers, and version history
-- **Fast Queries** — 2-50ms retrieval via SQL, even with thousands of decisions
+- **Fast Queries** — 2-50ms SQL recall for design intent; avoid multi-file repo archaeology every turn
 - **Duplicate Detection** — Three-tier similarity scoring (0-100) prevents redundant decisions
 - **Constraint Tracking** — Architectural rules and principles as first-class entities
-- **Auto-Capture** — Hooks automatically record decisions from Plan Mode (Claude Code, Codex, Grok Build, and Hermes via sqlew-plugin)
-- **Session Context Injection** — Recent decisions and active constraints injected at session start (Claude Code, Hermes, Codex partial; not Grok Build — see matrix)
+- **Auto-Capture** — Hooks/Extension automatically record decisions from Plan Mode (Claude Code, Codex, Grok Build, Hermes, and oh-my-pi via sqlew-plugin)
+- **Session Context Injection** — Recent decisions and active constraints injected at session start (Claude Code, Hermes, omp, Codex partial; not Grok Build — see matrix)
 - **Multi-Database** — SQLite (default), PostgreSQL, MySQL/MariaDB, or Cloud
 - **Git Worktree Ready** — Each worktree shares the same context database
 
 ### Harness compatibility
 
-Not every feature works the same on every client. **Grok Build** uses passive hooks (no stdout injection), so session context and plan-mode hook enforcement are skill-based only (◎).
+Not every feature works the same on every client. **Grok Build** uses passive hooks (no stdout injection), so session context and plan-mode hook enforcement are skill-based only (◎). **oh-my-pi (omp)** uses an in-process Extension (`sqlew/hooks`) rather than shell hooks — the summary rows below are full (✓).
 
-| Feature | Claude | Codex | Grok | Hermes |
-|---------|:------:|:-----:|:----:|:------:|
-| MCP tools | ✓ | ✓ | ✓ | ✓ |
-| Session context injection | ✓ | △ | — | ✓ |
-| Plan-to-ADR (auto) | ✓ | △ | △ | △ |
-| Plan mode hook enforcement | ✓ | △ | ◎ | ✓ |
+| Feature | Claude | Codex | Grok | Hermes | omp |
+|---------|:------:|:-----:|:----:|:------:|:---:|
+| MCP tools | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Session context injection | ✓ | △ | — | ✓ | ✓ |
+| Plan-to-ADR (auto) | ✓ | △ | △ | ✓ | ✓ |
+| Plan mode hook enforcement | ✓ | △ | ◎ | ✓ | ✓ |
 
 ✓ full · △ partial · ◎ skills only · ✎ manual MCP · — not available
 
@@ -207,15 +238,15 @@ name = "your-project-name"
 | Query speed | 2-50ms |
 | Concurrent agents | 5+ simultaneous |
 | Storage efficiency | ~140 bytes/decision |
-| Token savings | 60-75% vs Markdown ADRs |
+| Token savings | Fewer full-tree "confirm the architecture" passes; 60-75% vs dumping Markdown ADRs into context |
 
 ## Use Cases
 
 - **Architecture Evolution** — Document major decisions with full context and alternatives considered
 - **Pattern Standardization** — Establish coding patterns as constraints, enforce via AI code generation
-- **Cross-Session Continuity** — AI maintains context across days/weeks without re-reading docs
+- **Cross-Session Continuity** — Agents reuse recorded intent across days without re-auditing the tree for *why*
 - **Multi-Agent Coordination** — Multiple AI agents share architectural understanding
-- **Onboarding Acceleration** — New AI sessions instantly understand project history
+- **Onboarding Acceleration** — New sessions/agents load decisions and constraints first, then read only the code paths that matter
 
 ## Documentation
 
@@ -224,7 +255,7 @@ name = "your-project-name"
 | [ADR Concepts](docs/ADR_CONCEPTS.md) | Architecture Decision Records explained |
 | [Configuration](docs/CONFIGURATION.md) | Config file setup, database options |
 | [Harness Compatibility](docs/HARNESS_COMPATIBILITY.md) | Feature × harness matrix (MCP, hooks, session context, Plan-to-ADR) |
-| [Hooks Guide](docs/HOOKS_GUIDE.md) | Claude Code, Codex, Grok Build, and Hermes integration |
+| [Hooks Guide](docs/HOOKS_GUIDE.md) | Claude Code, Codex, Grok Build, Hermes, and oh-my-pi (omp) integration |
 | [Hermes Hooks Guide](docs/HERMES_HOOKS.md) | Hermes-specific setup and wire-protocol notes |
 | [Cross Database](docs/CROSS_DATABASE.md) | Multi-database support |
 | [CLI Usage](docs/CLI_USAGE.md) | Database migration, export/import |
