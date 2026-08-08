@@ -25,7 +25,7 @@ Minimum sqlew versions: Grok Build **5.2+**, Codex **5.2.1+**, Hermes **5.3.0+**
 | **MCP tools** (`decision`, `constraint`, `suggest`, `project`, `queue`, …) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Session context injection** (recent decisions + active constraints at session start) | ✓ | △ | — | ✓ | ✓ | ✎ |
 | **Plan mode enforcement** (suggest-before-plan, 📌/🚫 format) | ✓ | △ | ◎+file | ✓ | ✓ | ✎ |
-| **Plan-to-ADR extraction** (📌 Decision / 🚫 Constraint → DB) | ✓ | △ | △ | △ | ✓ | ✎ |
+| **Plan-to-ADR extraction** (📌 Decision / 🚫 Constraint → DB) | ✓ | △ | △ | ✓ | ✓ | ✎ |
 | **Plan file tracking** (`track-plan`) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Decision draft on code edit** (`save` hook) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Related-context suggest** (`suggest` on Task / delegate) | ✓ | ✓ | △ | △ | △ | ✎ |
