@@ -55,6 +55,16 @@ Built on the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), s
 npm install -g sqlew
 ```
 
+**npm 12+** (bundled with Node 24.19+) blocks dependency install scripts by default. sqlew needs [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) to download or compile its native addon, so allow that script:
+
+```bash
+npm install -g --allow-scripts=better-sqlite3 sqlew
+```
+
+Without the flag, `sqlew` installs but exits on first run with `Could not locate the bindings file`. Re-run the command above to repair an existing install.
+
+npm 11 and earlier still run install scripts by default; `npm install -g sqlew` is enough there.
+
 ### 2. Setup
 
 Choose the setup that matches your environment. Each client has its own install and uninstall steps.
@@ -142,7 +152,7 @@ Requires sqlew with the `sqlew/hooks` export (see [Harness Compatibility](docs/H
 **Install:**
 
 ```bash
-npm i -g sqlew
+npm i -g --allow-scripts=better-sqlite3 sqlew   # see Install above (npm 12+)
 omp --extension /path/to/sqlew-plugin/.omp-plugin
 # or:
 omp plugin install /path/to/sqlew-plugin/.omp-plugin
