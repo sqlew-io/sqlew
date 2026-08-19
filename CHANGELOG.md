@@ -68,6 +68,18 @@ Proactively injects recent decisions and active constraints at session start so 
 
 - **Grok Build** — Passive hooks ignore stdout; session context injection is not available in v5.4. Use skills or `/sqlew search` manually. Plan template uses multi-trigger file injection (v5.3.3).
 
+### Fixed
+
+**Husky migration lock targeted a deleted directory**
+
+Pre-commit still grepped `src/config/knex/(bootstrap|upgrades|enhancements)/`, which was removed in the v4 layout move. Editing a pushed file under `src/database/migrations/` did not fail the hook, and CI had no equivalent check.
+
+- Shared `scripts/check-migration-lock.js` locks `src/database/migrations/**/*.{ts,js}` that already exist on `origin/main`
+- Pre-commit calls the script after `build` + `npm test`; stale `test:vcs` / `test:all` / `test:docker` tips removed
+- Redundant pre-push build smoke removed
+- CI (Node 20) runs the same lock so `--no-verify` cannot skip it
+- Local override: `ALLOW_MIGRATION_EDIT=1` (ignored when `CI` is set)
+
 ---
 
 ## [5.3.3] - 2026-07-11

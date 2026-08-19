@@ -1,77 +1,34 @@
 #!/usr/bin/env sh
-echo "🔍 Running strict pre-commit checks..."
+echo "Running pre-commit checks..."
 
 # ============================================================================
 # STEP 1: Build Check
 # ============================================================================
-echo "📦 Building TypeScript..."
+echo "Building TypeScript..."
 npm run build || {
-  echo "❌ Build failed! Please fix compilation errors before committing."
+  echo "Build failed. Fix compilation errors before committing."
   exit 1
 }
 
 # ============================================================================
-# STEP 2: Test Suite (excludes VCS tests that perform git commits)
+# STEP 2: Test Suite (unit + feature + database + integration)
 # ============================================================================
-echo "🧪 Running test suite (this may take 2-5 minutes)..."
-echo "💡 VCS tests excluded (they perform actual git commits)"
-echo "💡 Docker-dependent tests excluded (requires manual execution)"
+echo "Running npm test (this may take 2-5 minutes)..."
+echo "Not in this hook: npm run test:backend, npm run test:native"
 npm test || {
-  echo "❌ Tests failed! Please fix all test failures before committing."
-  echo "💡 Tip: Run 'npm test' locally to see detailed errors"
-  echo "💡 To run VCS tests: npm run test:vcs"
-  echo "💡 To run ALL tests: npm run test:all"
+  echo "Tests failed. Fix failures before committing."
+  echo "Tip: run 'npm test' locally for details"
   exit 1
 }
 
 # ============================================================================
-# STEP 3: Migration Integrity Verification
+# STEP 3: Migration lock (src/database/migrations vs origin/main)
 # ============================================================================
-echo "🔒 Verifying migration file integrity..."
+echo "Verifying migration file integrity..."
+node scripts/check-migration-lock.js --mode staged || {
+  echo "Migration lock failed. See the policy message above."
+  exit 1
+}
 
-# Check if any migration files were modified
-MODIFIED_MIGRATIONS=$(git diff --cached --name-only | grep "src/config/knex/\(bootstrap\|upgrades\|enhancements\)/" | grep "\.ts$" || true)
-
-if [ -n "$MODIFIED_MIGRATIONS" ]; then
-  # Detect remote tracking branch (try origin/main, origin/master, origin/dev)
-  REMOTE_BRANCH=""
-  if git rev-parse --verify origin/main >/dev/null 2>&1; then
-    REMOTE_BRANCH="origin/main"
-  elif git rev-parse --verify origin/master >/dev/null 2>&1; then
-    REMOTE_BRANCH="origin/master"
-  elif git rev-parse --verify origin/dev >/dev/null 2>&1; then
-    REMOTE_BRANCH="origin/dev"
-  fi
-
-  if [ -z "$REMOTE_BRANCH" ]; then
-    echo "⚠️  No remote tracking branch found (origin/main, origin/master, or origin/dev)"
-    echo "💡 Skipping migration integrity check (local-only repository)"
-  else
-    # Check if these files exist in remote branch (pushed files)
-    for file in $MODIFIED_MIGRATIONS; do
-      # Check if file exists in the remote branch
-      if git cat-file -e "$REMOTE_BRANCH":"$file" 2>/dev/null; then
-        echo "❌ CRITICAL: PUSHED migration file was edited: $file"
-        echo ""
-        echo "📋 MIGRATION POLICY:"
-        echo "   - NEVER edit PUSHED migration files"
-        echo "   - Create a new enhancement migration instead"
-        echo "   - See CLAUDE.md for migration best practices"
-        echo ""
-        echo "🔧 To fix this:"
-        echo "   1. Revert changes to $file"
-        echo "   2. Create new migration: npm run migrate:make <name>"
-        echo "   3. Implement your changes in the new migration"
-        echo ""
-        echo "ℹ️  Detected remote: $REMOTE_BRANCH"
-        exit 1
-      fi
-    done
-
-    echo "✅ New migration files detected (not yet pushed to $REMOTE_BRANCH)"
-  fi
-fi
-
-echo "✅ All pre-commit checks passed!"
-echo "💡 Pre-push will run minimal smoke tests only"
-echo "💡 To run Docker tests manually: npm run test:docker"
+echo "All pre-commit checks passed."
+echo "Optional extra suites: npm run test:backend / npm run test:native"
