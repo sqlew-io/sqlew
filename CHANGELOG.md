@@ -78,6 +78,7 @@ Pre-commit still grepped `src/config/knex/(bootstrap|upgrades|enhancements)/`, w
 - Pre-commit calls the script after `build` + `npm test`; stale `test:vcs` / `test:all` / `test:docker` tips removed
 - Redundant pre-push build smoke removed
 - CI (Node 20) runs the same lock so `--no-verify` cannot skip it
+- CI checkout uses `fetch-depth: 0` so `origin/main...HEAD` can compute a merge-base on pull requests
 - Local override: `ALLOW_MIGRATION_EDIT=1` (ignored when `CI` is set)
 
 ---

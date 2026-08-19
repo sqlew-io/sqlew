@@ -72,6 +72,14 @@ function refExists(ref) {
 }
 
 function listChanged(mode, base, head) {
+  if (mode === 'range') {
+    if (!gitOk(['merge-base', base, head])) {
+      throw new Error(
+        `No merge base between ${base} and ${head}. ` +
+          'Need a deeper clone (CI: checkout fetch-depth: 0, or git fetch --unshallow).'
+      );
+    }
+  }
   const gitArgs = mode === 'staged'
     ? ['diff', '--cached', '--name-only', '--', ...PATHSPECS]
     : ['diff', '--name-only', `${base}...${head}`, '--', ...PATHSPECS];

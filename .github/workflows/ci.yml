@@ -22,6 +22,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
+          # Triple-dot diff in check-migration-lock.js needs a merge-base.
+          # Default fetch-depth: 1 leaves origin/main and HEAD disconnected.
+          fetch-depth: 0
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
