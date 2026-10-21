@@ -4,6 +4,7 @@
 
 import type { DatabaseAdapter } from '../../adapters/index.js';
 import { createDatabaseAdapter } from '../../adapters/index.js';
+import type { AuthConfig, DatabaseConfig } from '../../config/types.js';
 import { debugLog } from '../../utils/debug-logger.js';
 import knexConfig from '../../knexfile.js';
 import { detectSchemaVersion, getSchemaVersion } from './schema-version.js';
@@ -11,15 +12,67 @@ import { detectSchemaVersion, getSchemaVersion } from './schema-version.js';
 // Global adapter instance
 let adapterInstance: DatabaseAdapter | null = null;
 
+/** Options accepted by {@link initializeDatabase}. */
+export type InitializeDatabaseConfig = {
+  databaseType?: 'sqlite' | 'postgresql' | 'mysql';
+  connection?: any;
+  /**
+   * Auth including SSL. Prefer this over stuffing credentials onto `connection`.
+   * When omitted, user/password/ssl may still be read from `connection` (legacy).
+   */
+  auth?: AuthConfig;
+  configPath?: string;
+};
+
+/**
+ * Build adapter {@link DatabaseConfig} from initializeDatabase input.
+ * Preserves `auth.ssl` (and ssl carried on connection) for Neon/Prisma-style URLs.
+ */
+export function buildAdapterDatabaseConfig(
+  config?: InitializeDatabaseConfig
+): DatabaseConfig | undefined {
+  if (!config?.connection) {
+    return undefined;
+  }
+
+  const dbType = config.databaseType || 'sqlite';
+  const connectionSsl = config.connection.ssl;
+
+  let auth: AuthConfig | undefined;
+  if (config.auth) {
+    auth = {
+      ...config.auth,
+      // Prefer explicit auth.ssl; fall back to ssl stuffed onto connection
+      ...(config.auth.ssl !== undefined
+        ? { ssl: config.auth.ssl }
+        : connectionSsl !== undefined
+          ? { ssl: connectionSsl }
+          : {}),
+    };
+  } else if (config.connection.user) {
+    auth = {
+      type: 'direct',
+      user: config.connection.user,
+      password: config.connection.password,
+      ...(connectionSsl !== undefined ? { ssl: connectionSsl } : {}),
+    };
+  }
+
+  return {
+    type: (dbType === 'postgresql' ? 'postgres' : dbType) as
+      | 'sqlite'
+      | 'mysql'
+      | 'postgres',
+    connection: config.connection,
+    auth,
+  };
+}
+
 /**
  * Initialize database with adapter pattern
  */
 export async function initializeDatabase(
-  config?: {
-    databaseType?: 'sqlite' | 'postgresql' | 'mysql';
-    connection?: any;
-    configPath?: string;
-  }
+  config?: InitializeDatabaseConfig
 ): Promise<DatabaseAdapter> {
   if (adapterInstance) {
     return adapterInstance;
@@ -28,21 +81,9 @@ export async function initializeDatabase(
   const dbType = config?.databaseType || 'sqlite';
 
   // Build DatabaseConfig for adapter
-  // For MySQL/PostgreSQL, use provided connection config with auth
+  // For MySQL/PostgreSQL, use provided connection config with auth (incl. SSL)
   // For SQLite, use traditional file path
-  const databaseConfig = config?.connection
-    ? ({
-        type: (dbType === 'postgresql' ? 'postgres' : dbType) as 'sqlite' | 'mysql' | 'postgres',
-        connection: config.connection,
-        auth: config.connection.user
-          ? {
-              type: 'direct' as const,
-              user: config.connection.user,
-              password: config.connection.password,
-            }
-          : undefined,
-      } as const)
-    : undefined;
+  const databaseConfig = buildAdapterDatabaseConfig(config);
 
   const adapter = createDatabaseAdapter(dbType, databaseConfig as any);
 

@@ -13,9 +13,11 @@ export type { DatabaseAdapter } from './types.js';
 // Initialization
 export {
   initializeDatabase,
+  buildAdapterDatabaseConfig,
   getAdapterInstance,
   setAdapterInstance,
 } from './initialization/init.js';
+export type { InitializeDatabaseConfig } from './initialization/init.js';
 
 export { closeDatabase } from './initialization/cleanup.js';
 

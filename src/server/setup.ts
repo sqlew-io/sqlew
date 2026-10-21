@@ -257,7 +257,13 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
         ...fileConfig.database!.connection,
         user: fileConfig.database!.auth?.user,
         password: fileConfig.database!.auth?.password,
+        // Keep SSL on connection for legacy init paths that only read connection
+        ...(fileConfig.database!.auth?.ssl
+          ? { ssl: fileConfig.database!.auth.ssl }
+          : {}),
       },
+      // Pass full auth so initializeDatabase puts ssl on DirectAuthProvider
+      auth: fileConfig.database!.auth,
     };
 
     try {
