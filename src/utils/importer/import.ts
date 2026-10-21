@@ -19,9 +19,9 @@ import type {
   JsonImportResult,
   ImportContext,
   ImportStats,
-  IdMapping
 } from '../../types.js';
 import { importMasterTables } from './master-tables.js';
+import { insertReturningId } from '../insert-returning-id.js';
 
 /**
  * Main import function
@@ -105,7 +105,7 @@ async function performImport(
 ): Promise<JsonImportResult> {
   // Step 1: Create new project
   const projectData = jsonData.project || jsonData.projects?.[0];
-  const [projectId] = await trx('m_projects').insert({
+  const projectId = await insertReturningId(trx, 'm_projects', {
     name: projectName,
     display_name: projectData?.display_name || projectName,
     detection_source: projectData?.detection_source || 'import',
@@ -306,7 +306,7 @@ async function importDecisionPolicies(ctx: ImportContext): Promise<void> {
   const policies = ctx.jsonData.master_tables?.decision_policies || [];
 
   for (const policy of policies) {
-    const [newPolicyId] = await ctx.knex('t_decision_policies').insert({
+    const newPolicyId = await insertReturningId(ctx.knex, 't_decision_policies', {
       name: policy.name,
       description: policy.description,
       defaults: policy.defaults,
