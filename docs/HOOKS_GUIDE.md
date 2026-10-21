@@ -2,7 +2,34 @@
 
 sqlew integrates with AI coding assistants through plugins.
 
-> **Feature × harness matrix:** See [HARNESS_COMPATIBILITY.md](HARNESS_COMPATIBILITY.md) for which capabilities (MCP, session context, Plan-to-ADR, PR guard, etc.) work on Claude Code, Codex, Grok Build, Hermes, and other harness setups (MCP only).
+> **Feature × harness matrix:** See [HARNESS_COMPATIBILITY.md](HARNESS_COMPATIBILITY.md) for which capabilities (MCP, session context, Plan-to-ADR, research→ADR, PR guard, etc.) work on Claude Code, Codex, Grok Build, Hermes, and other harness setups (MCP only).
+
+## Research → ADR (plan-less)
+
+**Plan Mode is not required** for ADR / suggest. With sqlew-plugin Post hooks:
+
+```text
+Grep / WebSearch / WebFetch (Post)
+  → inject related context (suggest)
+Write / Edit (Post)
+  → enqueue draft ADR to .sqlew/queue/pending.json  (no DB)
+Stop / on-stop / QueueWatcher
+  → flush-queue → upsert into the database
+```
+
+- **`sqlew suggest`** (Post) — harness-correct `additional_context` / `additionalContext` inject after research tools
+- **`sqlew save`** (plan-less) — enqueues a draft decision create (`{client}/auto/<rel-path>`); does not open the DB on Write
+- **`sqlew on-stop` / `sqlew flush-queue`** — drains `pending.json` (needed on Cloud when MCP QueueWatcher is absent)
+
+**Plan-to-ADR from Plan Mode is unchanged** — Enter/ExitPlanMode (or harness equivalents) still extract 📌 / 🚫 blocks on approve. Use either path, or both.
+
+### Hermes exception
+
+Hermes cannot use this automatic research→ADR trigger via Hooks (`post_tool_call` does not inject model context). Prefer a dedicated Skill created with `/learn`, for example:
+
+> 「調査開始時にsqlewを使ってサジェストを取得し、実装前にADRをsqlewで記録することを義務付けて」
+
+Plan-file capture (`.hermes/plans/`) and MCP `decision` / `suggest` still work. See [HERMES_HOOKS.md](HERMES_HOOKS.md).
 
 ## Prerequisites
 
@@ -23,7 +50,7 @@ claude plugin install sqlew
 
 The plugin automatically configures:
 - MCP server settings (`.mcp.json`)
-- Claude Code Hooks (plan tracking, decision extraction)
+- Claude Code Hooks (research suggest inject, Write enqueue / Stop flush, plan tracking, decision extraction)
 - Claude Code Skills (plan mode guidance, PR enrichment)
 
 To uninstall:
@@ -54,7 +81,7 @@ collaboration_modes = true
 The plugin automatically configures:
 - MCP server settings (`.mcp.json`)
 - Skills (plan mode guidance, decision format, PR ADR)
-- Hooks (plan enforcement, PR ADR guard, decision extraction)
+- Hooks (research suggest inject, Write enqueue / Stop flush, plan enforcement, PR ADR guard, decision extraction)
 
 To uninstall:
 
@@ -117,6 +144,8 @@ hermes plugins enable sqlew
 
 The plugin merges MCP + shell hooks into `~/.hermes/config.yaml` and copies planning skills to `~/.hermes/skills/`.
 
+**Limitation:** Hermes cannot auto-trigger research→ADR via Post hooks. Use `/learn` to obligate `suggest` + ADR recording (see [Research → ADR](#research--adr-plan-less) and [HERMES_HOOKS.md](HERMES_HOOKS.md)).
+
 See [HERMES_HOOKS.md](HERMES_HOOKS.md) for manual `config.yaml` setup, event/tool mapping, and Hermes-specific limitations.
 
 **Uninstall:**
@@ -155,8 +184,9 @@ pwsh ./scripts/sync-omp-skills.ps1
 | `turn_start` (plan mode) | FULL then SHORT plan guidance via `sendMessage` |
 | `tool_call` write `local://*-plan.md` | Ensure 📌/🚫 template; track session `local://` path as `plan_path` |
 | `tool_call` write `xd://propose` | Optional filled-pattern gate; `processPlanPatterns` |
-| `tool_result` implementation write | `sqlew save` CLI |
-| `session_stop` | Fallback extract if `decision_pending && !recorded` |
+| `tool_result` research (grep / fetch / …) | Suggest inject via `{ additionalContext }` when CLI emits it |
+| `tool_result` implementation write | `sqlew save` — plan promote or plan-less enqueue to `pending.json` |
+| `session_stop` | Flush queue + fallback extract if `decision_pending && !recorded` |
 
 **Config:**
 
@@ -178,6 +208,7 @@ Source: https://github.com/sqlew-io/sqlew-plugin (`.omp-plugin/`)
 |---------|-------------|-------|------------|--------|-----|
 | Install | `claude plugin install` | `codex plugin install` | `grok plugin install` | `hermes plugins install …/.hermes-plugin` | `omp --extension …/.omp-plugin` |
 | MCP server | Plugin `.mcp.json` | Plugin `.mcp.json` | Plugin `.mcp.json` | `config.yaml` merge | Project `.mcp.json` |
+| Research → ADR (plan-less) | Post hooks + queue | Post hooks + queue | △ (passive stdout) | Skill (`/learn`) — no Post inject | Extension + queue |
 | Plan-to-ADR | Skills + Hooks | Skills + Hooks | Skills + Hooks | Skills + shell hooks | Extension + `sqlew/hooks` |
 | PR enrichment | Skill + Hook | Skill + Hook | Skill + Hook | Hook (`pr-adr`) | Extension → `pr-adr` CLI |
 | Decision format guidance | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill (sqlew-decision-format) | Skill | Skill |
@@ -217,6 +248,7 @@ Grok Build hooks are passive — stdout injection is ignored. Session context in
 
 ## Version History
 
+- **Unreleased**: Plan-less Research → ADR (Post suggest inject; Write=`enqueue` to `pending.json`; Stop=`flush-queue` upsert); Hermes Skill `/learn` guidance for missing Post inject
 - **v5.4.0**: Session context injection (snapshot file, multi-harness delivery, `[hooks]` config); oh-my-pi (omp) Extension (`sqlew/hooks` export, plan materialize, propose gate)
 - **v5.3.0**: Hermes hook adapter (event/tool normalization, `.hermes/plans`, `pre_llm_call` context injection)
 - **v5.2.1**: Codex plugin support via sqlew-plugin (`.codex-plugin`, marketplace, hook normalization, transcript-based plan extraction)

@@ -1,6 +1,6 @@
 # Decisions & Constraints for AI Development
 
-Persistent design context — decisions and constraints recorded as structured data — gives AI agents architectural memory across sessions. sqlew makes this zero-effort: plan normally, and hooks capture your decisions automatically.
+Persistent design context — decisions and constraints recorded as structured data — gives AI agents architectural memory across sessions. sqlew makes this zero-effort: **Plan Mode is not required** — research and Write hooks draft ADRs automatically, and Plan Mode capture still works as before.
 
 ## Why Persistent Design Context Matters
 
@@ -44,26 +44,31 @@ Research shows that recording design intent dramatically improves LLM code gener
 
 ```mermaid
 flowchart LR
-    subgraph Claude Code
+    subgraph PlanLess["Research → ADR (plan-less)"]
+        R[Grep / WebSearch / WebFetch] -->|Post: suggest inject| W[Write / Edit]
+        W -->|Enqueue draft| D[pending.json]
+    end
+
+    subgraph PlanMode["Plan Mode → ADR (unchanged)"]
         A[Plan Mode] -->|Create Plan| B[User Approval]
         B -->|ExitPlanMode| C[Hook Triggered]
+        C -->|Enqueue| D
     end
 
     subgraph sqlew
-        C -->|Enqueue| D[Queue File]
-        D -->|QueueWatcher| E[(SQL Database)]
+        D -->|Stop / flush / QueueWatcher| E[(SQL Database)]
     end
 
     subgraph Next Session
-        F[AI Agent] -->|Query| E
+        F[AI Agent] -->|Query / suggest| E
         E -->|Past Decisions| F
     end
 ```
 
 **Zero-effort knowledge accumulation:**
-1. You plan your work normally in Claude Code
-2. Hooks automatically capture decisions
-3. Next session, AI queries past decisions via SQL
+1. Research tools inject related ADRs; Write enqueues drafts (Plan Mode optional)
+2. Stop / flush upserts the queue into SQL — or Plan Mode approval extracts 📌 / 🚫 as before
+3. Next session, AI queries past decisions via SQL / `suggest`
 
 ## Core Concepts
 
@@ -81,7 +86,7 @@ flowchart LR
 
 **Lifecycle tracking:**
 - **Status evolution** tracks decision lifecycle (draft → active → deprecated)
-- **Auto-capture via Hooks** records decisions automatically from Plan Mode
+- **Auto-capture via Hooks** — plan-less Research → Write → enqueue → flush, **and** Plan Mode Plan-to-ADR
 
 ```mermaid
 erDiagram

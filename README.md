@@ -30,17 +30,17 @@ sqlew is an MCP server that stores **architectural decisions and constraints** i
 ┌──────────────────────────────────────────────────────────────────────┐
 │  Without sqlew                         │  With sqlew                 │
 │────────────────────────────────────────│─────────────────────────────│
-│  Plan/spec: "use Postgres, no Mongo"   │  Plan approved → ADR saved  │
-│  Next turn: re-read half the repo      │  Next turn: suggest/query   │
-│  "just to confirm the architecture"    │  → intent in milliseconds   │
-│  Tokens burned; same audit next agent  │  Code read only for the diff│
+│  Plan/spec: "use Postgres, no Mongo"   │  Research/write → ADR draft │
+│  Next turn: re-read half the repo      │  (or Plan approved → ADR)   │
+│  "just to confirm the architecture"    │  Next turn: suggest/query   │
+│  Tokens burned; same audit next agent  │  → intent in milliseconds   │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 sqlew does **not** replace reading code for implementation detail. It replaces **ritual whole-repo archaeology for design intent** with structured recall:
 
-1. **Capture** — Plan Mode + hooks record decisions/constraints when you approve a plan (zero extra ceremony with sqlew-plugin)
-2. **Recall** — Session start injects recent context (where the harness supports it); `suggest` finds related ADRs before the agent expands search
+1. **Capture** — Plan Mode is **not required**. Research + Write hooks draft ADRs automatically; Plan Mode capture still works as before (sqlew-plugin)
+2. **Recall** — Session start injects recent context (where the harness supports it); Post hooks on Grep / WebSearch / WebFetch inject related ADRs via `suggest`
 3. **Enforce** — Constraints stay first-class rules; duplicate/similarity checks stop circular re-decisions
 
 Built on the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), so it works with any MCP-compatible AI coding tool.
@@ -78,7 +78,7 @@ claude plugin marketplace add sqlew-io/sqlew-plugin
 claude plugin install sqlew
 ```
 
-Configures MCP server, Skills (Plan Mode guidance), and Hooks (automatic decision capture).
+Configures MCP server, Skills (Plan Mode guidance), and Hooks (research suggest inject, Write enqueue / Stop flush, Plan-to-ADR).
 
 **Uninstall:**
 
@@ -114,7 +114,7 @@ grok plugin install sqlew-io/sqlew-plugin --trust
 grok plugin update
 ```
 
-Configures MCP server, Skills (plan mode guidance), and Hooks (automatic decision capture on `exit_plan_mode`).
+Configures MCP server, Skills (plan mode guidance), and Hooks (plan-less save enqueue, Plan-to-ADR on `exit_plan_mode`).
 
 > Do not duplicate hooks in `~/.grok/hooks/` or add `[mcp_servers.sqlew]` to `~/.grok/config.toml`. See [Hooks Guide](docs/HOOKS_GUIDE.md).
 
@@ -180,11 +180,19 @@ Add to `.mcp.json` in your project root:
 
 The database (`~/.config/sqlew/sqlew-shared.db`) and config are auto-created on first run. See [Shared Database](docs/SHARED_DATABASE.md) for details.
 
-### 3. Just use Plan Mode!
+### 3. Capture decisions (Plan Mode optional)
 
-That's it. Every time you create a plan and get user approval, your architectural decisions are **automatically recorded**.
+**Plan Mode is no longer required** for ADR / suggest. With sqlew-plugin hooks:
 
-No special commands needed — just plan your work normally, and sqlew captures the decisions in the background.
+1. **Research** — Post hooks on Grep / WebSearch / WebFetch (and equivalents) inject related context via `suggest`
+2. **Write** — first implementation Write enqueues a draft ADR to `.sqlew/queue/pending.json` (no DB write yet)
+3. **Stop / flush** — `on-stop` or QueueWatcher upserts the queue into the database
+
+**Plan Mode still works as before** — create a plan, get approval, and Plan-to-ADR records 📌 / 🚫 blocks automatically.
+
+> **Hermes exception:** Hermes cannot drive this automatic research→ADR trigger via Hooks. Create a Skill with `/learn`, for example: 「調査開始時にsqlewを使ってサジェストを取得し、実装前にADRをsqlewで記録することを義務付けて」
+
+See [Harness Compatibility](docs/HARNESS_COMPATIBILITY.md) and [Hooks Guide](docs/HOOKS_GUIDE.md).
 
 ## Features
 
@@ -192,19 +200,21 @@ No special commands needed — just plan your work normally, and sqlew captures 
 - **Fast Queries** — 2-50ms SQL recall for design intent; avoid multi-file repo archaeology every turn
 - **Duplicate Detection** — Three-tier similarity scoring (0-100) prevents redundant decisions
 - **Constraint Tracking** — Architectural rules and principles as first-class entities
-- **Auto-Capture** — Hooks/Extension automatically record decisions from Plan Mode (Claude Code, Codex, Grok Build, Hermes, and oh-my-pi via sqlew-plugin)
+- **Auto-Capture (plan-less)** — Research Post hooks inject related ADRs; Write enqueues drafts; Stop / flush upserts to DB
+- **Auto-Capture (Plan Mode)** — Hooks/Extension still record decisions from Plan Mode (Claude Code, Codex, Grok Build, Hermes, and oh-my-pi via sqlew-plugin)
 - **Session Context Injection** — Recent decisions and active constraints injected at session start (Claude Code, Hermes, omp, Codex partial; not Grok Build — see matrix)
 - **Multi-Database** — SQLite (default), PostgreSQL, MySQL/MariaDB, or Cloud
 - **Git Worktree Ready** — Each worktree shares the same context database
 
 ### Harness compatibility
 
-Not every feature works the same on every client. **Grok Build** uses passive hooks (no stdout injection), so session context and plan-mode hook enforcement are skill-based only (◎). **oh-my-pi (omp)** uses an in-process Extension (`sqlew/hooks`) rather than shell hooks — the summary rows below are full (✓).
+Not every feature works the same on every client. **Grok Build** uses passive hooks (no stdout injection), so session context and plan-mode hook enforcement are skill-based only (◎). **oh-my-pi (omp)** uses an in-process Extension (`sqlew/hooks`) rather than shell hooks — the summary rows below are full (✓). **Hermes** lacks Post-hook context inject for research→ADR — use a Skill (`/learn`); Plan-to-ADR via plan files still works.
 
 | Feature | Claude | Codex | Grok | Hermes | omp |
 |---------|:------:|:-----:|:----:|:------:|:---:|
 | MCP tools | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Session context injection | ✓ | △ | — | ✓ | ✓ |
+| Research → ADR (plan-less) | ✓ | △ | △ | ◎ | ✓ |
 | Plan-to-ADR (auto) | ✓ | △ | △ | ✓ | ✓ |
 | Plan mode hook enforcement | ✓ | △ | ◎ | ✓ | ✓ |
 

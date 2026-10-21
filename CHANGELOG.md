@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - QueueWatcher decision create path consolidates into shared `processQueueItem` (upsert semantics).
 
+### Documentation
+
+- **Plan-less harness workflow** — README, HOOKS_GUIDE, HARNESS_COMPATIBILITY, ADR_CONCEPTS, HERMES_HOOKS: Plan Mode is not required; document Research Post → Write enqueue (`pending.json`) → Stop/flush upsert; keep Plan-to-ADR; Hermes Skill `/learn` exception for missing Post inject.
+
 ---
 
 ## [5.3.8] - 2026-09-08
