@@ -65,4 +65,8 @@ export {
 export {
   isOmpPlanPath,
   OMP_TOOL_MAP,
+  buildPostToolUseContextOutput,
+  sendPostToolUseContext,
+  type HookClient,
+  type PostToolUseContextOutput,
 } from './cli/hooks/stdin-parser.js';

@@ -12,7 +12,7 @@
  * @updated v4.2.1 - Changed to detect implementation files (NOT *.md) and promote decisions/constraints
  */
 
-import { readStdinJson, sendContinue, getProjectPath } from './stdin-parser.js';
+import { readStdinJson, sendContinue, sendPostToolUseContext, getProjectPath } from './stdin-parser.js';
 import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
 import { enqueueDecisionUpdate, enqueueConstraintActivate } from '../../utils/hook-queue.js';
 
@@ -121,9 +121,11 @@ export async function saveCommand(): Promise<void> {
     };
     saveCurrentPlan(projectPath, updatedInfo);
 
-    sendContinue(
+    // PostToolUse inject — shape depends on stdin client (Cursor/Claude/Grok/omp/Codex).
+    sendPostToolUseContext(
       `[sqlew] Implementation started for plan: ${planInfo.plan_file} | ` +
-      `Queued: decisions → in_progress, constraints → active`
+      `Queued: decisions → in_progress, constraints → active`,
+      input.client,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

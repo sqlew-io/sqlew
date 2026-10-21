@@ -94,8 +94,39 @@ export interface HookInput {
   reason?: 'clear' | 'logout' | 'prompt_input_exit' | 'other';
   /** Codex collaboration mode (e.g. plan, default). */
   collaboration_mode?: string;
-  /** Originating client, set by normalizeHookInput() (e.g., 'grok', 'codex', 'hermes', 'omp'). undefined = Claude/native. */
-  client?: 'grok' | 'codex' | 'claude' | 'hermes' | 'omp';
+  /**
+   * Originating client, set by normalizeHookInput() or passed explicitly on stdin.
+   * undefined = Claude/native (same as `'claude'` for Post context adapters).
+   */
+  client?: HookClient;
+  /**
+   * Optional inject text for suggest-on-Post (plugin / harness adapter).
+   * Prefer camelCase; Cursor may pass snake_case `additional_context`.
+   */
+  additionalContext?: string;
+  /** Cursor-style snake_case inject text (suggest-on-Post stdin). */
+  additional_context?: string;
+}
+
+/**
+ * Known harness clients for hook I/O adapters.
+ * @since v5.4.x — PostToolUse additional-context shapes differ per client.
+ */
+export type HookClient = 'cursor' | 'claude' | 'grok' | 'codex' | 'omp' | 'hermes';
+
+const KNOWN_HOOK_CLIENTS = new Set<string>([
+  'cursor',
+  'claude',
+  'grok',
+  'codex',
+  'omp',
+  'hermes',
+]);
+
+function asHookClient(value: unknown): HookClient | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  return KNOWN_HOOK_CLIENTS.has(normalized) ? (normalized as HookClient) : undefined;
 }
 
 /**
@@ -145,6 +176,11 @@ export interface HookOutput {
   stopReason?: string;
   /** Additional context to inject (PostToolUse, UserPromptSubmit, SessionStart only) */
   additionalContext?: string;
+  /**
+   * Cursor Cloud PostToolUse inject key (snake_case, top-level).
+   * Not used by Claude / Grok / Codex / omp.
+   */
+  additional_context?: string;
   /** System message to add */
   systemMessage?: string;
   /** Whether to suppress output */
@@ -154,6 +190,22 @@ export interface HookOutput {
   /** @deprecated Use hookSpecificOutput.updatedInput instead */
   updatedInput?: ToolInput;
 }
+
+/**
+ * PostToolUse / tool_result context payload shapes (per harness).
+ * Built by {@link buildPostToolUseContextOutput}.
+ */
+export type PostToolUseContextOutput =
+  | { additional_context: string }
+  | {
+      continue: true;
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse';
+        additionalContext: string;
+      };
+    }
+  | { continue: true; additionalContext: string }
+  | { continue: true };
 
 // ============================================================================
 // Cross-agent normalization (Claude / Grok Build / future)
@@ -398,6 +450,22 @@ export function normalizeHookInput(raw: unknown): HookInput {
     raw = {};
   }
   const r = raw as Record<string, unknown>;
+  // Explicit stdin client wins over heuristic detection (plugin / omp Extension / Cursor).
+  const explicitClient = asHookClient(r.client);
+
+  // Cursor / omp often pass client explicitly; skip Grok camelCase heuristics that
+  // would mis-label Cursor payloads with sessionId-like fields.
+  if (explicitClient === 'cursor' || explicitClient === 'omp' || explicitClient === 'claude') {
+    return {
+      ...(r as HookInput),
+      client: explicitClient,
+      hook_event_name: (r.hook_event_name || r.hookEventName) as HookInput['hook_event_name'],
+      tool_name: (r.tool_name || r.toolName) as string | undefined,
+      tool_input: (r.tool_input || r.toolInput) as ToolInput | undefined,
+      session_id: (r.session_id || r.sessionId) as string | undefined,
+      cwd: (r.cwd || r.workspaceRoot) as string | undefined,
+    };
+  }
 
   const isGrok = !!(
     r.hookEventName ||
@@ -409,34 +477,39 @@ export function normalizeHookInput(raw: unknown): HookInput {
     process.env.GROK_WORKSPACE_ROOT
   );
 
+  let normalized: HookInput;
+
   if (isGrok) {
-    // Grok branch below
+    const rawEvent = (r.hookEventName || r.hook_event_name || process.env.GROK_HOOK_EVENT) as
+      | string
+      | undefined;
+    const rawTool = (r.toolName || r.tool_name) as string | undefined;
+
+    normalized = {
+      ...(r as HookInput),
+      client: 'grok',
+      hook_event_name: rawEvent
+        ? GROK_EVENT_MAP[rawEvent] || (rawEvent as HookInput['hook_event_name'])
+        : (r.hook_event_name as HookInput['hook_event_name']),
+      tool_name: rawTool ? GROK_TOOL_MAP[rawTool] || rawTool : (r.tool_name as string | undefined),
+      tool_input: (r.toolInput || r.tool_input) as ToolInput | undefined,
+      session_id: (r.sessionId || r.session_id || process.env.GROK_SESSION_ID) as string | undefined,
+      // Grok provides cwd + workspaceRoot (equal); fall back to env for empty-stdin events.
+      cwd: (r.cwd || r.workspaceRoot || process.env.GROK_WORKSPACE_ROOT) as string | undefined,
+    };
   } else if (isHermesPayload(r)) {
-    return normalizeHermesPayload(r);
+    normalized = normalizeHermesPayload(r);
   } else if (isCodexPayload(r)) {
-    return normalizeCodexPayload(r);
+    normalized = normalizeCodexPayload(r);
   } else {
     // Claude / native: pass through unchanged
-    return r as HookInput;
+    normalized = r as HookInput;
   }
 
-  const rawEvent = (r.hookEventName || r.hook_event_name || process.env.GROK_HOOK_EVENT) as
-    | string
-    | undefined;
-  const rawTool = (r.toolName || r.tool_name) as string | undefined;
-
-  return {
-    ...(r as HookInput),
-    client: 'grok',
-    hook_event_name: rawEvent
-      ? GROK_EVENT_MAP[rawEvent] || (rawEvent as HookInput['hook_event_name'])
-      : (r.hook_event_name as HookInput['hook_event_name']),
-    tool_name: rawTool ? GROK_TOOL_MAP[rawTool] || rawTool : (r.tool_name as string | undefined),
-    tool_input: (r.toolInput || r.tool_input) as ToolInput | undefined,
-    session_id: (r.sessionId || r.session_id || process.env.GROK_SESSION_ID) as string | undefined,
-    // Grok provides cwd + workspaceRoot (equal); fall back to env for empty-stdin events.
-    cwd: (r.cwd || r.workspaceRoot || process.env.GROK_WORKSPACE_ROOT) as string | undefined,
-  };
+  if (explicitClient) {
+    normalized = { ...normalized, client: explicitClient };
+  }
+  return normalized;
 }
 
 /**
@@ -627,7 +700,7 @@ export async function readStdinJson(): Promise<HookInput> {
  *
  * @param output - Hook output to send
  */
-export function writeHookOutput(output: HookOutput): void {
+export function writeHookOutput(output: HookOutput | PostToolUseContextOutput | Record<string, unknown>): void {
   console.log(JSON.stringify(output));
 }
 
@@ -649,22 +722,64 @@ export function sendContinue(additionalContext?: string, systemMessage?: string)
 }
 
 /**
- * Send a continue response with context for PostToolUse
+ * Build client-correct PostToolUse / tool_result context JSON.
  *
- * Uses hookSpecificOutput format which is required for PostToolUse hooks
- * to properly inject context into Claude's conversation.
+ * Locked shapes (Post-only inject, 2026-10-21):
+ * - Cursor: `{ additional_context }` (snake, top-level)
+ * - Claude Code / Grok: `{ hookSpecificOutput: { hookEventName, additionalContext } }`
+ * - omp / Codex: `{ additionalContext }` (camel, top-level)
+ * - Hermes: Post inject unsupported → `{ continue: true }` only (use Skill path)
+ *
+ * Pure helper for CLI hooks, suggest-on-Post, and `sqlew/hooks` consumers
+ * (omp Extension). Does not log context text (no secrets).
  *
  * @param additionalContext - Context to inject after tool execution
+ * @param client - Harness from stdin `client` field or normalizeHookInput()
  */
-export function sendPostToolUseContext(additionalContext: string): void {
-  const output: HookOutput = {
-    continue: true,
-    hookSpecificOutput: {
-      hookEventName: 'PostToolUse',
-      additionalContext,
-    },
-  };
-  writeHookOutput(output);
+export function buildPostToolUseContextOutput(
+  additionalContext: string,
+  client?: HookClient | string | null,
+): PostToolUseContextOutput {
+  const resolved = asHookClient(client) ?? 'claude';
+
+  switch (resolved) {
+    case 'cursor':
+      // Verified Cloud PostToolUse shape — snake_case top-level only.
+      return { additional_context: additionalContext };
+    case 'codex':
+    case 'omp':
+      return { continue: true, additionalContext };
+    case 'hermes':
+      // post_tool_call return values are ignored; do not emit unused keys.
+      return { continue: true };
+    case 'grok':
+    case 'claude':
+    default:
+      return {
+        continue: true,
+        hookSpecificOutput: {
+          hookEventName: 'PostToolUse',
+          additionalContext,
+        },
+      };
+  }
+}
+
+/**
+ * Send a continue response with context for PostToolUse / tool_result.
+ *
+ * Emits the harness-correct JSON shape via {@link buildPostToolUseContextOutput}.
+ * Prefer this over {@link sendContinue} whenever injecting model-visible context
+ * after a tool (Claude nested camelCase, Cursor snake_case, omp/Codex top camelCase).
+ *
+ * @param additionalContext - Context to inject after tool execution
+ * @param client - Optional harness id from stdin (`input.client`)
+ */
+export function sendPostToolUseContext(
+  additionalContext: string,
+  client?: HookClient | string | null,
+): void {
+  writeHookOutput(buildPostToolUseContextOutput(additionalContext, client));
 }
 
 /**
