@@ -8,7 +8,7 @@ Settings are applied in this order (highest to lowest):
 
 ```
 1. CLI Arguments        (--db-path, --project-name, etc.)
-2. Environment Variables (SQLEW_API_KEY, SQLEW_DEBUG)
+2. Environment Variables (SQLEW_API_KEY, SQLEW_PROJECT_NAME, SQLEW_DATABASE_TYPE, SQLEW_DEBUG)
 3. Config File          (.sqlew/config.toml)
 4. Code Defaults        (DEFAULT_CONFIG in types.ts)
 ```
@@ -149,7 +149,28 @@ node dist/index.js --autodelete-ignore-weekend --autodelete-message-hours=48
 | Variable | Description | Source |
 |----------|-------------|--------|
 | `SQLEW_API_KEY` | API key for cloud backend (`database.type = "cloud"`) | `~/.config/sqlew/.sqlew.env` or environment |
+| `SQLEW_PROJECT_NAME` | Project name (same as `[project].name` / `--project-name`); overrides `.sqlew/config.toml` | Environment only |
+| `SQLEW_DATABASE_TYPE` | Database backend, e.g. `cloud` to use sqlew SaaS without editing local config | Environment only |
 | `SQLEW_DEBUG` | Debug log file path (overrides `debug.log_path` in config) | Environment only |
+| `SQLEW_PROJECT_ROOT` | Explicit project root for desktop / multi-project MCP launches | Environment only |
+
+### Cursor Cloud Agents
+
+Cloud agent VMs often use a shared cwd (for example `/workspace`) and may auto-create `.sqlew/config.toml` with a generic project name and SQLite defaults. That local file is loaded before global config, so it can shadow SaaS settings on the next boot.
+
+Set **Cursor repository Secrets** (or MCP `env`) so the server picks cloud mode and a stable project name without relying on repo-local config:
+
+```json
+{
+  "env": {
+    "SQLEW_API_KEY": "sk-your-api-key",
+    "SQLEW_PROJECT_NAME": "your-repo-or-product-slug",
+    "SQLEW_DATABASE_TYPE": "cloud"
+  }
+}
+```
+
+`SQLEW_PROJECT_NAME` and `SQLEW_DATABASE_TYPE` are applied after config files are loaded, so they win over an auto-written `.sqlew/config.toml`. When `SQLEW_PROJECT_NAME` is set, sqlew does not auto-write `[project].name` into config on first run.
 
 ### SQLEW_API_KEY
 

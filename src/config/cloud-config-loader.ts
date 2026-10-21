@@ -2,7 +2,7 @@
  * Cloud Configuration Loader
  *
  * Loads API key from global ~/.config/sqlew/.sqlew.env file.
- * Loads project ID from .sqlew/config.toml [project].name.
+ * Loads project name from SQLEW_PROJECT_NAME, then .sqlew/config.toml [project].name.
  * Supports environment variable override for CI/CD environments.
  *
  * @since v5.0.0
@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse as parseTOML } from 'smol-toml';
 import { CLOUD_ENV_VARS, type CloudConfig, type ProjectConfig } from './types.js';
+import { readEnvProjectName } from './env-overrides.js';
 import { detectEnvironment, type Environment } from '../utils/environment-detector.js';
 import { extractPathSuffix, getProjectRoot } from '../utils/path-utils.js';
 import { generateConnectionHash } from '../utils/connection-hash.js';
@@ -119,12 +120,17 @@ export function loadApiKey(): string | null {
 }
 
 /**
- * Load project name from .sqlew/config.toml [project].name
+ * Load project name (SQLEW_PROJECT_NAME > .sqlew/config.toml [project].name)
  *
  * @param projectRoot - Project root directory (optional)
  * @returns Project name or undefined
  */
 export function loadProjectName(projectRoot?: string): string | undefined {
+  const fromEnv = readEnvProjectName();
+  if (fromEnv) {
+    return fromEnv;
+  }
+
   const root = projectRoot ?? getProjectRoot();
   const configPath = path.join(root, '.sqlew', 'config.toml');
 
