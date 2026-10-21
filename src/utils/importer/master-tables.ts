@@ -11,8 +11,8 @@
  * Architectural Decision: Decision #253 - Smart merge for project-scoped master tables
  */
 
-import type { Knex } from 'knex';
-import type { ImportContext, IdMapping } from '../../types.js';
+import type { ImportContext } from '../../types.js';
+import { insertReturningId } from '../insert-returning-id.js';
 
 /**
  * Import master tables and build ID mappings
@@ -60,7 +60,7 @@ async function importContextKeys(ctx: ImportContext): Promise<void> {
       reused++;
     } else {
       // Create new context key
-      const [newId] = await ctx.knex('m_context_keys').insert({
+      const newId = await insertReturningId(ctx.knex, 'm_context_keys', {
         key_name: key.key
       });
       ctx.mappings.context_keys.set(key.id, newId);
@@ -94,7 +94,7 @@ async function importTags(ctx: ImportContext): Promise<void> {
       reused++;
     } else {
       // Create new tag entry
-      const [newId] = await ctx.knex('m_tags').insert({
+      const newId = await insertReturningId(ctx.knex, 'm_tags', {
         project_id: ctx.projectId,
         name: tag.name
       });
@@ -131,7 +131,7 @@ async function importScopes(ctx: ImportContext): Promise<void> {
       reused++;
     } else {
       // Create new scope entry
-      const [newId] = await ctx.knex('m_scopes').insert({
+      const newId = await insertReturningId(ctx.knex, 'm_scopes', {
         project_id: ctx.projectId,
         name: scope.name
       });
@@ -162,7 +162,7 @@ async function importConstraintCategories(ctx: ImportContext): Promise<void> {
       ctx.mappings.constraint_categories.set(category.id, existing.id);
     } else {
       // Create new category
-      const [newId] = await ctx.knex('m_constraint_categories').insert({
+      const newId = await insertReturningId(ctx.knex, 'm_constraint_categories', {
         name: category.name
       });
 
@@ -188,7 +188,7 @@ async function importLayers(ctx: ImportContext): Promise<void> {
       ctx.mappings.layers.set(layer.id, existing.id);
     } else {
       // Create new layer
-      const [newId] = await ctx.knex('m_layers').insert({
+      const newId = await insertReturningId(ctx.knex, 'm_layers', {
         name: layer.name
       });
 

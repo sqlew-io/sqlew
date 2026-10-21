@@ -3,13 +3,16 @@
  * Complementary to db:dump (SQL export with schema)
  */
 
-import knex from 'knex';
 import * as fs from 'fs';
 import * as path from 'path';
-import knexConfig from '../knexfile.js';
 import { generateJsonExport } from '../utils/exporter/export.js';
 import { loadConfigFile } from '../config/loader.js';
-import { getDefaultDbPath } from '../config/global-config.js';
+import { applyEnvConfigOverrides } from '../config/env-overrides.js';
+import {
+  createCliKnex,
+  describeCliConnection,
+  resolveCliDbDialect,
+} from './create-cli-knex.js';
 
 interface DbExportArgs {
   project?: string;
@@ -37,6 +40,10 @@ OPTIONS (use key=value format):
   project=all              Export all projects (explicit opt-in required)
   db-path=<path>           SQLite database path
   config=<path>            Config file path
+
+ENVIRONMENT:
+  SQLEW_DATABASE_URL / DATABASE_URL   Postgres/MySQL URL (overrides config.toml)
+  SQLEW_DATABASE_*                    Discrete connection fields + SSL
 
 EXAMPLES:
   # Export current project (auto-detect from .sqlew/config.toml)
@@ -101,6 +108,15 @@ function validateArgs(args: DbExportArgs): string | null {
 }
 
 /**
+ * Resolve CLI config: file load then env overrides (Cursor Secrets / DATABASE_URL).
+ * Exported for unit tests — does not connect and does not log secrets.
+ */
+export function resolveDbExportConfig(configPath?: string, cwd: string = process.cwd()) {
+  const loaded = loadConfigFile(cwd, configPath);
+  return applyEnvConfigOverrides(loaded);
+}
+
+/**
  * Execute db:export command
  */
 export async function executeDbExport(args: DbExportArgs): Promise<void> {
@@ -120,9 +136,9 @@ export async function executeDbExport(args: DbExportArgs): Promise<void> {
 
   const output = args.output;
 
-  // Load config file - prioritize: explicit --config > default locations
+  // Load config file, then apply env overrides (SQLEW_DATABASE_URL / DATABASE_URL / SSL)
   console.error(`Loading config file...`);
-  const fileConfig = loadConfigFile(process.cwd(), args.config);
+  const fileConfig = resolveDbExportConfig(args.config);
   if (fileConfig.database) {
     console.error(`Config loaded: database.type = ${fileConfig.database.type || 'sqlite'}`);
     if (fileConfig.database.path) {
@@ -144,12 +160,14 @@ export async function executeDbExport(args: DbExportArgs): Promise<void> {
     projectName = fileConfig.project?.name;
   }
 
-  // Determine source database - normalize 'postgres' to 'postgresql'
-  const configDbType = fileConfig.database?.type || 'sqlite';
-  const sourceDb = configDbType === 'postgres' ? 'postgresql' : configDbType;
+  const dialect = resolveCliDbDialect(fileConfig);
+  if (!dialect) {
+    console.error(`Error: Unsupported source database: ${fileConfig.database?.type}`);
+    process.exit(1);
+  }
 
   try {
-    console.error(`Reading from ${sourceDb.toUpperCase()} database...`);
+    console.error(`Reading from ${dialect.toUpperCase()} database...`);
     if (projectName) {
       console.error(`Exporting project: ${projectName}`);
     } else if (exportAll) {
@@ -163,66 +181,22 @@ export async function executeDbExport(args: DbExportArgs): Promise<void> {
       process.exit(1);
     }
 
-    // Create Knex instance based on source database
-    let db: ReturnType<typeof knex>;
-
-    if (sourceDb === 'sqlite') {
-      // SQLite source - prioritize: CLI arg > config file (default) > env var > global default
-      const dbPath = args['db-path'] || fileConfig.database?.path || process.env.SQLEW_DB_PATH || getDefaultDbPath();
-      const resolvedDbPath = path.resolve(process.cwd(), dbPath);
-
-      // Check if database exists
-      if (!fs.existsSync(resolvedDbPath)) {
-        console.error(`Error: SQLite database not found at ${resolvedDbPath}`);
-        process.exit(1);
+    if (dialect === 'sqlite') {
+      const dbPath =
+        args['db-path'] ||
+        fileConfig.database?.path ||
+        process.env.SQLEW_DB_PATH;
+      if (dbPath) {
+        const resolvedDbPath = path.resolve(process.cwd(), dbPath);
+        if (!fs.existsSync(resolvedDbPath)) {
+          console.error(`Error: SQLite database not found at ${resolvedDbPath}`);
+          process.exit(1);
+        }
       }
-
-      const config = { ...knexConfig.development };
-      config.connection = { filename: resolvedDbPath };
-      db = knex(config);
-      console.error(`Connected to SQLite: ${resolvedDbPath}`);
-
-    } else if (sourceDb === 'mysql') {
-      // MySQL source - use config file (default) or environment variables
-      const config = { ...knexConfig.mysql };
-      if (fileConfig.database?.connection) {
-        // Override with config file settings
-        config.connection = {
-          host: fileConfig.database.connection.host || '127.0.0.1',
-          port: fileConfig.database.connection.port || 3306,
-          user: fileConfig.database.auth?.user || 'root',
-          password: fileConfig.database.auth?.password || '',
-          database: fileConfig.database.connection.database || 'mcp_context',
-          charset: 'utf8mb4',
-        };
-        console.error(`Using MySQL connection from config file`);
-      }
-      db = knex(config);
-      const conn = config.connection as any;
-      console.error(`Connected to MySQL: ${conn.host}:${conn.port}/${conn.database}`);
-
-    } else if (sourceDb === 'postgresql') {
-      // PostgreSQL source - use config file (default) or environment variables
-      const config = { ...knexConfig.postgresql };
-      if (fileConfig.database?.connection) {
-        // Override with config file settings
-        config.connection = {
-          host: fileConfig.database.connection.host || 'localhost',
-          port: fileConfig.database.connection.port || 5432,
-          user: fileConfig.database.auth?.user || 'postgres',
-          password: fileConfig.database.auth?.password || '',
-          database: fileConfig.database.connection.database || 'mcp_context',
-        };
-        console.error(`Using PostgreSQL connection from config file`);
-      }
-      db = knex(config);
-      const conn = config.connection as any;
-      console.error(`Connected to PostgreSQL: ${conn.host}:${conn.port}/${conn.database}`);
-
-    } else {
-      console.error(`Error: Unsupported source database: ${sourceDb}`);
-      process.exit(1);
     }
+
+    const db = createCliKnex(fileConfig, { dbPath: args['db-path'] });
+    console.error(`Connected to ${describeCliConnection(dialect, fileConfig)}`);
 
     try {
       // Generate JSON export

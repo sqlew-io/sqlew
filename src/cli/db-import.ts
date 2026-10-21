@@ -3,14 +3,17 @@
  * Complements db:export (JSON export) and db:dump (SQL export)
  */
 
-import knex from 'knex';
 import * as fs from 'fs';
 import * as path from 'path';
-import knexConfig from '../knexfile.js';
 import { importJsonData } from '../utils/importer/import.js';
 import { loadConfigFile } from '../config/loader.js';
-import { getDefaultDbPath } from '../config/global-config.js';
+import { applyEnvConfigOverrides } from '../config/env-overrides.js';
 import type { JsonImportOptions } from '../types.js';
+import {
+  createCliKnex,
+  describeCliConnection,
+  resolveCliDbDialect,
+} from './create-cli-knex.js';
 
 interface DbImportArgs {
   source: string;
@@ -41,6 +44,10 @@ OPTIONS (use key=value format):
   dry-run=true             Validate only, don't import
   db-path=<path>           SQLite database path
   config=<path>            Config file path
+
+ENVIRONMENT:
+  SQLEW_DATABASE_URL / DATABASE_URL   Postgres/MySQL URL (overrides config.toml)
+  SQLEW_DATABASE_*                    Discrete connection fields + SSL
 
 EXAMPLES:
   # Import from JSON
@@ -112,6 +119,15 @@ function validateArgs(args: DbImportArgs): string | null {
 }
 
 /**
+ * Resolve CLI config: file load then env overrides (Cursor Secrets / DATABASE_URL).
+ * Exported for unit tests — does not connect and does not log secrets.
+ */
+export function resolveDbImportConfig(configPath?: string, cwd: string = process.cwd()) {
+  const loaded = loadConfigFile(cwd, configPath);
+  return applyEnvConfigOverrides(loaded);
+}
+
+/**
  * Execute db:import command
  */
 export async function executeDbImport(args: DbImportArgs): Promise<void> {
@@ -129,68 +145,40 @@ export async function executeDbImport(args: DbImportArgs): Promise<void> {
     process.exit(1);
   }
 
-  // Load config file
+  // Load config file, then apply env overrides (SQLEW_DATABASE_URL / DATABASE_URL / SSL)
   console.error(`Loading config file...`);
-  const fileConfig = loadConfigFile(process.cwd(), args.config);
+  const fileConfig = resolveDbImportConfig(args.config);
   if (fileConfig.database) {
     console.error(`Config loaded: database.type = ${fileConfig.database.type || 'sqlite'}`);
     if (fileConfig.database.path) {
       console.error(`Config loaded: database.path = ${fileConfig.database.path}`);
     }
+    if (fileConfig.database.connection?.host) {
+      console.error(`Config loaded: database.connection.host = ${fileConfig.database.connection.host}`);
+    }
   }
 
-  // Determine target database
-  const configDbType = fileConfig.database?.type || 'sqlite';
-  const targetDb = configDbType === 'postgres' ? 'postgresql' : configDbType;
+  const dialect = resolveCliDbDialect(fileConfig);
+  if (!dialect) {
+    console.error(`Error: Unsupported target database: ${fileConfig.database?.type}`);
+    process.exit(1);
+  }
 
   try {
-    console.error(`Reading from ${targetDb.toUpperCase()} database...`);
+    console.error(`Reading from ${dialect.toUpperCase()} database...`);
 
-    // Create Knex instance
-    let db: ReturnType<typeof knex>;
-
-    if (targetDb === 'sqlite') {
-      const dbPath = args['db-path'] || fileConfig.database?.path || process.env.SQLEW_DB_PATH || getDefaultDbPath();
-      const resolvedDbPath = path.resolve(process.cwd(), dbPath);
-
-      const config = { ...knexConfig.development };
-      config.connection = { filename: resolvedDbPath };
-      db = knex(config);
-      console.error(`Connected to SQLite: ${resolvedDbPath}`);
-
-    } else if (targetDb === 'mysql') {
-      const config = { ...knexConfig.mysql };
-      if (fileConfig.database?.connection) {
-        config.connection = {
-          host: fileConfig.database.connection.host || '127.0.0.1',
-          port: fileConfig.database.connection.port || 3306,
-          user: fileConfig.database.auth?.user || 'root',
-          password: fileConfig.database.auth?.password || '',
-          database: fileConfig.database.connection.database || 'mcp_context',
-          charset: 'utf8mb4',
-        };
-      }
-      db = knex(config);
-      console.error(`Connected to MySQL`);
-
-    } else if (targetDb === 'postgresql') {
-      const config = { ...knexConfig.postgresql };
-      if (fileConfig.database?.connection) {
-        config.connection = {
-          host: fileConfig.database.connection.host || 'localhost',
-          port: fileConfig.database.connection.port || 5432,
-          user: fileConfig.database.auth?.user || 'postgres',
-          password: fileConfig.database.auth?.password || '',
-          database: fileConfig.database.connection.database || 'mcp_context',
-        };
-      }
-      db = knex(config);
-      console.error(`Connected to PostgreSQL`);
-
-    } else {
-      console.error(`Error: Unsupported target database: ${targetDb}`);
-      process.exit(1);
-    }
+    const db = createCliKnex(fileConfig, { dbPath: args['db-path'] });
+    const sqlitePath =
+      dialect === 'sqlite'
+        ? path.resolve(
+            process.cwd(),
+            args['db-path'] ||
+              fileConfig.database?.path ||
+              process.env.SQLEW_DB_PATH ||
+              ''
+          )
+        : undefined;
+    console.error(`Connected to ${describeCliConnection(dialect, fileConfig, sqlitePath)}`);
 
     try {
       // Read JSON file
