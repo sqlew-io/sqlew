@@ -185,7 +185,7 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
   const { config: loadedFileConfig, effectiveRoot: finalProjectRoot, source: configSource } =
     await loadConfigWithPriority(currentDir, parsedArgs);
 
-  // Env overrides (SQLEW_DATABASE_TYPE, SQLEW_PROJECT_NAME) apply after file load
+  // Env overrides (URL / type / project name) apply after file load — see #127, #131
   const fileConfig = applyEnvConfigOverrides(loadedFileConfig);
 
   // 2. Only create .sqlew/ if:

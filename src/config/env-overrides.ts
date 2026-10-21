@@ -2,18 +2,23 @@
  * Environment variable overrides for sqlew configuration.
  *
  * Applied after config file loading so Cursor Secrets / MCP env can override
- * auto-written `.sqlew/config.toml` on cloud agents (see issue #127).
+ * auto-written `.sqlew/config.toml` on cloud agents (see issues #127, #131).
  *
  * Priority (see docs/CONFIGURATION.md): CLI > env > config file > defaults.
  */
 
-import type { SqlewConfig } from './types.js';
+import type { DatabaseConfig, SqlewConfig } from './types.js';
 import { normalizeDatabaseConfig } from './loader.js';
+import { parseDatabaseUrl } from './database-url.js';
 
 export const SQLEW_ENV_VARS = {
   API_KEY: 'SQLEW_API_KEY',
   PROJECT_NAME: 'SQLEW_PROJECT_NAME',
   DATABASE_TYPE: 'SQLEW_DATABASE_TYPE',
+  /** Primary connection URL for postgres/mysql (Cursor Secrets). */
+  DATABASE_URL: 'SQLEW_DATABASE_URL',
+  /** Common alias accepted when SQLEW_DATABASE_URL is unset. */
+  DATABASE_URL_ALIAS: 'DATABASE_URL',
 } as const;
 
 const VALID_DATABASE_TYPES = ['sqlite', 'postgres', 'mysql', 'cloud'] as const;
@@ -61,15 +66,92 @@ export function readEnvDatabaseType(): DatabaseType | undefined {
 }
 
 /**
- * Merge SQLEW_PROJECT_NAME and SQLEW_DATABASE_TYPE into a loaded config.
- * Does not mutate the input object.
+ * Read connection URL: prefer SQLEW_DATABASE_URL, else DATABASE_URL.
+ * Empty / whitespace-only → undefined.
+ */
+export function readEnvDatabaseUrl(): string | undefined {
+  const primary = process.env[SQLEW_ENV_VARS.DATABASE_URL];
+  if (primary !== undefined) {
+    const trimmed = primary.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  const alias = process.env[SQLEW_ENV_VARS.DATABASE_URL_ALIAS];
+  if (alias !== undefined) {
+    const trimmed = alias.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Merge type-only env into an existing database config without wiping
+ * connection/auth from the file when switching to postgres/mysql.
+ */
+function applyDatabaseTypeOnly(
+  existing: DatabaseConfig | undefined,
+  databaseType: DatabaseType
+): DatabaseConfig {
+  if (databaseType === 'cloud') {
+    return normalizeDatabaseConfig({ type: 'cloud' });
+  }
+
+  if (databaseType === 'sqlite') {
+    return normalizeDatabaseConfig({
+      type: 'sqlite',
+      path: existing?.path,
+    });
+  }
+
+  // postgres / mysql: keep file connection + auth; only change type
+  return normalizeDatabaseConfig({
+    type: databaseType,
+    connection: existing?.connection,
+    auth: existing?.auth,
+  });
+}
+
+/**
+ * Merge SQLEW_PROJECT_NAME, SQLEW_DATABASE_TYPE, and SQLEW_DATABASE_URL
+ * (or DATABASE_URL) into a loaded config. Does not mutate the input object.
+ *
+ * Env URL always replaces file database settings (wins over auto-written
+ * local `.sqlew/config.toml`). Type alone no longer wipes connection/auth.
  */
 export function applyEnvConfigOverrides(config: SqlewConfig): SqlewConfig {
   const merged: SqlewConfig = { ...config };
 
   const databaseType = readEnvDatabaseType();
-  if (databaseType) {
-    merged.database = normalizeDatabaseConfig({ type: databaseType });
+  const databaseUrl = readEnvDatabaseUrl();
+
+  if (databaseUrl) {
+    try {
+      const parsed = parseDatabaseUrl(databaseUrl);
+      if (
+        databaseType &&
+        databaseType !== parsed.type &&
+        (databaseType === 'postgres' || databaseType === 'mysql')
+      ) {
+        console.warn(
+          `⚠️  ${SQLEW_ENV_VARS.DATABASE_TYPE}=${databaseType} conflicts with URL scheme (${parsed.type}); using URL`
+        );
+      } else if (databaseType === 'cloud' || databaseType === 'sqlite') {
+        console.warn(
+          `⚠️  ${SQLEW_ENV_VARS.DATABASE_TYPE}=${databaseType} ignored because ${SQLEW_ENV_VARS.DATABASE_URL} (or DATABASE_URL) is set`
+        );
+      }
+      merged.database = normalizeDatabaseConfig(parsed);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`⚠️  Ignoring database URL env: ${message}`);
+    }
+  } else if (databaseType) {
+    merged.database = applyDatabaseTypeOnly(config.database, databaseType);
   }
 
   const projectName = readEnvProjectName();

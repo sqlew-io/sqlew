@@ -55,6 +55,10 @@ user = "sqlew_user"
 password = "your_password"
 ```
 
+### Connection URL via environment (Cursor Secrets)
+
+For cloud agents and managed Postgres/MySQL (e.g. Neon), set `SQLEW_DATABASE_URL` (or `DATABASE_URL`) instead of editing `config.toml`. See [Configuration Guide — Cursor Cloud Agents](./CONFIGURATION.md#cursor-cloud-agents).
+
 ## Data Migration
 
 See [CLI Usage Guide](CLI_USAGE.md#cross-database-migration) for export/import commands and step-by-step migration procedures.
