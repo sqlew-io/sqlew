@@ -1,6 +1,11 @@
 {
   "version": 1,
   "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": ".cursor/hooks/marker-before-submit.sh"
+      }
+    ],
     "postToolUse": [
       {
         "command": ".cursor/hooks/marker-after-grep.sh",
