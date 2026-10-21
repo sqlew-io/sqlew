@@ -65,7 +65,7 @@ export async function onSubagentStopCommand(): Promise<void> {
     const result = processPlanPatterns(projectPath);
 
     if (result.processed && result.confirmationMessage) {
-      sendPostToolUseContext(result.confirmationMessage);
+      sendPostToolUseContext(result.confirmationMessage, input.client);
     } else {
       sendContinue();
     }

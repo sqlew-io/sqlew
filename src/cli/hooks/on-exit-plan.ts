@@ -136,13 +136,18 @@ export async function onExitPlanCommand(): Promise<void> {
         no_patterns: '[sqlew] No decisions or constraints detected in plan.',
         no_valid_patterns: '[sqlew] No valid decisions or constraints found.',
       };
-      sendContinue(messages[result.skipReason || ''] || '');
+      const skipMsg = messages[result.skipReason || ''] || '';
+      if (skipMsg) {
+        sendPostToolUseContext(skipMsg, input.client);
+      } else {
+        sendContinue();
+      }
       return;
     }
 
-    // Send confirmation message
+    // Send confirmation message (client-correct Post inject shape)
     if (result.confirmationMessage) {
-      sendPostToolUseContext(result.confirmationMessage);
+      sendPostToolUseContext(result.confirmationMessage, input.client);
     } else {
       sendContinue();
     }
