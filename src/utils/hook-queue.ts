@@ -442,7 +442,8 @@ export function writeQueue(projectPath: string, queue: QueueFile, caller: string
 // ============================================================================
 
 /**
- * Enqueue a decision creation
+ * Enqueue a decision create (processed as upsert-by-key on flush).
+ * Skips if the same key is already pending. Does NOT open the DB.
  *
  * @param projectPath - Project root path
  * @param data - Decision data

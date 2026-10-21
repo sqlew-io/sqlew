@@ -17,6 +17,7 @@ import { markDoneCommand } from './cli/hooks/mark-done.js';
 import { cleanupGlobalClaudeMd, initializeGitignore } from './init-rules.js';
 import { onSubagentStopCommand } from './cli/hooks/on-subagent-stop.js';
 import { onStopCommand } from './cli/hooks/on-stop.js';
+import { flushQueueCommand } from './cli/hooks/flush-queue.js';
 import { onEnterPlanCommand } from './cli/hooks/on-enter-plan.js';
 import { onExitPlanCommand } from './cli/hooks/on-exit-plan.js';
 import { onSessionStartCommand } from './cli/hooks/on-session-start.js';
@@ -169,15 +170,16 @@ LEGACY COMMANDS:
   Claude Code Hooks (internal use):
     suggest          Find related decisions (PreToolUse hook for Task)
     track-plan       Track plan files (PreToolUse hook for Write)
-    save             Save decisions on code edit (PostToolUse hook for Edit|Write)
+    save             Save decisions on code edit (PostToolUse Edit|Write; plan-less = enqueue draft)
     check-completion Check task completion (PostToolUse hook for TodoWrite)
     mark-done        Mark decisions as implemented (Git hooks or manual)
+    flush-queue      Drain .sqlew/queue/pending.json to DB (upsert-by-key; Cloud Stop)
 
   Plan Mode Hooks (internal use):
     on-enter-plan    Inject TOML template (PostToolUse hook for EnterPlanMode)
     on-exit-plan     Prompt TOML documentation (PostToolUse hook for ExitPlanMode)
     on-subagent-stop Process Plan agent completion (SubagentStop hook)
-    on-stop          Process main agent stop (Stop hook)
+    on-stop          Stop hook: flush queue + plan TOML processing
     on-prompt        Plan mode enforcement (UserPromptSubmit hook)
     pr-adr           PR ADR enforcement (PreToolUse hook for Bash)
 
@@ -375,6 +377,12 @@ export async function runCli(rawArgs: string[]): Promise<void> {
     return;
   }
 
+  // Flush pending queue to DB (v5.4.x — Cloud without QueueWatcher)
+  if (args.command === 'flush-queue') {
+    await flushQueueCommand();
+    return;
+  }
+
   // EnterPlanMode hook (v4.2.0+)
   if (args.command === 'on-enter-plan') {
     await onEnterPlanCommand();
@@ -479,6 +487,7 @@ export function isCliCommand(command: string): boolean {
     'suggest', 'track-plan', 'save', 'check-completion', 'mark-done', 'init',
     // Hook events (v4.2.0+, v5.0.0+)
     'on-subagent-stop', 'on-stop', 'on-enter-plan', 'on-exit-plan', 'on-session-start', 'on-prompt', 'pr-adr',
+    'flush-queue',
   ];
   return cliCommands.includes(command);
 }

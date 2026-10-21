@@ -12,10 +12,11 @@
  * @since v4.1.0
  */
 
-import { join, dirname } from 'path';
+import { dirname } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { BaseWatcher } from './base-watcher.js';
-import { getQueuePath, hasQueueItems, processQueue, type QueueItem, type DecisionQueueItem, type ConstraintQueueItem, type DecisionContextQueueItem } from '../utils/hook-queue.js';
+import { getQueuePath, hasQueueItems, processQueue } from '../utils/hook-queue.js';
+import { processQueueItem } from '../utils/queue-processor.js';
 import { debugLog } from '../utils/debug-logger.js';
 import type { ToolBackend } from '../backend/types.js';
 
@@ -166,128 +167,10 @@ export class QueueWatcher extends BaseWatcher {
   }
 
   /**
-   * Process a single queue item (decision or constraint)
-   * @since v4.2.1 - Added constraint support
+   * Process a single queue item via shared upsert-aware processor
    */
-  private async processItem(item: QueueItem): Promise<void> {
-    if (item.type === 'decision') {
-      await this.processDecisionItem(item as DecisionQueueItem);
-    } else if (item.type === 'constraint') {
-      await this.processConstraintItem(item as ConstraintQueueItem);
-    } else if (item.type === 'decision_context') {
-      await this.processDecisionContextItem(item as DecisionContextQueueItem);
-    }
-  }
-
-  /**
-   * Process a decision queue item
-   * Uses Backend abstraction to support both local DB and SaaS
-   */
-  private async processDecisionItem(item: DecisionQueueItem): Promise<void> {
-    const { action, data } = item;
-
-    debugLog('INFO', `${this.watcherName}: Processing decision ${action}`, {
-      callId: this.currentCallId,
-      key: data.key,
-    });
-
-    if (action === 'create') {
-      await this.backend.execute('decision', 'quick_set', {
-        key: data.key,
-        value: data.value,
-        status: data.status,
-        layer: data.layer,
-        tags: data.tags,
-      });
-    } else if (action === 'update') {
-      await this.backend.execute('decision', 'set', {
-        key: data.key,
-        value: data.value || `Updated: ${data.key}`,
-        status: data.status,
-        layer: data.layer,
-        tags: data.tags,
-      });
-    }
-  }
-
-  /**
-   * Process a constraint queue item
-   * Uses Backend abstraction to support both local DB and SaaS
-   * @since v4.2.1
-   */
-  private async processConstraintItem(item: ConstraintQueueItem): Promise<void> {
-    const { action, data } = item;
-
-    debugLog('INFO', `${this.watcherName}: Processing constraint ${action}`, {
-      callId: this.currentCallId,
-      text: data.text?.slice(0, 50),
-      category: data.category,
-      timestamp: item.timestamp,
-    });
-
-    if (action === 'create') {
-      const priority = data.priority || 'medium';
-      debugLog('INFO', `${this.watcherName}: Calling constraint.add via backend`, {
-        callId: this.currentCallId,
-        text: data.text?.slice(0, 30),
-        category: data.category || 'architecture',
-        priority,
-      });
-      const result = await this.backend.execute<{ success: boolean; constraint_id: number }>('constraint', 'add', {
-        constraint_text: data.text,
-        category: data.category || 'architecture',
-        priority,
-        layer: data.layer,
-        tags: data.tags,
-        reason: data.reason,
-        active: data.active ?? true,
-      });
-      debugLog('INFO', `${this.watcherName}: constraint.add returned`, {
-        callId: this.currentCallId,
-        success: result.success,
-        constraint_id: result.constraint_id,
-      });
-    } else if (action === 'activate') {
-      // Activate constraints by plan_id tag
-      if (data.plan_id) {
-        const tag = data.plan_id.slice(0, 8); // Short form of plan_id
-        const result = await this.backend.execute<{ success: boolean; activated_count: number }>('constraint', 'activate_by_tag', { tag });
-        debugLog('INFO', `${this.watcherName}: Activated constraints`, {
-          callId: this.currentCallId,
-          activated_count: result.activated_count,
-          plan_tag: tag,
-        });
-      }
-    }
-  }
-
-  /**
-   * Process a decision context queue item
-   * Calls add_decision_context to attach rationale/alternatives/tradeoffs to a decision
-   * @since v5.0.4
-   */
-  private async processDecisionContextItem(item: DecisionContextQueueItem): Promise<void> {
-    const { data } = item;
-
-    debugLog('INFO', `${this.watcherName}: Processing decision_context create`, {
-      callId: this.currentCallId,
-      key: data.key,
-      rationalePreview: data.rationale?.slice(0, 50),
-    });
-
-    // Convert comma-separated alternatives to JSON array string
-    let alternatives: string | null = null;
-    if (data.alternatives) {
-      const items = data.alternatives.split(',').map(s => s.trim()).filter(Boolean);
-      alternatives = JSON.stringify(items);
-    }
-
-    await this.backend.execute('decision', 'add_decision_context', {
-      key: data.key,
-      rationale: data.rationale,
-      alternatives_considered: alternatives,
-      tradeoffs: data.tradeoffs || null,
-    });
+  private async processItem(item: Parameters<typeof processQueueItem>[1]): Promise<void> {
+    await processQueueItem(this.backend, item, this.currentCallId);
   }
 
   /**

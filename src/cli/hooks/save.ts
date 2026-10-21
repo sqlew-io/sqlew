@@ -1,53 +1,160 @@
 /**
  * Save Hook Command
  *
- * PostToolUse hook for Edit|Write - promotes decisions/constraints when implementation starts.
- * When non-markdown files are modified, promotes draft decisions to in_progress
- * and activates inactive constraints.
+ * PostToolUse hook for Edit|Write:
+ * - With a tracked plan: promote decisions/constraints when implementation starts
+ * - Plan-less: enqueue a draft decision create from the file path (NO DB)
  *
  * Usage:
  *   echo '{"tool_name": "Write", "tool_input": {"file_path": "src/foo.ts"}}' | sqlew save
  *
  * @since v4.1.0
- * @updated v4.2.1 - Changed to detect implementation files (NOT *.md) and promote decisions/constraints
+ * @updated v5.4.x - Plan-less Write path enqueues draft to pending.json (no DB)
  */
 
-import { readStdinJson, sendContinue, sendPostToolUseContext, getProjectPath } from './stdin-parser.js';
+import { resolve as pathResolve, relative as pathRelative, basename } from 'path';
+import { readStdinJson, sendContinue, sendPostToolUseContext, getProjectPath, type HookClient } from './stdin-parser.js';
 import { loadCurrentPlan, saveCurrentPlan, type CurrentPlanInfo } from '../../config/global-config.js';
-import { enqueueDecisionUpdate, enqueueConstraintActivate } from '../../utils/hook-queue.js';
+import { enqueueDecisionCreate, enqueueDecisionUpdate, enqueueConstraintActivate } from '../../utils/hook-queue.js';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-/** Status for in-progress decisions */
+/** Status for in-progress decisions (plan promote) */
 const IN_PROGRESS_STATUS = 'in_progress' as const;
 
+/** Status for plan-less auto drafts */
+const DRAFT_STATUS = 'draft' as const;
+
+/** Lockfile / package noise basenames */
+const NOISE_BASENAMES = new Set([
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'bun.lock',
+  'bun.lockb',
+  'composer.lock',
+  'Cargo.lock',
+  'Gemfile.lock',
+  'poetry.lock',
+]);
+
 // ============================================================================
-// Helpers
+// Helpers (exported for unit tests)
 // ============================================================================
 
 /**
- * Check if a file path is an implementation file (not a markdown or plan file)
+ * Check if a file path is an implementation file (not docs/config/noise)
  */
-function isImplementationFile(filePath: string | undefined): boolean {
+export function isImplementationFile(filePath: string | undefined): boolean {
   if (!filePath) return false;
 
   const normalized = filePath.replace(/\\/g, '/').toLowerCase();
+  const base = basename(normalized);
+
+  if (NOISE_BASENAMES.has(base)) return false;
 
   // Exclude markdown files
   if (normalized.endsWith('.md')) return false;
 
   // Exclude plan files explicitly
-  if (normalized.includes('.claude/plans/') || normalized.includes('.hermes/plans/') || normalized.includes('.sqlew/plans/')) return false;
+  if (
+    normalized.includes('.claude/plans/') ||
+    normalized.includes('.hermes/plans/') ||
+    normalized.includes('.sqlew/plans/')
+  ) {
+    return false;
+  }
 
   // Exclude documentation directories
-  if (normalized.includes('/docs/')) return false;
+  if (normalized.includes('/docs/') || normalized.startsWith('docs/')) return false;
 
-  // Exclude config files that aren't really implementation
-  if (normalized.endsWith('.json') && !normalized.includes('/src/')) return false;
+  // Exclude sqlew runtime / queue / snapshots
+  if (
+    normalized.includes('/.sqlew/') ||
+    normalized.startsWith('.sqlew/')
+  ) {
+    return false;
+  }
+
+  // Exclude node_modules / vendor
+  if (
+    normalized.includes('/node_modules/') ||
+    normalized.startsWith('node_modules/') ||
+    normalized.includes('/vendor/') ||
+    normalized.startsWith('vendor/')
+  ) {
+    return false;
+  }
+
+  // Exclude config files that aren't really implementation (allow under src/)
+  const underSrc =
+    normalized.includes('/src/') || normalized.startsWith('src/');
+  if (normalized.endsWith('.json') && !underSrc) return false;
 
   return true;
+}
+
+/**
+ * Relativize an absolute or project-relative file path to project root.
+ */
+export function toProjectRelativePath(projectPath: string, filePath: string): string {
+  const root = pathResolve(projectPath);
+  const abs = pathResolve(filePath);
+  let rel = pathRelative(root, abs).replace(/\\/g, '/');
+  if (rel.startsWith('../') || rel === '..') {
+    // Outside project — keep basename-ish path without leading slashes
+    rel = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+  }
+  return rel.replace(/^\.\//, '');
+}
+
+/**
+ * Build draft decision key: `{client}/auto/{rel}` or `auto/{rel}`.
+ * Matches Cursor plugin convention `cursor/auto/<rel-path>` when client=cursor.
+ */
+export function buildDraftDecisionKey(
+  relPath: string,
+  client?: HookClient | string | null
+): string {
+  const safe = relPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const prefix =
+    typeof client === 'string' && client.trim() !== ''
+      ? `${client.trim().toLowerCase()}/auto`
+      : 'auto';
+  return `${prefix}/${safe}`;
+}
+
+/**
+ * Enqueue a plan-less draft decision create (NO DB).
+ * Dedupes by key inside enqueueDecisionCreate.
+ *
+ * @returns true if enqueued (or already queued), false if skipped by gate
+ */
+export function enqueueDraftFromWrite(
+  projectPath: string,
+  filePath: string,
+  options?: {
+    client?: HookClient | string | null;
+    summary?: string;
+  }
+): { enqueued: boolean; key: string; relPath: string } {
+  const relPath = toProjectRelativePath(projectPath, filePath);
+  const key = buildDraftDecisionKey(relPath, options?.client);
+  const value =
+    options?.summary?.trim() ||
+    `Draft from Write: ${relPath}`;
+
+  enqueueDecisionCreate(projectPath, {
+    key,
+    value,
+    status: DRAFT_STATUS,
+    layer: 'cross-cutting',
+    tags: ['auto-draft', 'from-write'],
+  });
+
+  return { enqueued: true, key, relPath };
 }
 
 // ============================================================================
@@ -58,7 +165,8 @@ function isImplementationFile(filePath: string | undefined): boolean {
  * Main save command entry point
  *
  * Called as PostToolUse hook when Edit|Write completes.
- * When implementation files are modified, promotes decisions and activates constraints.
+ * Plan path: promote decisions / activate constraints.
+ * Plan-less: enqueue draft decision create (pending.json only).
  */
 export async function saveCommand(): Promise<void> {
   try {
@@ -78,7 +186,9 @@ export async function saveCommand(): Promise<void> {
     }
 
     // Get file path from tool input
-    const filePath = input.tool_input?.file_path as string | undefined;
+    const filePath =
+      (input.tool_input?.file_path as string | undefined) ||
+      (input.tool_input?.path as string | undefined);
 
     // Only process implementation files
     if (!isImplementationFile(filePath)) {
@@ -89,8 +199,19 @@ export async function saveCommand(): Promise<void> {
     // Check if there's a current plan being tracked
     const planInfo = loadCurrentPlan(projectPath);
     if (!planInfo) {
-      // No plan being tracked - continue without action
-      sendContinue();
+      // Plan-less: enqueue draft only (NO DB / NO MCP decision set)
+      const summary =
+        typeof input.tool_response?.summary === 'string'
+          ? input.tool_response.summary
+          : undefined;
+      const { key, relPath } = enqueueDraftFromWrite(projectPath, filePath!, {
+        client: input.client,
+        summary,
+      });
+      sendPostToolUseContext(
+        `[sqlew] Queued draft decision ${key} for ${relPath} (flush on Stop / QueueWatcher)`,
+        input.client,
+      );
       return;
     }
 
