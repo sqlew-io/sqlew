@@ -44,7 +44,25 @@ export {
   enqueueDecisionContextCreate,
   enqueueDecisionUpdate,
   enqueueConstraintActivate,
+  processQueue,
+  hasQueueItems,
+  readQueue,
 } from './utils/hook-queue.js';
+
+export {
+  enqueueDraftFromWrite,
+  buildDraftDecisionKey,
+  isImplementationFile,
+  toProjectRelativePath,
+} from './cli/hooks/save.js';
+
+export {
+  flushPendingQueue,
+  type FlushQueueResult,
+  type FlushQueueOptions,
+} from './cli/hooks/flush-queue.js';
+
+export { processQueueItem } from './utils/queue-processor.js';
 
 export {
   ENFORCEMENT_FULL,

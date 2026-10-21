@@ -1,13 +1,15 @@
 /**
  * On-Stop Hook Command
  *
- * Stop hook - fires when main Claude Code agent response completes.
- * Checks for tracked plan and processes TOML decisions/constraints.
+ * Stop hook - fires when main agent response completes.
+ * Always flushes `.sqlew/queue/pending.json` to DB (Cloud / no QueueWatcher).
+ * When a plan is tracked, also processes TOML decisions/constraints.
  *
  * Usage:
  *   echo '{"hook_event_name": "Stop"}' | sqlew on-stop
  *
  * @since v4.2.0
+ * @updated v5.4.x - Always flush pending queue (upsert-by-key)
  */
 
 import { readStdinJson, sendContinue, getProjectPath, type HookInput } from './stdin-parser.js';
@@ -18,6 +20,7 @@ import {
   type PlanCache,
 } from '../../config/global-config.js';
 import { enqueueDecisionCreate } from '../../utils/hook-queue.js';
+import { flushPendingQueue } from './flush-queue.js';
 
 // ============================================================================
 // TOML Decision/Constraint Processing
@@ -111,7 +114,8 @@ function processPlanCache(projectPath: string, cache: PlanCache): string {
  * Main on-stop command entry point
  *
  * Called as Stop hook when main agent response completes.
- * Processes TOML decisions/constraints if a plan is being tracked.
+ * Always attempts to flush the pending queue to DB, then processes
+ * plan TOML cache when a recorded plan is tracked.
  */
 export async function onStopCommand(): Promise<void> {
   try {
@@ -129,28 +133,43 @@ export async function onStopCommand(): Promise<void> {
       return;
     }
 
+    // Always flush pending queue (Cloud without QueueWatcher; also safe with watcher —
+    // file lock skips if another process is already draining).
+    // Plan TOML may enqueue more items first when recorded — flush after that.
+    let flushNote = '';
+
     // Check if there's a current plan being tracked
     const planInfo = loadCurrentPlan(projectPath);
-    if (!planInfo) {
-      // No plan being tracked
-      sendContinue();
-      return;
-    }
+    const messages: string[] = [];
 
-    // Only process if the plan has been recorded (implementation in progress)
-    if (!planInfo.recorded) {
-      sendContinue();
-      return;
-    }
-
-    // Process TOML decisions and constraints
-    const tomlCache = loadPlanCache(projectPath);
-    if (tomlCache && tomlCache.plan_id === planInfo.plan_id) {
-      const tomlContext = processPlanCache(projectPath, tomlCache);
-      if (tomlContext) {
-        sendContinue(tomlContext);
-        return;
+    if (planInfo?.recorded) {
+      const tomlCache = loadPlanCache(projectPath);
+      if (tomlCache && tomlCache.plan_id === planInfo.plan_id) {
+        const tomlContext = processPlanCache(projectPath, tomlCache);
+        if (tomlContext) {
+          messages.push(tomlContext);
+        }
       }
+    }
+
+    try {
+      const flush = await flushPendingQueue({
+        projectPath,
+        shutdown: true,
+      });
+      if (flush.processed > 0) {
+        flushNote = `[sqlew] Flushed ${flush.processed} queued item(s) to DB`;
+        messages.push(flushNote);
+      }
+    } catch (flushError) {
+      const msg = flushError instanceof Error ? flushError.message : String(flushError);
+      console.error(`[sqlew on-stop] flush-queue error: ${msg}`);
+      // Fail-open: continue even if flush fails
+    }
+
+    if (messages.length > 0) {
+      sendContinue(messages.join('\n'));
+      return;
     }
 
     sendContinue();

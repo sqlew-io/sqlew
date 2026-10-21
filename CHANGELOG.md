@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+
+**Write=enqueue / Stop=flush upsert (plan-less ADR drafts)**
+
+- **`sqlew save` (plan-less)** — PostToolUse Edit|Write enqueues a draft decision to `.sqlew/queue/pending.json` (key `{client}/auto/<rel>`, status `draft`). No DB / no MCP `decision set` on Write.
+- **`sqlew flush-queue`** — drains pending.json to DB (upsert-by-key). For Cloud when MCP QueueWatcher is absent.
+- **`sqlew on-stop`** — always flushes the pending queue after optional plan TOML enqueue.
+- **Queue processor** — decision `create` uses `decision.set` + `ignore_suggest` (insert or update by key). Shared by QueueWatcher and flush-queue.
+- **`sqlew/hooks` exports** — `enqueueDraftFromWrite`, `flushPendingQueue`, `processQueueItem`, queue read helpers.
+
+### Changed
+
+- QueueWatcher decision create path consolidates into shared `processQueueItem` (upsert semantics).
+
+---
+
 ## [5.3.8] - 2026-09-08
 
 ### Fixed
