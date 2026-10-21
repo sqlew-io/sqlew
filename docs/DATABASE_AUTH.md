@@ -11,7 +11,7 @@ This document describes the authentication configuration for multi-database supp
 
 ## Configuration Structure
 
-All configuration is defined in `.sqlew/config.toml`.
+Primary configuration is `.sqlew/config.toml`. For cloud agents, you can instead supply discrete `SQLEW_DATABASE_*` Secrets (host, name, user, password, SSL) or a connection URL via `SQLEW_DATABASE_URL` / `DATABASE_URL` (see [CONFIGURATION.md](./CONFIGURATION.md#cursor-cloud-agents)); both map to the same `connection` + `auth` fields below.
 
 ### SQLite (Default)
 
