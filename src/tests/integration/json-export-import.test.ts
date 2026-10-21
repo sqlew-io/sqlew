@@ -190,6 +190,110 @@ describe('JSON Import v5.0 Schema', () => {
     assert.strictEqual(decisions[0].value, 'imported-value');
   });
 
+  it('should import decision_context with ts from JSON or decision_date fallback', async () => {
+    const knex = testDb.getKnex();
+    const explicitTs = 1_700_000_000;
+    const decisionDate = 1_700_000_100;
+
+    const exportJson = {
+      metadata: {
+        sqlew_version: '5.0.0',
+        schema_version: '5.0',
+        exported_at: new Date().toISOString(),
+        export_mode: 'single_project',
+        database_type: 'sqlite'
+      },
+      project: {
+        name: 'context-ts-project',
+        display_name: 'Context TS Project',
+        detection_source: 'import',
+        project_root_path: null,
+        created_ts: Math.floor(Date.now() / 1000),
+        last_active_ts: Math.floor(Date.now() / 1000),
+        metadata: null
+      },
+      master_tables: {
+        context_keys: [
+          { id: 1, key: 'ctx/with-ts' },
+          { id: 2, key: 'ctx/from-date' },
+          { id: 3, key: 'ctx/now-fallback' }
+        ],
+        tags: [],
+        scopes: [],
+        constraint_categories: [],
+        layers: [{ id: 1, name: 'infrastructure' }],
+        decision_policies: [],
+        tag_index: []
+      },
+      transaction_tables: {
+        decisions: [],
+        decisions_numeric: [],
+        decision_history: [],
+        decision_tags: [],
+        decision_scopes: [],
+        decision_context: [
+          {
+            decision_key_id: 1,
+            rationale: 'Has explicit ts',
+            alternatives_considered: null,
+            tradeoffs: null,
+            decision_date: decisionDate,
+            ts: explicitTs
+          },
+          {
+            // Omits ts — Postgres NOT NULL; must fall back to decision_date
+            decision_key_id: 2,
+            rationale: 'Falls back to decision_date',
+            alternatives_considered: null,
+            tradeoffs: null,
+            decision_date: decisionDate
+          },
+          {
+            // Omits ts and decision_date — must fall back to NOW
+            decision_key_id: 3,
+            rationale: 'Falls back to now',
+            alternatives_considered: null,
+            tradeoffs: null
+          }
+        ],
+        constraints: [],
+        constraint_tags: []
+      }
+    };
+
+    const before = Math.floor(Date.now() / 1000);
+    const result = await importJsonData(knex, exportJson, {});
+    const after = Math.floor(Date.now() / 1000);
+
+    assert.strictEqual(result.success, true, result.error);
+    assert.strictEqual(result.stats?.transaction_tables.decision_context_created, 3);
+
+    type ContextRow = {
+      key_name: string;
+      ts: number;
+      decision_date: number | null;
+      rationale: string;
+    };
+    const rows = (await knex('t_decision_context as dc')
+      .join('m_context_keys as ck', 'dc.decision_key_id', 'ck.id')
+      .where('dc.project_id', result.project_id)
+      .select('ck.key_name', 'dc.ts', 'dc.decision_date', 'dc.rationale')
+      .orderBy('ck.key_name')) as ContextRow[];
+
+    assert.strictEqual(rows.length, 3);
+
+    const byKey = Object.fromEntries(rows.map((r) => [r.key_name, r]));
+    assert.strictEqual(byKey['ctx/with-ts'].ts, explicitTs);
+    assert.strictEqual(byKey['ctx/from-date'].ts, decisionDate);
+    assert.ok(
+      byKey['ctx/now-fallback'].ts >= before && byKey['ctx/now-fallback'].ts <= after + 1,
+      `expected NOW fallback ts in [${before}, ${after + 1}], got ${byKey['ctx/now-fallback'].ts}`
+    );
+    for (const row of rows) {
+      assert.ok(row.ts != null, `ts must be non-null for ${row.key_name}`);
+    }
+  });
+
   it('should skip import if project already exists', async () => {
     const knex = testDb.getKnex();
 

@@ -180,6 +180,28 @@ async function importTransactionTables(ctx: ImportContext): Promise<void> {
 }
 
 /**
+ * Resolve a unix-epoch timestamp for import inserts.
+ *
+ * UniversalKnex.timestampColumn only adds DEFAULT on SQLite; Postgres/MySQL
+ * require an explicit value or NOT NULL fails. Prefer JSON fields in order,
+ * then NOW.
+ */
+function resolveImportTs(
+  ...candidates: Array<number | string | null | undefined>
+): number {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return candidate;
+    }
+    if (typeof candidate === 'string' && candidate.trim() !== '') {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return Math.floor(Date.now() / 1000);
+}
+
+/**
  * Import t_decisions with remapped context_key IDs
  */
 async function importDecisions(ctx: ImportContext): Promise<void> {
@@ -196,7 +218,7 @@ async function importDecisions(ctx: ImportContext): Promise<void> {
       layer_id: ctx.mappings.layers.get(decision.layer_id) || null,
       version: decision.version,
       status: decision.status,
-      ts: decision.ts,
+      ts: resolveImportTs(decision.ts),
       project_id: ctx.projectId
     });
   }
@@ -221,7 +243,7 @@ async function importDecisionsNumeric(ctx: ImportContext): Promise<void> {
       layer_id: ctx.mappings.layers.get(decision.layer_id) || null,
       version: decision.version,
       status: decision.status,
-      ts: decision.ts,
+      ts: resolveImportTs(decision.ts),
       project_id: ctx.projectId
     });
   }
@@ -244,7 +266,7 @@ async function importDecisionHistory(ctx: ImportContext): Promise<void> {
       key_id: newKeyId,
       version: entry.version,
       value: entry.value,
-      ts: entry.ts,
+      ts: resolveImportTs(entry.ts),
       project_id: ctx.projectId
     });
   }
@@ -263,6 +285,7 @@ async function importDecisionContext(ctx: ImportContext): Promise<void> {
     if (!newKeyId) continue;
 
     // Note: agent_id removed in v4.0, related_task_id removed in v5.0
+    // ts is NOT NULL on Postgres/MySQL (SQLite-only DEFAULT); must set explicitly
     await ctx.knex('t_decision_context').insert({
       decision_key_id: newKeyId,
       rationale: context.rationale,
@@ -270,7 +293,8 @@ async function importDecisionContext(ctx: ImportContext): Promise<void> {
       tradeoffs: context.tradeoffs,
       decision_date: context.decision_date,
       related_constraint_id: null,
-      project_id: ctx.projectId
+      project_id: ctx.projectId,
+      ts: resolveImportTs(context.ts, context.decision_date)
     });
   }
 
@@ -291,7 +315,7 @@ async function importConstraints(ctx: ImportContext): Promise<void> {
       priority: constraint.priority,
       active: constraint.active,
       layer_id: ctx.mappings.layers.get(constraint.layer_id) || null,
-      ts: constraint.ts,
+      ts: resolveImportTs(constraint.ts),
       project_id: ctx.projectId
     });
   }
@@ -315,7 +339,7 @@ async function importDecisionPolicies(ctx: ImportContext): Promise<void> {
       quality_gates: policy.quality_gates,
       suggest_similar: policy.suggest_similar ?? 1,
       category: policy.category,
-      ts: policy.ts || Math.floor(Date.now() / 1000),
+      ts: resolveImportTs(policy.ts),
       project_id: ctx.projectId
     });
 
@@ -349,7 +373,7 @@ async function importTagIndex(ctx: ImportContext): Promise<void> {
       source_type: index.source_type,
       source_id: newSourceId || index.source_id,  // Use original for constraints
       project_id: ctx.projectId,
-      created_ts: index.created_ts || Math.floor(Date.now() / 1000)
+      created_ts: resolveImportTs(index.created_ts)
     });
   }
 
