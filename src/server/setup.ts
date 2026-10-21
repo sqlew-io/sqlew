@@ -30,6 +30,11 @@ import { initializeSqlewRules } from '../init-rules.js';
 import { loadGlobalConfig, getDefaultDbPath, ensureGlobalConfigDir } from '../config/global-config.js';
 import { initializeBackend, isCloudMode, getBackend } from '../backend/backend-factory.js';
 import { migrateLocalToGlobal } from '../migration/local-to-global.js';
+import {
+  applyEnvConfigOverrides,
+  hasEnvProjectNameOverride,
+  readEnvProjectName,
+} from '../config/env-overrides.js';
 
 /**
  * Extract project name from a path, skipping hidden directories.
@@ -177,8 +182,11 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
 
   // 1. Load config with priority order (v4.1.0+):
   //    Main repo (worktree parent) > Local > Global > Default
-  const { config: fileConfig, effectiveRoot: finalProjectRoot, source: configSource } =
+  const { config: loadedFileConfig, effectiveRoot: finalProjectRoot, source: configSource } =
     await loadConfigWithPriority(currentDir, parsedArgs);
+
+  // Env overrides (SQLEW_DATABASE_TYPE, SQLEW_PROJECT_NAME) apply after file load
+  const fileConfig = applyEnvConfigOverrides(loadedFileConfig);
 
   // 2. Only create .sqlew/ if:
   //    - Using SQLite (not MySQL/PostgreSQL/Cloud)
@@ -293,10 +301,21 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
   let detectionSource: 'cli' | 'config' | 'git' | 'metadata' | 'directory' = 'directory';
 
   if (isCloud) {
-    // Cloud mode: Use config.toml values directly (no local DB)
-    projectName = fileConfig.project?.name || extractProjectNameFromPath(finalProjectRoot);
-    detectionSource = fileConfig.project?.name ? 'config' : 'directory';
-    debugLog('INFO', 'Cloud mode: Using config.toml values', { projectName });
+    // Cloud mode: CLI / env / config (no local DB)
+    if (parsedArgs.projectName) {
+      projectName = parsedArgs.projectName;
+      detectionSource = 'cli';
+    } else if (readEnvProjectName()) {
+      projectName = readEnvProjectName()!;
+      detectionSource = 'cli';
+    } else if (fileConfig.project?.name) {
+      projectName = fileConfig.project.name;
+      detectionSource = 'config';
+    } else {
+      projectName = extractProjectNameFromPath(finalProjectRoot);
+      detectionSource = 'directory';
+    }
+    debugLog('INFO', 'Cloud mode: project name resolved', { projectName, detectionSource });
   }
 
   // Initialize ProjectContext
@@ -326,6 +345,10 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
       projectName = parsedArgs.projectName;
       detectionSource = 'cli';
       debugLog('INFO', 'Project name from CLI argument', { projectName });
+    } else if (readEnvProjectName()) {
+      projectName = readEnvProjectName()!;
+      detectionSource = 'cli';
+      debugLog('INFO', 'Project name from environment variable', { projectName });
     } else if (fileConfig.project?.name) {
       projectName = fileConfig.project.name;
       detectionSource = 'config';
@@ -368,7 +391,7 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
       }
 
       // Write to config.toml if not present AND not CLI override (skip when unbound)
-      if (!unbound && !parsedArgs.projectName) {
+      if (!unbound && !parsedArgs.projectName && !hasEnvProjectNameOverride()) {
         const configWritten = ensureProjectConfig(finalProjectRoot, projectName, {
           configPath: parsedArgs.configPath,
         });
