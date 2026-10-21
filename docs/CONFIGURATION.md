@@ -8,7 +8,7 @@ Settings are applied in this order (highest to lowest):
 
 ```
 1. CLI Arguments        (--db-path, --project-name, etc.)
-2. Environment Variables (SQLEW_API_KEY, SQLEW_PROJECT_NAME, SQLEW_DATABASE_TYPE, SQLEW_DATABASE_URL, SQLEW_DEBUG)
+2. Environment Variables (SQLEW_API_KEY, SQLEW_PROJECT_NAME, SQLEW_DATABASE_TYPE, SQLEW_DATABASE_HOST/…, SQLEW_DATABASE_URL, SQLEW_DEBUG)
 3. Config File          (.sqlew/config.toml)
 4. Code Defaults        (DEFAULT_CONFIG in types.ts)
 ```
@@ -150,11 +150,20 @@ node dist/index.js --autodelete-ignore-weekend --autodelete-message-hours=48
 |----------|-------------|--------|
 | `SQLEW_API_KEY` | API key for cloud backend (`database.type = "cloud"`) | `~/.config/sqlew/.sqlew.env` or environment |
 | `SQLEW_PROJECT_NAME` | Project name (same as `[project].name` / `--project-name`); overrides `.sqlew/config.toml` | Environment only |
-| `SQLEW_DATABASE_TYPE` | Database backend: `cloud` \| `postgres` \| `mysql` \| `sqlite`. Alone it only sets `type` (does not wipe file `connection`/`auth`). Prefer with `SQLEW_DATABASE_URL` for remote DBs | Environment only |
-| `SQLEW_DATABASE_URL` | **Primary** postgres/mysql connection URL → parsed into `database.type` + `connection` + `auth` (SSL query params honored). Wins over local config.toml | Environment only |
+| `SQLEW_DATABASE_TYPE` | Database backend: `cloud` \| `postgres` \| `mysql` \| `sqlite`. Alone it only sets `type` (does not wipe file `connection`/`auth`). With discrete host fields or a URL, selects the remote backend | Environment only |
+| `SQLEW_DATABASE_HOST` | Postgres/MySQL host (hostname or IP). Prefer this over stuffing a host into `SQLEW_DATABASE_URL` | Environment only |
+| `SQLEW_DATABASE_PORT` | Port (default 5432 postgres / 3306 mysql) | Environment only |
+| `SQLEW_DATABASE_NAME` | Database name | Environment only |
+| `SQLEW_DATABASE_USER` | Database user | Environment only |
+| `SQLEW_DATABASE_PASSWORD` | Database password | Environment only |
+| `SQLEW_DATABASE_SSL` | Enable SSL (`true` / `1` / `require`). Neon: set `true` | Environment only |
+| `SQLEW_DATABASE_SSL_REJECT_UNAUTHORIZED` | When SSL is on: `false` ≈ `sslmode=require` (Neon default here); `true` verifies CA | Environment only |
+| `SQLEW_DATABASE_URL` | Full postgres/mysql connection URL (alternative to discrete fields). SSL query params honored. Wins over discrete vars and local config.toml | Environment only |
 | `DATABASE_URL` | Alias used when `SQLEW_DATABASE_URL` is unset (common in Neon / Prisma templates) | Environment only |
 | `SQLEW_DEBUG` | Debug log file path (overrides `debug.log_path` in config) | Environment only |
 | `SQLEW_PROJECT_ROOT` | Explicit project root for desktop / multi-project MCP launches | Environment only |
+
+**Connection from env (first match):** (1) `SQLEW_DATABASE_URL` / `DATABASE_URL` → (2) discrete `SQLEW_DATABASE_HOST` + type/name/user/… → (3) `SQLEW_DATABASE_TYPE` alone → (4) config file.
 
 ### Cursor Cloud Agents
 
@@ -172,9 +181,30 @@ Cloud agent VMs are ephemeral: a VM-local SQLite file (including auto-written `.
 }
 ```
 
-#### Option B — Neon Postgres (or any postgres/mysql URL)
+#### Option B — Neon Postgres via discrete Secrets (recommended for Cursor UI)
 
-Paste the connection string from the Neon console (or Cursor-provisioned credentials) into Secrets. Protocol is inferred from the URL (`postgresql://` / `postgres://` → postgres, `mysql://` → mysql). Query flags such as `sslmode=require` map to `database.auth.ssl`.
+Cursor Secrets are easier as separate keys than one long URL. Put the host in `SQLEW_DATABASE_HOST` (not in `SQLEW_DATABASE_URL`).
+
+```json
+{
+  "env": {
+    "SQLEW_PROJECT_NAME": "your-repo-or-product-slug",
+    "SQLEW_DATABASE_TYPE": "postgres",
+    "SQLEW_DATABASE_HOST": "ep-xxxx.region.aws.neon.tech",
+    "SQLEW_DATABASE_PORT": "5432",
+    "SQLEW_DATABASE_NAME": "neondb",
+    "SQLEW_DATABASE_USER": "neondb_owner",
+    "SQLEW_DATABASE_PASSWORD": "your-password",
+    "SQLEW_DATABASE_SSL": "true"
+  }
+}
+```
+
+`SQLEW_DATABASE_SSL=true` enables TLS with `rejectUnauthorized=false` by default (same idea as Neon `sslmode=require`). Set `SQLEW_DATABASE_SSL_REJECT_UNAUTHORIZED=true` if you need full CA verification.
+
+#### Option C — Full connection URL
+
+If you already have a connection string (Neon console / Prisma template), you can still pass it as one secret:
 
 ```json
 {
@@ -185,11 +215,11 @@ Paste the connection string from the Neon console (or Cursor-provisioned credent
 }
 ```
 
-`DATABASE_URL` alone also works if you prefer the conventional name; `SQLEW_DATABASE_URL` wins when both are set. Optional: set `SQLEW_DATABASE_TYPE=postgres` for clarity — the URL still supplies host/user/password/SSL.
+`DATABASE_URL` alone also works; `SQLEW_DATABASE_URL` wins when both are set. A URL wins over discrete host fields if both styles are present.
 
-`SQLEW_PROJECT_NAME`, `SQLEW_DATABASE_TYPE`, and `SQLEW_DATABASE_URL` are applied after config files are loaded, so they win over an auto-written `.sqlew/config.toml`. When `SQLEW_PROJECT_NAME` is set, sqlew does not auto-write `[project].name` into config on first run.
+`SQLEW_PROJECT_NAME`, `SQLEW_DATABASE_TYPE`, URL, and discrete DB vars are applied after config files are loaded, so they win over an auto-written `.sqlew/config.toml`. When `SQLEW_PROJECT_NAME` is set, sqlew does not auto-write `[project].name` into config on first run.
 
-sqlew talks to the SQL server directly (Knex); it does not use Prisma Client. A Prisma- or Cursor-provisioned Postgres URL is fine as long as it is a standard connection string.
+sqlew talks to the SQL server directly (Knex); it does not use Prisma Client. A Prisma- or Cursor-provisioned Postgres URL (or the same values as discrete Secrets) is fine.
 
 ### SQLEW_API_KEY
 
