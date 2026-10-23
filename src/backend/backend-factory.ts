@@ -40,7 +40,7 @@ export function isCloudMode(config: SqlewConfig): boolean {
  *
  * Flow:
  * 1. Load API key from ~/.config/sqlew/.sqlew.env
- * 2. Load project name from .sqlew/config.toml
+ * 2. Load project name (SQLEW_PROJECT_NAME > git remote basename > config.toml)
  * 3. Check cached project ID in ~/.config/sqlew/.sqlew.env
  * 4. If not cached, resolve via /api/v1/project/resolve and cache
  *
@@ -55,7 +55,7 @@ export async function loadCloudConfig(projectRoot?: string): Promise<CloudConfig
   }
 
   // Load base config (API key, project name, connection identity)
-  const baseConfig = loadCloudConfigFromGlobal(projectRoot);
+  const baseConfig = await loadCloudConfigFromGlobal(projectRoot);
   if (!baseConfig) {
     return null;
   }

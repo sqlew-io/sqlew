@@ -7,6 +7,7 @@ import {
   getGlobalEnvPath,
   loadApiKey,
   loadProjectName,
+  loadProjectNameAsync,
   createConnectionIdentity,
   loadCloudConfigFromGlobal,
   hasGlobalEnvFile,
@@ -76,6 +77,20 @@ describe('cloud-config-loader', () => {
       // May return a string or undefined depending on config existence
       assert.ok(projectName === undefined || typeof projectName === 'string');
     });
+
+    it('should prefer SQLEW_PROJECT_NAME over config', () => {
+      process.env.SQLEW_PROJECT_NAME = 'env-project';
+      const projectName = loadProjectName('/non-existent-path');
+      assert.strictEqual(projectName, 'env-project');
+    });
+  });
+
+  describe('loadProjectNameAsync', () => {
+    it('should prefer env over other sources', async () => {
+      process.env.SQLEW_PROJECT_NAME = 'async-env-project';
+      const projectName = await loadProjectNameAsync('/non-existent-path');
+      assert.strictEqual(projectName, 'async-env-project');
+    });
   });
 
   describe('createConnectionIdentity', () => {
@@ -101,11 +116,11 @@ describe('cloud-config-loader', () => {
   });
 
   describe('loadCloudConfigFromGlobal', () => {
-    it('should return null when API key not found', () => {
+    it('should return null when API key not found', async () => {
       // Ensure env var is not set
       delete process.env.SQLEW_API_KEY;
 
-      const config = loadCloudConfigFromGlobal('/test/project');
+      const config = await loadCloudConfigFromGlobal('/test/project');
 
       // If no global file exists, should return null
       if (!hasGlobalEnvFile()) {
@@ -113,10 +128,10 @@ describe('cloud-config-loader', () => {
       }
     });
 
-    it('should include connection identity when API key is set', () => {
+    it('should include connection identity when API key is set', async () => {
       process.env.SQLEW_API_KEY = 'sk_test_key';
 
-      const config = loadCloudConfigFromGlobal('C:\\Users\\dev\\my-app');
+      const config = await loadCloudConfigFromGlobal('C:\\Users\\dev\\my-app');
 
       assert.ok(config);
       assert.strictEqual(config.apiKey, 'sk_test_key');

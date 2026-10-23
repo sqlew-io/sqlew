@@ -3,20 +3,24 @@
  *
  * Extracts project detection logic from index.ts for reuse in:
  * - Migrations (sync version)
- * - Index.ts (async version with VCS support)
+ * - Index.ts / server setup (async version with VCS support)
  * - Tests
  *
- * Detection Priority:
- * 1. config.toml [project] name (authoritative)
- * 2. Git remote URL (best-effort)
- * 3. Directory name (fallback)
+ * Detection Priority (async / runtime):
+ * 1. SQLEW_PROJECT_NAME (env)
+ * 2. Git remote URL basename (best-effort; e.g. github.com/sqlew-io/sqlew → "sqlew")
+ * 3. config.toml [project] name
+ * 4. Directory name (fallback)
+ *
+ * Sync (migrations): env → config → directory (skips VCS; no async git).
  */
 
 import { existsSync, readFileSync } from 'fs';
-import { resolve, sep } from 'path';
+import { resolve } from 'path';
 import { parse as parseTOML } from 'smol-toml';
 import type { SqlewConfig } from '../config/types.js';
 import { DEFAULT_CONFIG_PATH } from '../config/loader.js';
+import { readEnvProjectName } from '../config/env-overrides.js';
 import { detectVCS } from './vcs-adapter.js';
 
 /**
@@ -24,13 +28,25 @@ import { detectVCS } from './vcs-adapter.js';
  */
 export interface DetectedProject {
   name: string;
-  source: 'config' | 'git' | 'directory';
+  source: 'env' | 'config' | 'git' | 'directory';
+}
+
+/** Map detector source to m_projects.detection_source (no separate 'env' value). */
+export function toDbDetectionSource(
+  source: DetectedProject['source']
+): 'cli' | 'config' | 'git' | 'directory' {
+  return source === 'env' ? 'cli' : source;
 }
 
 /**
  * Detect project name (async version with VCS support)
  *
  * Use this in index.ts and other runtime code where async operations are available.
+ *
+ * Priority: SQLEW_PROJECT_NAME → git remote basename → config.toml → directory.
+ * Git string: last path segment of origin URL (SSH or HTTPS), without `.git`
+ * (e.g. `git@github.com:sqlew-io/sqlew.git` → `sqlew`). Full `owner/repo` is
+ * not used — only the repo basename is stable across URL forms today.
  *
  * @param projectRoot - Project root directory
  * @param configPath - Optional path to config.toml (defaults to .sqlew/config.toml)
@@ -40,27 +56,65 @@ export async function detectProjectName(
   projectRoot: string,
   configPath?: string
 ): Promise<DetectedProject> {
-  // Priority 1: Check config.toml
-  const fromConfig = detectFromConfig(projectRoot, configPath);
-  if (fromConfig) {
-    return fromConfig;
+  // Priority 1: Environment override
+  const fromEnv = readEnvProjectName();
+  if (fromEnv) {
+    return { name: fromEnv, source: 'env' };
   }
 
-  // Priority 2: Try VCS detection (async)
+  // Priority 2: VCS / git remote (async)
   const fromVCS = await detectFromVCS(projectRoot);
   if (fromVCS) {
     return fromVCS;
   }
 
-  // Priority 3: Fallback to directory name
+  // Priority 3: config.toml
+  const fromConfig = detectFromConfig(projectRoot, configPath);
+  if (fromConfig) {
+    return fromConfig;
+  }
+
+  // Priority 4: Directory name
   return detectFromDirectory(projectRoot);
+}
+
+/**
+ * Resolve a configured project name without directory fallback.
+ *
+ * Same priority as async detect (env → git → config), but returns undefined
+ * when none of those sources yield a name. Used by SaaS / cloud-config paths
+ * that should not invent a directory-based identity.
+ *
+ * @param projectRoot - Project root directory
+ * @param configPath - Optional path to config.toml
+ */
+export async function resolveConfiguredProjectName(
+  projectRoot: string,
+  configPath?: string
+): Promise<DetectedProject | undefined> {
+  const fromEnv = readEnvProjectName();
+  if (fromEnv) {
+    return { name: fromEnv, source: 'env' };
+  }
+
+  const fromVCS = await detectFromVCS(projectRoot);
+  if (fromVCS) {
+    return fromVCS;
+  }
+
+  const fromConfig = detectFromConfig(projectRoot, configPath);
+  if (fromConfig) {
+    return fromConfig;
+  }
+
+  return undefined;
 }
 
 /**
  * Detect project name (sync version without VCS support)
  *
  * Use this in migrations where async operations are not available.
- * Detection order: config → directory (skips VCS)
+ * Detection order: env → config → directory (skips VCS)
  *
  * @param projectRoot - Project root directory
  * @param configPath - Optional path to config.toml (defaults to .sqlew/config.toml)
@@ -70,13 +124,19 @@ export function detectProjectNameSync(
   projectRoot: string,
   configPath?: string
 ): DetectedProject {
-  // Priority 1: Check config.toml
+  // Priority 1: Environment override
+  const fromEnv = readEnvProjectName();
+  if (fromEnv) {
+    return { name: fromEnv, source: 'env' };
+  }
+
+  // Priority 2: config.toml (sync cannot call git)
   const fromConfig = detectFromConfig(projectRoot, configPath);
   if (fromConfig) {
     return fromConfig;
   }
 
-  // Priority 2: Fallback to directory name (skip VCS in sync mode)
+  // Priority 3: Directory name
   return detectFromDirectory(projectRoot);
 }
 

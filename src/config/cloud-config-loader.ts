@@ -2,7 +2,7 @@
  * Cloud Configuration Loader
  *
  * Loads API key from global ~/.config/sqlew/.sqlew.env file.
- * Loads project name from SQLEW_PROJECT_NAME, then .sqlew/config.toml [project].name.
+ * Project name priority: SQLEW_PROJECT_NAME > git remote basename > .sqlew/config.toml.
  * Supports environment variable override for CI/CD environments.
  *
  * @since v5.0.0
@@ -17,6 +17,7 @@ import { detectEnvironment, type Environment } from '../utils/environment-detect
 import { extractPathSuffix, getProjectRoot } from '../utils/path-utils.js';
 import { generateConnectionHash } from '../utils/connection-hash.js';
 import { getGlobalConfigDir, ensureGlobalConfigDir } from './global-config.js';
+import { resolveConfiguredProjectName } from '../utils/project-detector.js';
 
 /**
  * Connection identity for SaaS backend
@@ -120,7 +121,10 @@ export function loadApiKey(): string | null {
 }
 
 /**
- * Load project name (SQLEW_PROJECT_NAME > .sqlew/config.toml [project].name)
+ * Load project name synchronously (SQLEW_PROJECT_NAME > config.toml).
+ *
+ * Sync helper cannot call git. Prefer {@link loadProjectNameAsync} (env > git > config)
+ * for SaaS / runtime identity. Kept for tests and sync callers.
  *
  * @param projectRoot - Project root directory (optional)
  * @returns Project name or undefined
@@ -131,6 +135,24 @@ export function loadProjectName(projectRoot?: string): string | undefined {
     return fromEnv;
   }
 
+  return loadProjectNameFromConfig(projectRoot);
+}
+
+/**
+ * Load project name with full priority: env > git remote basename > config.toml.
+ * No directory fallback (returns undefined when none of those sources apply).
+ *
+ * @param projectRoot - Project root directory (optional)
+ */
+export async function loadProjectNameAsync(
+  projectRoot?: string
+): Promise<string | undefined> {
+  const root = projectRoot ?? getProjectRoot();
+  const resolved = await resolveConfiguredProjectName(root);
+  return resolved?.name;
+}
+
+function loadProjectNameFromConfig(projectRoot?: string): string | undefined {
   const root = projectRoot ?? getProjectRoot();
   const configPath = path.join(root, '.sqlew', 'config.toml');
 
@@ -177,20 +199,21 @@ export function createConnectionIdentity(
  * Load complete cloud configuration from global file
  *
  * This is the main entry point for loading cloud configuration.
- * It loads API key from ~/.config/sqlew/.sqlew.env and project name from .sqlew/config.toml.
+ * It loads API key from ~/.config/sqlew/.sqlew.env and project name via
+ * env > git remote basename > .sqlew/config.toml.
  *
  * @param projectRoot - Project root path (optional)
  * @returns Extended cloud config or null if API key not found
  */
-export function loadCloudConfigFromGlobal(
+export async function loadCloudConfigFromGlobal(
   projectRoot?: string
-): ExtendedCloudConfig | null {
+): Promise<ExtendedCloudConfig | null> {
   const apiKey = loadApiKey();
   if (!apiKey) {
     return null;
   }
 
-  const projectName = loadProjectName(projectRoot);
+  const projectName = await loadProjectNameAsync(projectRoot);
   const connectionIdentity = createConnectionIdentity(apiKey, projectName, projectRoot);
 
   return {

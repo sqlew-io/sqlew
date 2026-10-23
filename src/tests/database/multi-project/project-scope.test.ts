@@ -30,6 +30,7 @@ import { LocalBackend } from '../../../backend/local-backend.js';
 let testDb: DatabaseAdapter;
 let tempDir: string;
 let tempDbPath: string;
+const originalProjectNameEnv = process.env.SQLEW_PROJECT_NAME;
 
 /** Parse a JSON-encoded sqlew error thrown as an Error message. */
 function parseError(error: unknown): { error?: string; message?: string } {
@@ -42,6 +43,8 @@ function parseError(error: unknown): { error?: string; message?: string } {
 }
 
 beforeEach(async () => {
+  // Cloud Agents may inject SQLEW_PROJECT_NAME; root-based tests expect directory names.
+  delete process.env.SQLEW_PROJECT_NAME;
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlew-scope-'));
   tempDbPath = path.join(tempDir, 'test.db');
   testDb = await initializeDatabase({ connection: { filename: tempDbPath } });
@@ -52,6 +55,11 @@ afterEach(async () => {
   await closeDatabase();
   if (tempDir && fs.existsSync(tempDir)) {
     fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+  if (originalProjectNameEnv === undefined) {
+    delete process.env.SQLEW_PROJECT_NAME;
+  } else {
+    process.env.SQLEW_PROJECT_NAME = originalProjectNameEnv;
   }
 });
 

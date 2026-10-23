@@ -66,7 +66,7 @@ npx @sqlew/pg
 # or: npm install -g @sqlew/pg
 ```
 
-Wire a remote DB with `SQLEW_DATABASE_URL` / `DATABASE_URL` and `SQLEW_PROJECT_NAME` (see [Cursor Cloud Agents](docs/CONFIGURATION.md#cursor-cloud-agents)). Other slim installs: `@sqlew/mysql`, `@sqlew/sqlite`. Package matrix: [SCOPED_PACKAGES.md](docs/SCOPED_PACKAGES.md).
+Wire a remote DB with `SQLEW_DATABASE_URL` / `DATABASE_URL` in Environment Secrets. Project name usually comes from the **git** remote basename; set `SQLEW_PROJECT_NAME` only when sharing one DB across repos. **Plan-less auto ADR needs [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) Cursor hooks** — MCP (`npx @sqlew/pg`) alone is not enough. Details: [Cursor Cloud Agents](docs/CONFIGURATION.md#cursor-cloud-agents). Other slim installs: `@sqlew/mysql`, `@sqlew/sqlite`. Package matrix: [SCOPED_PACKAGES.md](docs/SCOPED_PACKAGES.md).
 
 **npm 12+** (bundled with Node 24.19+) blocks dependency install scripts by default. The full/`@sqlew/sqlite` installs need [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) to download or compile its native addon, so allow that script:
 

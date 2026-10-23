@@ -324,17 +324,20 @@ export const DEFAULT_OMP_REQUIRE_PATTERNS = true;
  * Project configuration (v3.7.0+)
  *
  * Multi-project support requires explicit project identification.
- * Once set in config.toml, the project_name becomes the authoritative source.
+ * Runtime resolution priority: SQLEW_PROJECT_NAME > git remote basename >
+ * config.toml [project].name > directory. Config remains the fallback when
+ * env/git are unset (typical local installs that only use config.toml).
  *
  * @since v3.7.0
- * @see Constraint #23, #24: Config.toml as source of truth
+ * @see Constraint #23, #24: Config.toml write-on-first-run
  */
 export interface ProjectConfig {
   /**
    * Project name (alphanumeric + hyphens/underscores, max 64 chars).
    *
-   * Once written to config.toml on first run, this becomes the permanent
-   * project identifier. Changing this requires MCP server restart.
+   * Written to config.toml on first run when missing. Overridden at runtime by
+   * SQLEW_PROJECT_NAME or a detectable git remote basename. Changing identity
+   * via env/CLI requires MCP server restart to take effect in a running process.
    *
    * @see Constraint #37: Project name validation
    * @see Constraint #31: Restart required to switch projects
@@ -395,7 +398,7 @@ export interface ConnectionIdentity {
 
 /**
  * Cloud backend configuration.
- * Loaded from ~/.config/sqlew/.sqlew.env (API key) and .sqlew/config.toml (project name).
+ * Loaded from ~/.config/sqlew/.sqlew.env (API key) and project name via env > git > config.
  *
  * Note: API endpoint is NOT configurable here - it's hardcoded in the plugin.
  * This is intentional for security (no endpoint info in OSS).
@@ -406,7 +409,7 @@ export interface ConnectionIdentity {
 export interface CloudConfig {
   /** API key for authentication */
   apiKey: string;
-  /** Project name from .sqlew/config.toml [project].name */
+  /** Project name (env > git basename > config.toml) */
   projectName?: string;
   /** Resolved project UUID (cached in ~/.config/sqlew/.sqlew.env) */
   projectId?: string;

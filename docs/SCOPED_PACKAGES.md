@@ -82,4 +82,10 @@ npm publish --access public
 npx @sqlew/pg
 ```
 
-Cursor Cloud Agents for this repo use the committed [`.cursor/mcp.json`](../.cursor/mcp.json) (`npx -y @sqlew/pg`). Set `SQLEW_DATABASE_URL` or `DATABASE_URL`, plus `SQLEW_PROJECT_NAME`, via Environment / repository Secrets — not in the MCP file. See [CONFIGURATION.md — Cursor Cloud Agents](./CONFIGURATION.md#cursor-cloud-agents).
+Cursor Cloud Agents for this repo use the committed [`.cursor/mcp.json`](../.cursor/mcp.json) (`npx -y @sqlew/pg`).
+
+- **DB:** set `SQLEW_DATABASE_URL` / `DATABASE_URL` (or discrete `SQLEW_DATABASE_*`) via Environment / repository Secrets — not in the MCP file.
+- **Project name:** usually from **git** (remote basename). `SQLEW_PROJECT_NAME` is optional; use it when one DB is shared across repos.
+- **Plan-less auto ADR:** install [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) Cursor hooks (`.cursor/hooks.json`). MCP alone is not enough.
+
+See [CONFIGURATION.md — Cursor Cloud Agents](./CONFIGURATION.md#cursor-cloud-agents).

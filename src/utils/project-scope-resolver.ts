@@ -24,7 +24,7 @@ import * as path from 'path';
 import { existsSync } from 'fs';
 import type { Knex } from 'knex';
 import { getAdapter } from '../database.js';
-import { detectProjectName } from './project-detector.js';
+import { detectProjectName, toDbDetectionSource } from './project-detector.js';
 import type { ProjectMetadata } from './project-context.js';
 
 /** Reserved per-call project scope (the `_sqlew_project` tool parameter). */
@@ -134,7 +134,7 @@ export async function resolveProjectScope(
       fail('SQLEW_PROJECT_ROOT_NOT_FOUND', `_sqlew_project.root does not exist: "${root}".`);
     }
     const detected = await detectProjectName(root);
-    return findOrCreate(knex, detected.name, root, detected.source, opts);
+    return findOrCreate(knex, detected.name, root, toDbDetectionSource(detected.source), opts);
   }
 
   // 3. name: look up existing; create only on write + allow_create.
