@@ -292,6 +292,7 @@ name = "your-project-name"
 | [Hermes Hooks Guide](docs/HERMES_HOOKS.md) | Hermes-specific setup and wire-protocol notes |
 | [Cross Database](docs/CROSS_DATABASE.md) | Multi-database support |
 | [CLI Usage](docs/CLI_USAGE.md) | Database migration, export/import |
+| [Scoped packages](docs/SCOPED_PACKAGES.md) | `@sqlew/*` matrix, Cloud install, npm release via GitHub Actions |
 
 ### Upgrade Guides
 

@@ -1,0 +1,200 @@
+# Publish sqlew + @sqlew/* to npm at the same semver.
+# Requires repo secret NPM_TOKEN (npm automation / granular publish token).
+# Does not invent or store token values — maintainers configure the secret in GitHub.
+#
+# Triggers:
+#   - GitHub Release published (tag should be vX.Y.Z matching package.json)
+#   - workflow_dispatch with confirm_version (+ optional dry_run)
+#
+# Related: #129 (Cloud packaging / scoped packages), #140 (scoped package matrix)
+
+name: Publish npm packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      confirm_version:
+        description: 'Must match root package.json version (e.g. 5.3.8)'
+        required: true
+        type: string
+      dry_run:
+        description: 'npm publish --dry-run only (no registry write)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Resolve expected version
+        id: ver
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CONFIRM_VERSION: ${{ inputs.confirm_version }}
+        run: |
+          set -euo pipefail
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          echo "package.json version=${PKG_VERSION}"
+
+          if [ "$EVENT_NAME" = "release" ]; then
+            TAG="${RELEASE_TAG}"
+            EXPECTED="${TAG#v}"
+            if [ "$TAG" = "$EXPECTED" ]; then
+              echo "::error::Release tag must look like vX.Y.Z (got: ${TAG})"
+              exit 1
+            fi
+          else
+            EXPECTED="${CONFIRM_VERSION}"
+          fi
+
+          if [ "$EXPECTED" != "$PKG_VERSION" ]; then
+            echo "::error::Version mismatch: expected ${EXPECTED} but package.json is ${PKG_VERSION}"
+            exit 1
+          fi
+
+          echo "version=${PKG_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve dry-run flag
+        id: mode
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$DRY_RUN_INPUT" = "true" ]; then
+            echo "dry_run=true" >> "$GITHUB_OUTPUT"
+            echo "publish_args=--access public --dry-run" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "publish_args=--access public" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require NPM_TOKEN (real publish)
+        if: steps.mode.outputs.dry_run != 'true'
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "::error::Secret NPM_TOKEN is not set. Add a repo (or environment) secret named NPM_TOKEN with an npm publish token, then re-run."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and sync scoped packages
+        run: |
+          npm run rebuild
+          npm run sync:scoped
+
+      - name: Verify scoped versions match root
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          for pkg in packages/full packages/pg packages/mysql packages/sqlite; do
+            V="$(node -p "require('./${pkg}/package.json').version")"
+            if [ "$V" != "$VERSION" ]; then
+              echo "::error::${pkg} version ${V} != root ${VERSION} after sync:scoped"
+              exit 1
+            fi
+          done
+          echo "All packages @ ${VERSION}"
+
+      - name: Publish sqlew (root)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PUBLISH_ARGS: ${{ steps.mode.outputs.publish_args }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          npm publish $PUBLISH_ARGS
+
+      - name: Wait for sqlew on registry (for @sqlew/full)
+        if: steps.mode.outputs.dry_run != 'true'
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            if npm view "sqlew@${VERSION}" version >/dev/null 2>&1; then
+              echo "sqlew@${VERSION} is visible on the registry"
+              exit 0
+            fi
+            echo "Waiting for sqlew@${VERSION} (attempt ${i})..."
+            sleep 5
+          done
+          echo "::warning::sqlew@${VERSION} not visible yet; continuing — @sqlew/full may fail if the registry lags"
+
+      - name: Publish @sqlew/full
+        working-directory: packages/full
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PUBLISH_ARGS: ${{ steps.mode.outputs.publish_args }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          npm publish $PUBLISH_ARGS
+
+      - name: Publish @sqlew/pg
+        working-directory: packages/pg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PUBLISH_ARGS: ${{ steps.mode.outputs.publish_args }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          npm publish $PUBLISH_ARGS
+
+      - name: Publish @sqlew/mysql
+        working-directory: packages/mysql
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PUBLISH_ARGS: ${{ steps.mode.outputs.publish_args }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          npm publish $PUBLISH_ARGS
+
+      - name: Publish @sqlew/sqlite
+        working-directory: packages/sqlite
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PUBLISH_ARGS: ${{ steps.mode.outputs.publish_args }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          npm publish $PUBLISH_ARGS
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+        run: |
+          {
+            echo "## npm publish"
+            echo ""
+            echo "- version: \`${VERSION}\`"
+            echo "- dry-run: \`${DRY_RUN}\`"
+            echo "- packages: \`sqlew\`, \`@sqlew/full\`, \`@sqlew/pg\`, \`@sqlew/mysql\`, \`@sqlew/sqlite\`"
+          } >> "$GITHUB_STEP_SUMMARY"
