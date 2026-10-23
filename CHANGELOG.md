@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [5.4.2] - 2026-10-23
+
 ### Fixed
 
-**`sqlew save`: legacy session cache no longer re-promotes an already recorded plan** ([#146](https://github.com/sqlew-io/sqlew/issues/146))
+**`sqlew save`: legacy session cache no longer re-promotes an already recorded plan** ([#146](https://github.com/sqlew-io/sqlew/issues/146), [#147](https://github.com/sqlew-io/sqlew/pull/147))
 
 - Pre-v5.4.1 session caches can have `recorded: true` with no `implementation_started` field. Missing was treated as “not promoted yet,” so the next implementation Edit|Write re-queued plan status → `in_progress` and constraint activate.
 - Fix: when `recorded === true` and `implementation_started` is absent, skip promote (treat as already promoted) and optionally backfill the flag on touch. New plans (`recorded: false` / explicit `false`) still promote once. Plan-less draft enqueue remains always-on.
