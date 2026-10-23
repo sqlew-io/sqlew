@@ -5,6 +5,7 @@ import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { BaseAdapter } from './base-adapter.js';
 import type { DatabaseConfig } from '../config/types.js';
+import { withDriverLoadError } from '../utils/driver-error.js';
 
 const { knex } = knexLib;
 
@@ -71,8 +72,8 @@ export class SQLiteAdapter extends BaseAdapter {
     };
     ensureSqliteParentDir(extractSqliteFilename(connectionConfig));
 
-    // Create Knex instance
-    this.knexInstance = knex(connectionConfig);
+    // Create Knex instance (better-sqlite3 is omitted from @sqlew/pg and @sqlew/mysql)
+    this.knexInstance = withDriverLoadError('better-sqlite3', () => knex(connectionConfig));
 
     // Initialize SQLite settings
     await this.initialize();

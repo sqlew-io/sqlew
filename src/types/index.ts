@@ -3,8 +3,8 @@
  * All types re-exported from domain-specific modules
  */
 
-// Database connection type
-import { Database } from 'better-sqlite3';
+// Database connection type (type-only so driver-scoped installs do not load better-sqlite3)
+import type { Database } from 'better-sqlite3';
 export type { Database };
 
 // Enums

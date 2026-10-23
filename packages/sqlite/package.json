@@ -1,0 +1,60 @@
+{
+  "name": "@sqlew/sqlite",
+  "description": "sqlew MCP server — SQLite (better-sqlite3) driver only",
+  "version": "5.3.8",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./hooks": "./dist/hooks-api.js"
+  },
+  "type": "module",
+  "bin": {
+    "sqlew": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "!dist/tests/",
+    "!dist/**/*.map",
+    "!dist/**/*.d.ts",
+    "scripts/",
+    "assets/",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "prepack": "node ../../scripts/sync-scoped-packages.mjs sqlite"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sqlew-io/sqlew.git",
+    "directory": "packages/sqlite"
+  },
+  "bugs": {
+    "url": "https://github.com/sqlew-io/sqlew/issues"
+  },
+  "homepage": "https://github.com/sqlew-io/sqlew#readme",
+  "keywords": [
+    "sqlew",
+    "adr",
+    "mcp",
+    "sqlite",
+    "better-sqlite3"
+  ],
+  "author": "sqlew-io",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.1",
+    "better-sqlite3": "^12.4.1",
+    "chokidar": "^4.0.3",
+    "knex": "^3.1.0",
+    "smol-toml": "^1.4.2",
+    "zod": "^4.0.0"
+  }
+}

@@ -1,0 +1,24 @@
+sqlew
+Copyright 2025 sqlew-io
+
+This product includes software developed by sqlew-io.
+
+Licensed under the Apache License, Version 2.0.
+
+================================================================================
+Third-Party Notices
+================================================================================
+
+This software uses the following open source packages:
+
+- Model Context Protocol SDK (https://github.com/modelcontextprotocol/sdk)
+  Licensed under MIT License
+
+- better-sqlite3 (https://github.com/WiseLibs/better-sqlite3)
+  Licensed under MIT License
+
+- Knex.js (https://knexjs.org/)
+  Licensed under MIT License
+
+- TypeScript (https://www.typescriptlang.org/)
+  Licensed under Apache License 2.0

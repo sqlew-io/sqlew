@@ -33,6 +33,7 @@
     "test:native": "npm run build && node --test --test-concurrency=1 --test-force-exit dist/tests/docker/native/**/*.test.js | node scripts/filter-test-output.js",
     "prepare": "husky",
     "prepublishOnly": "npm run rebuild",
+    "sync:scoped": "node scripts/sync-scoped-packages.mjs",
     "knex": "npx tsx node_modules/knex/bin/cli.js --knexfile src/knexfile.ts",
     "migrate:make": "npm run knex migrate:make",
     "migrate:latest": "npm run knex migrate:latest",

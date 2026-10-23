@@ -4,6 +4,7 @@ import type { DatabaseAdapter } from './types.js';
 import type { DatabaseConfig } from '../config/types.js';
 import { createAuthProvider } from './auth/auth-factory.js';
 import type { BaseAuthProvider, ConnectionParams } from './auth/base-auth-provider.js';
+import { withDriverLoadError } from '../utils/driver-error.js';
 
 const { knex } = knexLib;
 
@@ -72,9 +73,10 @@ export abstract class BaseAdapter implements DatabaseAdapter {
 
     // Build Knex configuration
     const knexConfig = this.buildKnexConfig(connParams);
+    const client = String(knexConfig.client || this.getDialect());
 
-    // Create Knex instance
-    this.knexInstance = knex(knexConfig);
+    // Create Knex instance (loads dialect driver; scoped packages may omit unused ones)
+    this.knexInstance = withDriverLoadError(client, () => knex(knexConfig));
 
     // Perform adapter-specific initialization
     await this.initialize();

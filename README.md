@@ -51,17 +51,30 @@ Built on the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), s
 
 ### 1. Install
 
+**Local / full (default)** — all RDB drivers (SQLite, PostgreSQL, MySQL). Unchanged:
+
 ```bash
 npm install -g sqlew
+# same capability under the scoped name:
+npm install -g @sqlew/full
 ```
 
-**npm 12+** (bundled with Node 24.19+) blocks dependency install scripts by default. sqlew needs [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) to download or compile its native addon, so allow that script:
+**Cursor Cloud / ephemeral VMs** — prefer PostgreSQL-only (no native SQLite addon):
+
+```bash
+npx @sqlew/pg
+# or: npm install -g @sqlew/pg
+```
+
+Wire a remote DB with `SQLEW_DATABASE_URL` / `DATABASE_URL` and `SQLEW_PROJECT_NAME` (see [Cursor Cloud Agents](docs/CONFIGURATION.md#cursor-cloud-agents)). Other slim installs: `@sqlew/mysql`, `@sqlew/sqlite`. Package matrix: [SCOPED_PACKAGES.md](docs/SCOPED_PACKAGES.md).
+
+**npm 12+** (bundled with Node 24.19+) blocks dependency install scripts by default. The full/`@sqlew/sqlite` installs need [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) to download or compile its native addon, so allow that script:
 
 ```bash
 npm install -g --allow-scripts=better-sqlite3 sqlew
 ```
 
-Without the flag, `sqlew` installs but exits on first run with `Could not locate the bindings file`. Re-run the command above to repair an existing install.
+Without the flag, `sqlew` installs but exits on first run with `Could not locate the bindings file`. Re-run the command above to repair an existing install. `@sqlew/pg` and `@sqlew/mysql` do not need this flag.
 
 npm 11 and earlier still run install scripts by default; `npm install -g sqlew` is enough there.
 

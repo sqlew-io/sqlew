@@ -169,6 +169,16 @@ node dist/index.js --autodelete-ignore-weekend --autodelete-message-hours=48
 
 Cloud agent VMs are ephemeral: a VM-local SQLite file (including auto-written `.sqlew/config.toml` under a shared cwd like `/workspace`) does **not** persist across agents. Prefer **sqlew SaaS** or an **external managed database** (Neon Postgres, hosted MySQL, etc.) wired through Cursor repository Secrets → MCP `env`.
 
+**Install on Cloud:** use the PostgreSQL-only package (smaller; no native SQLite addon):
+
+```bash
+npx @sqlew/pg
+```
+
+Local desktops should keep the full install: `npm i -g sqlew` (or `@sqlew/full`). See [SCOPED_PACKAGES.md](./SCOPED_PACKAGES.md).
+
+**Plan-less hooks on Cloud:** with [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin), PostToolUse research inject still works; Write enqueues draft ADRs to `.sqlew/queue/pending.json` and Stop / `sqlew flush-queue` upserts them (needed when the MCP QueueWatcher is absent). Plan Mode capture remains optional.
+
 #### Option A — sqlew SaaS
 
 ```json
