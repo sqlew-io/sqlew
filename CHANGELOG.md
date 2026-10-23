@@ -51,7 +51,8 @@ Cloud / ephemeral VMs discard local disk between runs. sqlew now has a first-cla
 ### Documentation
 
 - **Plan-less harness workflow** — README, HOOKS_GUIDE, HARNESS_COMPATIBILITY, ADR_CONCEPTS, HERMES_HOOKS: Plan Mode is not required; document Research Post → Write enqueue (`pending.json`) → Stop/flush upsert; keep Plan-to-ADR; Hermes Skill `/learn` exception for missing Post inject.
-- **Cloud + scoped packages** — README install section, CONFIGURATION Cloud recipe (`@sqlew/pg`), [SCOPED_PACKAGES.md](docs/SCOPED_PACKAGES.md) publish notes (`npm publish --access public`; not published by the agent/CI unless tokens allow).
+- **Cloud + scoped packages** — README install section, CONFIGURATION Cloud recipe (`@sqlew/pg`), [SCOPED_PACKAGES.md](docs/SCOPED_PACKAGES.md) publish matrix and release notes.
+- **GHA npm publish** — [`.github/workflows/publish-npm.yml`](.github/workflows/publish-npm.yml) publishes `sqlew` + `@sqlew/{full,pg,mysql,sqlite}` on GitHub Release (`v*`) or `workflow_dispatch` (version confirm + dry-run). Requires secret `NPM_TOKEN`. See [SCOPED_PACKAGES.md](docs/SCOPED_PACKAGES.md).
 
 ---
 
