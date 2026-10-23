@@ -1,7 +1,7 @@
 {
   "name": "@sqlew/pg",
   "description": "sqlew MCP server — PostgreSQL driver only (Cloud / Neon / Prisma-friendly slim install)",
-  "version": "5.4.1",
+  "version": "5.4.2",
   "main": "dist/index.js",
   "exports": {
     ".": "./dist/index.js",
