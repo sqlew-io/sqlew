@@ -18,7 +18,7 @@ Stop / on-stop / QueueWatcher
 ```
 
 - **`sqlew suggest`** (Post) — harness-correct `additional_context` / `additionalContext` inject after research tools
-- **`sqlew save`** — always enqueues a plan-less draft decision create (`{client}/auto/<rel-path>`) on implementation Edit|Write (no DB). If a tracked plan is not yet `implementation_started`, also runs the one-shot plan promote (`in_progress` + constraint activate). Session-cache `recorded` (plan-body extraction dedup for SubagentStop) does **not** block draft enqueue.
+- **`sqlew save`** — always enqueues a plan-less draft decision create (`{client}/auto/<rel-path>`) on implementation Edit|Write (no DB). If a tracked plan is not yet `implementation_started`, also runs the one-shot plan promote (`in_progress` + constraint activate). Session-cache `recorded` (plan-body extraction dedup for SubagentStop) does **not** block draft enqueue. Legacy caches with `recorded: true` and no `implementation_started` field are treated as already promoted (no re-promote).
 - **`sqlew on-stop` / `sqlew flush-queue`** — drains `pending.json` (needed on Cloud when MCP QueueWatcher is absent)
 
 **Plan-to-ADR from Plan Mode is unchanged** — Enter/ExitPlanMode (or harness equivalents) still extract 📌 / 🚫 blocks on approve. Both paths can run in the same session.

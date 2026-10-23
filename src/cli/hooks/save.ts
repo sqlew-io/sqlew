@@ -168,6 +168,10 @@ export function enqueueDraftFromWrite(
  * `recorded` belongs to plan-processor / SubagentStop (skip re-extracting the
  * same plan body). Reusing it here previously blocked plan-less drafts by
  * accident — that coupling is removed.
+ *
+ * Legacy session caches (pre-v5.4.1) may have `recorded: true` with no
+ * `implementation_started` field. Those are treated as already promoted so
+ * save does not re-queue status/constraint changes for a finished plan.
  */
 export interface SaveHookResult {
   /** Early-out (wrong tool / non-impl file) — caller should sendContinue */
@@ -186,11 +190,46 @@ export interface ProcessSaveHookInput {
 }
 
 /**
+ * Whether save should run the one-shot plan promote for this session-cache entry.
+ *
+ * - `implementation_started === true` → already promoted
+ * - Legacy pre-v5.4.1: `recorded === true` and flag **absent** → treat as
+ *   already promoted (do not move an old plan back to in_progress)
+ * - New plans (`recorded: false` / explicit `implementation_started: false`)
+ *   → promote once
+ */
+export function shouldPromotePlan(planInfo: CurrentPlanInfo): boolean {
+  if (planInfo.implementation_started === true) return false;
+  if (
+    planInfo.recorded === true &&
+    planInfo.implementation_started === undefined
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Legacy cache: recorded but missing `implementation_started`.
+ * Backfill the flag without enqueueing promote side effects.
+ */
+function isLegacyRecordedWithoutPromoteFlag(
+  planInfo: CurrentPlanInfo,
+): boolean {
+  return (
+    planInfo.recorded === true &&
+    planInfo.implementation_started === undefined
+  );
+}
+
+/**
  * Core save-hook logic (testable without stdin).
  *
  * Plan-less draft enqueue is never gated on session-cache plan presence or
  * `recorded`. Promote uses `implementation_started` so save never mutates
  * the extraction-dedup flag that SubagentStop / ExitPlanMode rely on.
+ * Legacy caches with `recorded: true` and no promote flag skip promote
+ * (optionally backfilling the flag on touch).
  */
 export function processSaveHook(input: ProcessSaveHookInput): SaveHookResult {
   const { projectPath, toolName, filePath, client, summary } = input;
@@ -208,7 +247,7 @@ export function processSaveHook(input: ProcessSaveHookInput): SaveHookResult {
 
   let planPromoted: SaveHookResult['planPromoted'];
   const planInfo = loadCurrentPlan(projectPath);
-  if (planInfo && !planInfo.implementation_started) {
+  if (planInfo && shouldPromotePlan(planInfo)) {
     // One-shot promote only — do NOT set `recorded` (that flag is for extraction dedup)
     enqueueDecisionUpdate(projectPath, {
       key: `plan/${planInfo.plan_file.replace(/\.md$/, '')}`,
@@ -229,6 +268,14 @@ export function processSaveHook(input: ProcessSaveHookInput): SaveHookResult {
       planFile: planInfo.plan_file,
       planId: planInfo.plan_id,
     };
+  } else if (planInfo && isLegacyRecordedWithoutPromoteFlag(planInfo)) {
+    // Pre-v5.4.1 cache: already extracted, never had the promote flag.
+    // Backfill without re-promoting (no status/constraint queue items).
+    saveCurrentPlan(projectPath, {
+      ...planInfo,
+      implementation_started: true,
+      plan_updated_at: new Date().toISOString(),
+    });
   }
 
   return { skipped: false, draft, planPromoted };

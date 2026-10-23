@@ -405,6 +405,10 @@ export interface CurrentPlanInfo {
   /**
    * Whether `save` already ran the one-shot plan promote (status → in_progress,
    * constraint activate) for this plan. Independent of `recorded`.
+   *
+   * Absent on pre-v5.4.1 session caches. When `recorded === true` and this
+   * field is missing, `save` treats the plan as already promoted (legacy) and
+   * may backfill `true` without enqueueing status/constraint changes.
    */
   implementation_started?: boolean;
   /** ISO 8601 timestamp of when full enforcement message was first shown */
