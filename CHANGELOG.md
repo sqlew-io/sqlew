@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - QueueWatcher decision create path consolidates into shared `processQueueItem` (upsert semantics).
 
+**npm package publish trim** ([#129](https://github.com/sqlew-io/sqlew/issues/129))
+
+- Exclude `dist/tests/`, `*.map` sourcemaps, and `*.d.ts` from the published tarball via `package.json` `files` negations (`!dist/tests/`, `!dist/**/*.map`, `!dist/**/*.d.ts`).
+- Drop `docs/`, `CHANGELOG.md`, and missing `MIGRATION_v2.md` from `files` (docs stay on GitHub; README/LICENSE/NOTICE remain). Keep `assets/` — runtime looks for `assets/config.example.toml`.
+- Remove unused dependency `knex-schema-inspector`.
+- `exports["./hooks"]` is the JS entry only (declaration files are no longer published).
+- Default install still includes all RDB drivers (`better-sqlite3`, `pg`, `mysql2`).
+
 ### Documentation
 
 - **Plan-less harness workflow** — README, HOOKS_GUIDE, HARNESS_COMPATIBILITY, ADR_CONCEPTS, HERMES_HOOKS: Plan Mode is not required; document Research Post → Write enqueue (`pending.json`) → Stop/flush upsert; keep Plan-to-ADR; Hermes Skill `/learn` exception for missing Post inject.
