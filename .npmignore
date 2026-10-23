@@ -63,3 +63,10 @@ yarn-error.log*
 .github/
 --help
 verify-all-tools.mjs
+
+# Publish trim (issue #129): package.json "files" exclusions are authoritative
+# (!dist/tests/, !dist/**/*.map, !dist/**/*.d.ts). Root .npmignore does not
+# override inclusions from "files"; keep these as defense-in-depth only.
+dist/tests/
+**/*.map
+**/*.d.ts

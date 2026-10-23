@@ -5,10 +5,7 @@
   "main": "dist/index.js",
   "exports": {
     ".": "./dist/index.js",
-    "./hooks": {
-      "types": "./dist/hooks-api.d.ts",
-      "import": "./dist/hooks-api.js"
-    }
+    "./hooks": "./dist/hooks-api.js"
   },
   "type": "module",
   "bin": {
@@ -16,14 +13,14 @@
   },
   "files": [
     "dist/",
+    "!dist/tests/",
+    "!dist/**/*.map",
+    "!dist/**/*.d.ts",
     "scripts/",
     "assets/",
-    "docs/",
     "README.md",
     "LICENSE",
-    "NOTICE",
-    "CHANGELOG.md",
-    "MIGRATION_v2.md"
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc && node scripts/copy-help-data.js",
@@ -77,7 +74,6 @@
     "better-sqlite3": "^12.4.1",
     "chokidar": "^4.0.3",
     "knex": "^3.1.0",
-    "knex-schema-inspector": "^3.1.0",
     "mysql2": "^3.15.3",
     "pg": "^8.16.3",
     "smol-toml": "^1.4.2",
