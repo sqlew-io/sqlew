@@ -1,7 +1,7 @@
 {
   "name": "@sqlew/sqlite",
   "description": "sqlew MCP server — SQLite (better-sqlite3) driver only",
-  "version": "5.3.8",
+  "version": "5.4.0",
   "main": "dist/index.js",
   "exports": {
     ".": "./dist/index.js",
