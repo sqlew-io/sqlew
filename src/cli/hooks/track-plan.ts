@@ -233,13 +233,17 @@ export async function trackPlanCommand(): Promise<void> {
     }
 
     // Save current plan info to cache
-    // CRITICAL: Reset recorded flag and enforcement_shown_at on new plan
+    // CRITICAL: Reset recorded / implementation_started / enforcement on new plan
+    // recorded = extraction dedup (SubagentStop); implementation_started = save promote
     const planInfo: CurrentPlanInfo = {
       plan_id: planId,
       plan_file: planFileName,
       plan_updated_at: new Date().toISOString(),
       recorded: isNewPlan ? false : (existingPlan?.recorded ?? false),
       decision_pending: isNewPlan ? true : (existingPlan?.decision_pending ?? false),
+      implementation_started: isNewPlan
+        ? false
+        : (existingPlan?.implementation_started ?? false),
       enforcement_shown_at: isNewPlan ? undefined : existingPlan?.enforcement_shown_at,
     };
     saveCurrentPlan(projectPath, planInfo);

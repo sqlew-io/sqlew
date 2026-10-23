@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+**`sqlew save`: plan-less draft enqueue no longer blocked by a tracked plan**
+
+- Root cause: leftover v4.1 control flow treated plan promote and plan-less Write=enqueue as mutually exclusive. When session cache had a plan (especially `recorded: true`), `save` returned early and never wrote `{client}/auto/<rel>` drafts to `pending.json`.
+- `recorded` semantics: that flag exists to stop **the same plan’s extraction from being re-enqueued on every SubagentStop** (`plan-processor`), not to limit plan-less per-file drafts. `save`’s “if recorded, do nothing” was accidental coupling — there is no decision that drafts were gated this way against “subagent proliferation.”
+- Fix: always enqueue the plan-less draft for implementation Edit|Write. One-shot plan promote now uses a separate `implementation_started` flag so `save` never mutates `recorded`. Plan extraction dedup on SubagentStop / ExitPlanMode is unchanged.
+
 ### Changed
 
 **Project name resolution: env > git > config**

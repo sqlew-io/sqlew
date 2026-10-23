@@ -54,6 +54,9 @@ export {
   buildDraftDecisionKey,
   isImplementationFile,
   toProjectRelativePath,
+  processSaveHook,
+  type ProcessSaveHookInput,
+  type SaveHookResult,
 } from './cli/hooks/save.js';
 
 export {

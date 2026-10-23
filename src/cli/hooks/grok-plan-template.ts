@@ -110,6 +110,9 @@ export function ensureGrokPlanTemplate(
     plan_updated_at: new Date().toISOString(),
     recorded: samePath ? (existing?.recorded ?? false) : false,
     decision_pending: samePath ? (existing?.decision_pending ?? true) : true,
+    implementation_started: samePath
+      ? (existing?.implementation_started ?? false)
+      : false,
     enforcement_shown_at: samePath ? existing?.enforcement_shown_at : undefined,
   };
   saveCurrentPlan(projectPath, planInfo);

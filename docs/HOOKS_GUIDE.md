@@ -18,10 +18,10 @@ Stop / on-stop / QueueWatcher
 ```
 
 - **`sqlew suggest`** (Post) — harness-correct `additional_context` / `additionalContext` inject after research tools
-- **`sqlew save`** (plan-less) — enqueues a draft decision create (`{client}/auto/<rel-path>`); does not open the DB on Write
+- **`sqlew save`** — always enqueues a plan-less draft decision create (`{client}/auto/<rel-path>`) on implementation Edit|Write (no DB). If a tracked plan is not yet `implementation_started`, also runs the one-shot plan promote (`in_progress` + constraint activate). Session-cache `recorded` (plan-body extraction dedup for SubagentStop) does **not** block draft enqueue.
 - **`sqlew on-stop` / `sqlew flush-queue`** — drains `pending.json` (needed on Cloud when MCP QueueWatcher is absent)
 
-**Plan-to-ADR from Plan Mode is unchanged** — Enter/ExitPlanMode (or harness equivalents) still extract 📌 / 🚫 blocks on approve. Use either path, or both.
+**Plan-to-ADR from Plan Mode is unchanged** — Enter/ExitPlanMode (or harness equivalents) still extract 📌 / 🚫 blocks on approve. Both paths can run in the same session.
 
 ### Hermes exception
 
@@ -185,7 +185,7 @@ pwsh ./scripts/sync-omp-skills.ps1
 | `tool_call` write `local://*-plan.md` | Ensure 📌/🚫 template; track session `local://` path as `plan_path` |
 | `tool_call` write `xd://propose` | Optional filled-pattern gate; `processPlanPatterns` |
 | `tool_result` research (grep / fetch / …) | Suggest inject via `{ additionalContext }` when CLI emits it |
-| `tool_result` implementation write | `sqlew save` — plan promote or plan-less enqueue to `pending.json` |
+| `tool_result` implementation write | `sqlew save` — plan-less enqueue to `pending.json` (+ one-shot plan promote if unrecorded) |
 | `session_stop` | Flush queue + fallback extract if `decision_pending && !recorded` |
 
 **Config:**
