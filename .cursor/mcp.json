@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sqlew": {
+      "command": "npx",
+      "args": ["-y", "@sqlew/pg"]
+    }
+  }
+}
