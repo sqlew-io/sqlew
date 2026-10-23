@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+**Cursor Cloud Agent support** ([#126](https://github.com/sqlew-io/sqlew/issues/126), [#129](https://github.com/sqlew-io/sqlew/issues/129))
+
+Cloud / ephemeral VMs discard local disk between runs. sqlew now has a first-class Cloud path: remote database + slim install + plan-less hooks — without changing the default full local install.
+
+- **Remote DB on Cloud** — Prefer Prisma/Neon (or any hosted Postgres/MySQL) via `SQLEW_DATABASE_URL` / `DATABASE_URL`, or discrete `SQLEW_DATABASE_*` Secrets, plus `SQLEW_PROJECT_NAME`. Do not rely on VM-local SQLite; it will not survive the next agent. Details: [CONFIGURATION.md — Cursor Cloud Agents](docs/CONFIGURATION.md#cursor-cloud-agents).
+- **Plan-less hooks** — Plan Mode is optional. With [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin): PostToolUse research inject surfaces related ADRs; **Write=enqueue** drafts to `.sqlew/queue/pending.json`; **Stop / `sqlew flush-queue`** upserts when the MCP QueueWatcher is absent (typical on Cloud).
+- **Scoped npm packages** — Driver-scoped installs under `@sqlew/*` (semver locked to root `sqlew`):
+
+  | Package | Role |
+  |---------|-------|
+  | `sqlew` | **Unchanged default** — full install, all RDB drivers (`npm i -g sqlew`) |
+  | `@sqlew/full` | Same full capability (thin alias of `sqlew`) |
+  | `@sqlew/pg` | **Cloud recipe** — PostgreSQL only (`npx @sqlew/pg`) |
+  | `@sqlew/mysql` | MySQL/MariaDB only |
+  | `@sqlew/sqlite` | SQLite only |
+
+  Missing-driver errors point at the matching package. See [SCOPED_PACKAGES.md](docs/SCOPED_PACKAGES.md).
+
 **Write=enqueue / Stop=flush upsert (plan-less ADR drafts)**
 
 - **`sqlew save` (plan-less)** — PostToolUse Edit|Write enqueues a draft decision to `.sqlew/queue/pending.json` (key `{client}/auto/<rel>`, status `draft`). No DB / no MCP `decision set` on Write.
@@ -25,15 +43,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **npm package publish trim** ([#129](https://github.com/sqlew-io/sqlew/issues/129))
 
-- Exclude `dist/tests/`, `*.map` sourcemaps, and `*.d.ts` from the published tarball via `package.json` `files` negations (`!dist/tests/`, `!dist/**/*.map`, `!dist/**/*.d.ts`).
-- Drop `docs/`, `CHANGELOG.md`, and missing `MIGRATION_v2.md` from `files` (docs stay on GitHub; README/LICENSE/NOTICE remain). Keep `assets/` — runtime looks for `assets/config.example.toml`.
+- Smaller published tarball: exclude `dist/tests/`, `*.map` sourcemaps, and `*.d.ts` via `package.json` `files` negations; drop `docs/` / `CHANGELOG.md` from the npm package (docs stay on GitHub). README/LICENSE/NOTICE and `assets/` remain.
 - Remove unused dependency `knex-schema-inspector`.
 - `exports["./hooks"]` is the JS entry only (declaration files are no longer published).
-- Default install still includes all RDB drivers (`better-sqlite3`, `pg`, `mysql2`).
+- **Default `npm i -g sqlew` still installs all RDB drivers** — slim packages are opt-in for Cloud and constrained hosts.
 
 ### Documentation
 
 - **Plan-less harness workflow** — README, HOOKS_GUIDE, HARNESS_COMPATIBILITY, ADR_CONCEPTS, HERMES_HOOKS: Plan Mode is not required; document Research Post → Write enqueue (`pending.json`) → Stop/flush upsert; keep Plan-to-ADR; Hermes Skill `/learn` exception for missing Post inject.
+- **Cloud + scoped packages** — README install section, CONFIGURATION Cloud recipe (`@sqlew/pg`), [SCOPED_PACKAGES.md](docs/SCOPED_PACKAGES.md) publish notes (`npm publish --access public`; not published by the agent/CI unless tokens allow).
 
 ---
 

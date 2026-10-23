@@ -18,13 +18,23 @@ describe('cloud-config-loader', () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
-    // Clear relevant env vars
+    // Clear relevant env vars (Cloud Agent / CI may inject SQLEW_PROJECT_NAME)
     delete process.env.SQLEW_API_KEY;
+    delete process.env.SQLEW_PROJECT_NAME;
   });
 
   afterEach(() => {
     // Restore original env
-    process.env.SQLEW_API_KEY = originalEnv.SQLEW_API_KEY;
+    if (originalEnv.SQLEW_API_KEY === undefined) {
+      delete process.env.SQLEW_API_KEY;
+    } else {
+      process.env.SQLEW_API_KEY = originalEnv.SQLEW_API_KEY;
+    }
+    if (originalEnv.SQLEW_PROJECT_NAME === undefined) {
+      delete process.env.SQLEW_PROJECT_NAME;
+    } else {
+      process.env.SQLEW_PROJECT_NAME = originalEnv.SQLEW_PROJECT_NAME;
+    }
   });
 
   describe('getGlobalEnvPath', () => {

@@ -1,0 +1,47 @@
+{
+  "name": "@sqlew/full",
+  "description": "Full sqlew MCP server (all RDB drivers) — thin alias of the `sqlew` package",
+  "version": "5.3.8",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./hooks": "./hooks.js"
+  },
+  "bin": {
+    "sqlew": "bin/sqlew.js"
+  },
+  "files": [
+    "bin/",
+    "index.js",
+    "hooks.js",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sqlew-io/sqlew.git",
+    "directory": "packages/full"
+  },
+  "bugs": {
+    "url": "https://github.com/sqlew-io/sqlew/issues"
+  },
+  "homepage": "https://github.com/sqlew-io/sqlew#readme",
+  "keywords": [
+    "sqlew",
+    "adr",
+    "mcp"
+  ],
+  "author": "sqlew-io",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "sqlew": "5.3.8"
+  }
+}

@@ -20,6 +20,12 @@ node_modules/
 # Build output
 dist/
 
+# Scoped package runtime copies (npm run sync:scoped / prepack)
+packages/*/dist/
+packages/*/scripts/
+packages/*/assets/
+packages/*/node_modules/
+
 # Database files
 .mcp-context/
 .sqlew/
