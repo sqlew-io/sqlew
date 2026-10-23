@@ -24,10 +24,12 @@ Minimum sqlew versions: Grok Build **5.2+**, Codex **5.2.1+**, Hermes **5.3.0+**
 |---------|:-----------:|:-----:|:----------:|:------:|:---:|:--------------:|
 | **MCP tools** (`decision`, `constraint`, `suggest`, `project`, `queue`, …) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Session context injection** (recent decisions + active constraints at session start) | ✓ | △ | — | ✓ | ✓ | ✎ |
+| **Research Post suggest** (Grep / WebSearch / WebFetch → related context) | ✓ | △ | △ | ◎ | ✓ | ✎ |
+| **Plan-less ADR draft** (Write → `pending.json` enqueue; Stop / flush → DB upsert) | ✓ | △ | △ | ◎ | ✓ | ✎ |
 | **Plan mode enforcement** (suggest-before-plan, 📌/🚫 format) | ✓ | △ | ◎+file | ✓ | ✓ | ✎ |
 | **Plan-to-ADR extraction** (📌 Decision / 🚫 Constraint → DB) | ✓ | △ | △ | ✓ | ✓ | ✎ |
 | **Plan file tracking** (`track-plan`) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Decision draft on code edit** (`save` hook) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Decision draft on code edit** (`save` hook; plan promote **or** plan-less enqueue) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Related-context suggest** (`suggest` on Task / delegate) | ✓ | ✓ | △ | △ | △ | ✎ |
 | **PR ADR guard** (`pr-adr` on `gh pr create`) | ✓ | ✓ | △ | ✓ | ✓ | — |
 | **Todo completion → decision status** (`check-completion`) | ✓ | ✓ | △ | ✓ | ✓ | — |
@@ -52,6 +54,20 @@ Session context injection (v5.4.0+): see the matrix row above. Config: `[hooks] 
 
 ## How to Auto-ADR in each harness
 
+**Plan Mode is not required.** Two capture paths:
+
+### A. Research → ADR (plan-less)
+
+```text
+Post(Grep | WebSearch | WebFetch)  → suggest inject (related ADRs)
+Post(Write | Edit)                 → enqueue draft to .sqlew/queue/pending.json
+Stop / flush-queue / QueueWatcher  → upsert into the database
+```
+
+Works wherever Post hooks can inject context and enqueue (Claude Code, omp, Codex/Grok with caveats). **Hermes cannot** drive this automatic trigger via Hooks — use a Skill (`/learn`); see [HERMES_HOOKS.md](HERMES_HOOKS.md).
+
+### B. Plan Mode → ADR (unchanged)
+
 Plan normally, mark architectural choices in the plan, and sqlew saves them to the database. Use these markers in the plan body:
 
 - `### 📌 Decision:` — architectural choice (becomes a decision record)
@@ -61,12 +77,12 @@ Plugin skills (`sqlew-decision-format`) remind the agent of this format when nee
 
 | Harness | How you plan | When ADR is saved | Notes |
 |---------|--------------|-------------------|-------|
-| **Claude Code** | **Plan mode** (`Shift+Tab` or permission mode) | When you **approve the plan** (move to implement) | Best-supported path. If you clear the session without approving, sqlew may rescue on the next session start. |
-| **Codex** | **Plan mode** (enable `[features] collaboration_modes = true` first) | When the agent **stops** after planning | Trust bundled hooks via `/hooks` after install. |
-| **Grok Build** | **Plan mode** | When you **approve the plan** | Skills guide 📌/🚫 format; hooks read `plan.md` on approve (stdout injection is passive). |
-| **Hermes** | **`/plan <prompt>`** (plan skill → `.hermes/plans/*.md`) | When the **plan file is written or updated** | No native Plan mode — extraction runs on plan-file saves; `save` promotes drafts when you edit code. |
-| **oh-my-pi (omp)** | **Plan mode** + `local://*-plan.md` | When you **write xd://propose** (approve) | Extension maps events in-process; `plan_path` points at the session `local://` file (no project `.sqlew/plans/` copy by default). |
-| **Other harness** | No auto flow | When **you** call MCP `decision` / `constraint` | Use `decision set` and `constraint add` explicitly. |
+| **Claude Code** | **Plan mode** (`Shift+Tab` or permission mode) **or** research + Write | Plan approve **or** Stop / flush after Write enqueue | Best-supported path. Plan Mode optional. |
+| **Codex** | **Plan mode** (enable `[features] collaboration_modes = true` first) **or** research + Write | Agent **stop** after planning / flush | Trust bundled hooks via `/hooks` after install. |
+| **Grok Build** | **Plan mode** **or** research + Write | When you **approve the plan**; plan-less enqueue via `save` | Skills guide 📌/🚫; stdout inject is passive — suggest-on-Post is limited. |
+| **Hermes** | **`/plan <prompt>`** (plan skill → `.hermes/plans/*.md`) **or** Skill obligating `suggest` + ADR | Plan-file write/update; MCP tools via Skill | No Post-hook research→ADR inject — create a Skill with `/learn` (例: 「調査開始時にsqlewを使ってサジェストを取得し、実装前にADRをsqlewで記録することを義務付けて」). |
+| **oh-my-pi (omp)** | **Plan mode** + `local://*-plan.md` **or** research + Write | `xd://propose` **or** `session_stop` flush | Extension maps events in-process; plan-less enqueue on implementation `tool_result`. |
+| **Other harness** | No auto flow | When **you** call MCP `decision` / `constraint` | Use `decision set` and `constraint add` explicitly; or install Cursor/plugin hooks where available. |
 
 ---
 
@@ -86,7 +102,7 @@ Most hooks work after trusting bundled hooks (`/hooks`). Plan mode needs `collab
 
 ### Hermes
 
-Context injection only on `pre_llm_call` and `pre_tool_call` block. No `ExitPlanMode` — extraction relies on writes to `.hermes/plans/`. Install via `.hermes-plugin` bundle, not the Claude/Codex manifest.
+Context injection only on `pre_llm_call` and `pre_tool_call` block. **No automatic research→ADR via Post hooks** (`post_tool_call` cannot inject model context). Recommend a Skill via `/learn` that obligates `suggest` at investigation start and ADR recording before implementation. Plan-to-ADR via `.hermes/plans/` still works. Install via `.hermes-plugin` bundle, not the Claude/Codex manifest.
 
 ### oh-my-pi (omp)
 

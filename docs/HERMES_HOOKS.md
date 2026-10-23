@@ -96,6 +96,18 @@ hermes hooks test pre_llm_call
 
 There is no `ExitPlanMode` equivalent. Extraction relies on plan-file writes and optional `subagent_stop`.
 
+## Research → ADR: Hermes exception
+
+On Claude Code / Cursor / omp, Post hooks after Grep / WebSearch / WebFetch inject related context and Write enqueues draft ADRs to `.sqlew/queue/pending.json` (Stop / flush upserts to DB). **Plan Mode is not required** on those harnesses.
+
+**Hermes cannot use that automatic trigger via Hooks.** `post_tool_call` does not inject model-visible context (`additional_context` / `additionalContext` are ignored). Do not expect research→suggest inject or plan-less auto-ADR from Hermes hooks alone.
+
+**Recommended:** create a Skill with `/learn` that obligates suggest + ADR, for example:
+
+> 「調査開始時にsqlewを使ってサジェストを取得し、実装前にADRをsqlewで記録することを義務付けて」
+
+Plan-file Plan-to-ADR (above) and direct MCP `suggest` / `decision` calls still work.
+
 ## Hook allowlist
 
 Hermes prompts for `(event, command)` approval on first run. For CI / gateway:
@@ -122,6 +134,8 @@ Copy from sqlew-plugin or install via the Hermes plugin bundle:
 - `sqlew-decision-format` — `📌` / `🚫` block format
 - `sqlew-plan-guidance` — suggest search + Related Context section
 - `sqlew-pr-adr` — PR body enrichment
+
+For plan-less research→ADR (no Post inject on Hermes), add a project Skill via `/learn` as in [Research → ADR: Hermes exception](#research--adr-hermes-exception).
 
 ## `delegate_task` caveat
 
