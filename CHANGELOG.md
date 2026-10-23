@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [5.4.1] - 2026-10-23
+
 ### Fixed
 
-**`sqlew save`: plan-less draft enqueue no longer blocked by a tracked plan**
+**`sqlew save`: plan-less draft enqueue no longer blocked by a tracked plan** ([#145](https://github.com/sqlew-io/sqlew/pull/145))
 
 - Root cause: leftover v4.1 control flow treated plan promote and plan-less Write=enqueue as mutually exclusive. When session cache had a plan (especially `recorded: true`), `save` returned early and never wrote `{client}/auto/<rel>` drafts to `pending.json`.
 - `recorded` semantics: that flag exists to stop **the same plan’s extraction from being re-enqueued on every SubagentStop** (`plan-processor`), not to limit plan-less per-file drafts. `save`’s “if recorded, do nothing” was accidental coupling — there is no decision that drafts were gated this way against “subagent proliferation.”
@@ -19,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-**Project name resolution: env > git > config**
+**Project name resolution: env > git > config** ([#144](https://github.com/sqlew-io/sqlew/pull/144))
 
 - Runtime order is now `SQLEW_PROJECT_NAME` → **git remote basename** (e.g. `sqlew-io/sqlew` → `sqlew`) → `config.toml` `[project].name` → directory. CLI `--project-name` still wins over all of these.
 - Cloud Agents: env is optional; git identity is used automatically. Set `SQLEW_PROJECT_NAME` when multiple repos share one DB.
