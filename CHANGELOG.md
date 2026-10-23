@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [5.4.0] - 2026-10-23
+
 ### Added
 
 **Cursor Cloud Agent support** ([#126](https://github.com/sqlew-io/sqlew/issues/126), [#129](https://github.com/sqlew-io/sqlew/issues/129))
