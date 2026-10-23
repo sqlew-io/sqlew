@@ -3,7 +3,7 @@
  *
  * Satisfies constraints:
  * - #23 (CRITICAL): Write config.toml on first run if missing project_name
- * - #24 (CRITICAL): Config.toml as authoritative source after first run
+ * - #24: Persist detected name to config.toml (runtime still prefers env > git > config)
  * - #32 (HIGH): Atomic write using temp file + rename pattern
  * - #33 (HIGH): Preserve existing config sections during write
  */

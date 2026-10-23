@@ -13,6 +13,20 @@ Settings are applied in this order (highest to lowest):
 4. Code Defaults        (DEFAULT_CONFIG in types.ts)
 ```
 
+### Project name resolution
+
+Logical project identity (what lands in `m_projects.name`) is resolved separately:
+
+```
+1. CLI --project-name
+2. SQLEW_PROJECT_NAME          (env)
+3. Git remote basename         (origin URL last segment, no .git — e.g. sqlew-io/sqlew → "sqlew")
+4. config.toml [project].name
+5. Directory name              (fallback; skipped for SaaS identity helpers)
+```
+
+Full `owner/repo` is **not** used today — only the repo basename from `git config --get remote.origin.url` (or the repo root directory if there is no remote). Installs that only set `[project].name` and have no env/git remote keep working via step 4.
+
 ## Config File (.sqlew/config.toml)
 
 **Location:** `.sqlew/config.toml` (relative to project root)
@@ -35,10 +49,10 @@ name = "my-project"              # Required. Alphanumeric, hyphens, underscores.
 display_name = "My Project"      # Optional. Human-readable name (spaces allowed).
 ```
 
-- `name` is auto-detected on first run and written to config.toml. Once set, it becomes the permanent project identifier (logical project identity in the shared database).
-- Changing `name` requires MCP server restart.
-- **Worktrees / alias clones:** use the **same** `name` so ADRs stay shared across directories. Path is not the identity.
-- **Separate ADR spaces:** set a **different** `name` in each tree's config. Do not rely on “different folder path” alone to split projects.
+- `name` is auto-detected on first run (git basename when available, else directory) and written to config.toml when missing. Runtime still prefers `SQLEW_PROJECT_NAME` and git over an existing config value — see [Project name resolution](#project-name-resolution).
+- Changing identity (env / CLI / config) requires MCP server restart for a running process.
+- **Worktrees / alias clones:** share the same identity (same env override, same git remote basename, or the same `[project].name`). Path is not the identity.
+- **Separate ADR spaces:** set `SQLEW_PROJECT_NAME` (or a different `[project].name` when git is absent). Do not rely on “different folder path” alone to split projects.
 
 ## [database] — Database Settings
 
@@ -149,7 +163,7 @@ node dist/index.js --autodelete-ignore-weekend --autodelete-message-hours=48
 | Variable | Description | Source |
 |----------|-------------|--------|
 | `SQLEW_API_KEY` | API key for cloud backend (`database.type = "cloud"`) | `~/.config/sqlew/.sqlew.env` or environment |
-| `SQLEW_PROJECT_NAME` | Project name (same as `[project].name` / `--project-name`); overrides `.sqlew/config.toml` | Environment only |
+| `SQLEW_PROJECT_NAME` | Project name (same as `[project].name` / `--project-name`); wins over git and `.sqlew/config.toml` | Environment only |
 | `SQLEW_DATABASE_TYPE` | Database backend: `cloud` \| `postgres` \| `mysql` \| `sqlite`. Alone it only sets `type` (does not wipe file `connection`/`auth`). With discrete host fields or a URL, selects the remote backend | Environment only |
 | `SQLEW_DATABASE_HOST` | Postgres/MySQL host (hostname or IP). Prefer this over stuffing a host into `SQLEW_DATABASE_URL` | Environment only |
 | `SQLEW_DATABASE_PORT` | Port (default 5432 postgres / 3306 mysql) | Environment only |
@@ -177,9 +191,11 @@ npx @sqlew/pg
 
 Local desktops should keep the full install: `npm i -g sqlew` (or `@sqlew/full`). See [SCOPED_PACKAGES.md](./SCOPED_PACKAGES.md).
 
-**Per-repo Cloud MCP:** this repository ships [`.cursor/mcp.json`](../.cursor/mcp.json) so Cursor Cloud Agents launch `npx -y @sqlew/pg` without a global MCP entry. Supply `SQLEW_DATABASE_URL` (or discrete `SQLEW_DATABASE_*`) and `SQLEW_PROJECT_NAME` via Environment / repository Secrets — do not hardcode them in the MCP file.
+**Per-repo Cloud MCP:** this repository ships [`.cursor/mcp.json`](../.cursor/mcp.json) so Cursor Cloud Agents launch `npx -y @sqlew/pg` without a global MCP entry. Put the **DB URL** (or discrete `SQLEW_DATABASE_*`) in Environment / repository Secrets — do not hardcode them in the MCP file.
 
-**Plan-less hooks on Cloud:** with [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin), PostToolUse research inject still works; Write enqueues draft ADRs to `.sqlew/queue/pending.json` and Stop / `sqlew flush-queue` upserts them (needed when the MCP QueueWatcher is absent). Plan Mode capture remains optional.
+**Project name on Cloud:** `SQLEW_PROJECT_NAME` is **optional**. When unset, sqlew uses the **git remote basename** automatically (e.g. clone of `sqlew-io/sqlew` → `sqlew`). Set the env override when several repos share one database and must not collide on the same basename. See [Project name resolution](#project-name-resolution).
+
+**Plugin required for plan-less auto ADR:** MCP alone (`npx @sqlew/pg` / `.cursor/mcp.json`) is **not** enough for automatic hooks. Install [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) so Cursor loads `.cursor/hooks.json` (Post research inject, Write enqueue, Stop flush). Marketplace / install docs: [HOOKS_GUIDE.md](./HOOKS_GUIDE.md) and the [sqlew-plugin README](https://github.com/sqlew-io/sqlew-plugin).
 
 #### Option A — sqlew SaaS
 
@@ -187,11 +203,12 @@ Local desktops should keep the full install: `npm i -g sqlew` (or `@sqlew/full`)
 {
   "env": {
     "SQLEW_API_KEY": "sk-your-api-key",
-    "SQLEW_PROJECT_NAME": "your-repo-or-product-slug",
     "SQLEW_DATABASE_TYPE": "cloud"
   }
 }
 ```
+
+Optional: `"SQLEW_PROJECT_NAME": "shared-slug"` when multiple repos share this SaaS project.
 
 #### Option B — Neon Postgres via discrete Secrets (recommended for Cursor UI)
 
@@ -200,7 +217,6 @@ Cursor Secrets are easier as separate keys than one long URL. Put the host in `S
 ```json
 {
   "env": {
-    "SQLEW_PROJECT_NAME": "your-repo-or-product-slug",
     "SQLEW_DATABASE_TYPE": "postgres",
     "SQLEW_DATABASE_HOST": "ep-xxxx.region.aws.neon.tech",
     "SQLEW_DATABASE_PORT": "5432",
@@ -221,7 +237,6 @@ If you already have a connection string (Neon console / Prisma template), you ca
 ```json
 {
   "env": {
-    "SQLEW_PROJECT_NAME": "your-repo-or-product-slug",
     "SQLEW_DATABASE_URL": "postgresql://USER:PASSWORD@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require"
   }
 }
@@ -229,7 +244,7 @@ If you already have a connection string (Neon console / Prisma template), you ca
 
 `DATABASE_URL` alone also works; `SQLEW_DATABASE_URL` wins when both are set. A URL wins over discrete host fields if both styles are present.
 
-`SQLEW_PROJECT_NAME`, `SQLEW_DATABASE_TYPE`, URL, and discrete DB vars are applied after config files are loaded, so they win over an auto-written `.sqlew/config.toml`. When `SQLEW_PROJECT_NAME` is set, sqlew does not auto-write `[project].name` into config on first run.
+`SQLEW_PROJECT_NAME` (when set), `SQLEW_DATABASE_TYPE`, URL, and discrete DB vars are applied after config files are loaded. When `SQLEW_PROJECT_NAME` is set, sqlew does not auto-write `[project].name` into config on first run.
 
 sqlew talks to the SQL server directly (Knex); it does not use Prisma Client. A Prisma- or Cursor-provisioned Postgres URL (or the same values as discrete Secrets) is fine.
 

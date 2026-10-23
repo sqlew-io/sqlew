@@ -19,7 +19,8 @@ import { loadConfigFile, DEFAULT_CONFIG_PATH } from '../config/loader.js';
 import type { SqlewConfig } from '../config/types.js';
 import { ensureProjectConfig } from '../config/writer.js';
 import { ProjectContext } from '../utils/project-context.js';
-import { detectVCS, GitAdapter } from '../utils/vcs-adapter.js';
+import { GitAdapter } from '../utils/vcs-adapter.js';
+import { detectProjectName, toDbDetectionSource } from '../utils/project-detector.js';
 import { startQueueWatcher } from '../watcher/queue-watcher.js';
 import { refreshSnapshotNow } from '../utils/session-snapshot.js';
 import { initDebugLogger, debugLog } from '../utils/debug-logger.js';
@@ -33,7 +34,6 @@ import { migrateLocalToGlobal } from '../migration/local-to-global.js';
 import {
   applyEnvConfigOverrides,
   hasEnvProjectNameOverride,
-  readEnvProjectName,
 } from '../config/env-overrides.js';
 
 /**
@@ -302,34 +302,30 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
   }
 
   // 5-7. ProjectContext initialization
-  // Cloud mode skips DB-dependent operations (uses config.toml values directly)
+  // Priority: CLI --project-name > SQLEW_PROJECT_NAME > git remote basename > config.toml > directory
   let projectName = extractProjectNameFromPath(finalProjectRoot);
   let detectionSource: 'cli' | 'config' | 'git' | 'metadata' | 'directory' = 'directory';
 
-  if (isCloud) {
-    // Cloud mode: CLI / env / config (no local DB)
-    if (parsedArgs.projectName) {
-      projectName = parsedArgs.projectName;
-      detectionSource = 'cli';
-    } else if (readEnvProjectName()) {
-      projectName = readEnvProjectName()!;
-      detectionSource = 'cli';
-    } else if (fileConfig.project?.name) {
-      projectName = fileConfig.project.name;
-      detectionSource = 'config';
-    } else {
-      projectName = extractProjectNameFromPath(finalProjectRoot);
-      detectionSource = 'directory';
-    }
-    debugLog('INFO', 'Cloud mode: project name resolved', { projectName, detectionSource });
+  if (parsedArgs.projectName) {
+    projectName = parsedArgs.projectName;
+    detectionSource = 'cli';
+    debugLog('INFO', 'Project name from CLI argument', { projectName });
+  } else {
+    const detected = await detectProjectName(finalProjectRoot, parsedArgs.configPath);
+    projectName = detected.name;
+    detectionSource = toDbDetectionSource(detected.source);
+    debugLog('INFO', isCloud ? 'Cloud mode: project name resolved' : 'Project name resolved', {
+      projectName,
+      detectionSource,
+      detectorSource: detected.source,
+    });
   }
 
   // Initialize ProjectContext
   const projectContext = ProjectContext.getInstance();
 
   if (isCloud) {
-    // Cloud mode: Already have projectName/detectionSource from config.toml
-    // Use initWithoutDb (no local DB access)
+    // Cloud mode: no local DB — initWithoutDb
     projectContext.initWithoutDb(projectName, detectionSource, {
       projectRootPath: finalProjectRoot,
     });
@@ -339,76 +335,43 @@ export async function initializeServer(parsedArgs: ParsedArgs): Promise<SetupRes
       projectName: projectContext.getProjectName(),
     });
   } else {
-    // Local/RDBMS mode: Detect project name with priority order
+    // Local/RDBMS mode
     const knex = getAdapter().getKnex();
 
     // P0: stays true only when we deliberately leave the project unbound
     // (ambiguous desktop launch) — see the pollution guard below.
     let unbound = false;
 
-    // Priority order: CLI --project-name > config.toml > git remote > directory name
-    if (parsedArgs.projectName) {
-      projectName = parsedArgs.projectName;
-      detectionSource = 'cli';
-      debugLog('INFO', 'Project name from CLI argument', { projectName });
-    } else if (readEnvProjectName()) {
-      projectName = readEnvProjectName()!;
-      detectionSource = 'cli';
-      debugLog('INFO', 'Project name from environment variable', { projectName });
-    } else if (fileConfig.project?.name) {
-      projectName = fileConfig.project.name;
-      detectionSource = 'config';
-      debugLog('INFO', 'Project name from config.toml', { projectName });
-    } else {
-      // Detect from VCS or directory
-      const vcsAdapter = await detectVCS(finalProjectRoot);
-
-      if (vcsAdapter) {
-        const detectedName = await vcsAdapter.extractProjectName();
-        if (detectedName) {
-          projectName = detectedName;
-          detectionSource = 'git';
-          debugLog('INFO', 'Project name detected from VCS', { projectName, vcs: vcsAdapter.getVCSType() });
-        } else {
-          projectName = extractProjectNameFromPath(finalProjectRoot);
-          detectionSource = 'directory';
-          debugLog('INFO', 'Project name from directory', { projectName });
-        }
-      } else {
-        projectName = extractProjectNameFromPath(finalProjectRoot);
-        detectionSource = 'directory';
-        debugLog('INFO', 'Project name from directory (no VCS)', { projectName });
-      }
-
-      // P0 pollution guard: when the name came purely from the directory AND the
-      // root came from the bare cwd fallback AND that cwd is ambiguous (user home
-      // / system dir — e.g. a desktop AI agent launch), do NOT auto-register a
-      // directory-name project or write config.toml. Leave the context unbound so
-      // project-scoped tools require an explicit _sqlew_project (fail-closed).
+    // P0 pollution guard: when the name came purely from the directory AND the
+    // root came from the bare cwd fallback AND that cwd is ambiguous (user home
+    // / system dir — e.g. a desktop AI agent launch), do NOT auto-register a
+    // directory-name project or write config.toml. Leave the context unbound so
+    // project-scoped tools require an explicit _sqlew_project (fail-closed).
+    if (detectionSource === 'directory') {
       const explicitRoot = wasProjectRootExplicit({
         cliDbPath: parsedArgs.dbPath,
         cliConfigPath: parsedArgs.configPath,
         configDbPath: fileConfig.database?.path,
       });
-      if (detectionSource === 'directory' && !explicitRoot && isAmbiguousProjectRoot(finalProjectRoot)) {
+      if (!explicitRoot && isAmbiguousProjectRoot(finalProjectRoot)) {
         unbound = true;
         projectContext.markUnbound(`launched from ambiguous directory: ${finalProjectRoot}`);
         debugLog('WARN', 'Project left unbound (ambiguous launch directory)', { finalProjectRoot });
       }
+    }
 
-      // Write to config.toml if not present AND not CLI override (skip when unbound)
-      if (!unbound && !parsedArgs.projectName && !hasEnvProjectNameOverride()) {
-        const configWritten = ensureProjectConfig(finalProjectRoot, projectName, {
-          configPath: parsedArgs.configPath,
+    // Write to config.toml if not present AND not CLI/env override (skip when unbound)
+    if (!unbound && !parsedArgs.projectName && !hasEnvProjectNameOverride()) {
+      const configWritten = ensureProjectConfig(finalProjectRoot, projectName, {
+        configPath: parsedArgs.configPath,
+      });
+
+      if (configWritten) {
+        debugLog('INFO', 'Project name written to config.toml', {
+          projectName,
+          detectionSource,
+          configPath: parsedArgs.configPath || DEFAULT_CONFIG_PATH
         });
-
-        if (configWritten) {
-          debugLog('INFO', 'Project name written to config.toml', {
-            projectName,
-            detectionSource,
-            configPath: parsedArgs.configPath || DEFAULT_CONFIG_PATH
-          });
-        }
       }
     }
 

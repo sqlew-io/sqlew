@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+**Project name resolution: env > git > config**
+
+- Runtime order is now `SQLEW_PROJECT_NAME` → **git remote basename** (e.g. `sqlew-io/sqlew` → `sqlew`) → `config.toml` `[project].name` → directory. CLI `--project-name` still wins over all of these.
+- Cloud Agents: env is optional; git identity is used automatically. Set `SQLEW_PROJECT_NAME` when multiple repos share one DB.
+- Docs clarify that **sqlew-plugin** Cursor hooks (`.cursor/hooks.json`) are required for plan-less auto ADR; MCP alone (`npx @sqlew/pg`) is not enough.
+- Config-only installs without env/git remote are unchanged (still resolve from `[project].name`).
+
 ---
 
 ## [5.4.0] - 2026-10-23
@@ -19,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Cloud / ephemeral VMs discard local disk between runs. sqlew now has a first-class Cloud path: remote database + slim install + plan-less hooks — without changing the default full local install.
 
-- **Remote DB on Cloud** — Prefer Prisma/Neon (or any hosted Postgres/MySQL) via `SQLEW_DATABASE_URL` / `DATABASE_URL`, or discrete `SQLEW_DATABASE_*` Secrets, plus `SQLEW_PROJECT_NAME`. Do not rely on VM-local SQLite; it will not survive the next agent. Details: [CONFIGURATION.md — Cursor Cloud Agents](docs/CONFIGURATION.md#cursor-cloud-agents).
-- **Plan-less hooks** — Plan Mode is optional. With [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin): PostToolUse research inject surfaces related ADRs; **Write=enqueue** drafts to `.sqlew/queue/pending.json`; **Stop / `sqlew flush-queue`** upserts when the MCP QueueWatcher is absent (typical on Cloud).
+- **Remote DB on Cloud** — Prefer Prisma/Neon (or any hosted Postgres/MySQL) via `SQLEW_DATABASE_URL` / `DATABASE_URL`, or discrete `SQLEW_DATABASE_*` Secrets. Project name usually from git; `SQLEW_PROJECT_NAME` optional. Do not rely on VM-local SQLite; it will not survive the next agent. Details: [CONFIGURATION.md — Cursor Cloud Agents](docs/CONFIGURATION.md#cursor-cloud-agents).
+- **Plan-less hooks** — Plan Mode is optional. With [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin): PostToolUse research inject surfaces related ADRs; **Write=enqueue** drafts to `.sqlew/queue/pending.json`; **Stop / `sqlew flush-queue`** upserts when the MCP QueueWatcher is absent (typical on Cloud). MCP alone is not enough for automatic hooks.
 - **Scoped npm packages** — Driver-scoped installs under `@sqlew/*` (semver locked to root `sqlew`):
 
   | Package | Role |

@@ -1,217 +1,226 @@
 /**
  * Tests for project-detector.ts
  *
- * Verifies project name detection from:
- * - config.toml
- * - VCS (Git)
- * - Directory name
+ * Priority (async): env > git > config > directory
+ * Priority (sync):  env > config > directory (skips git)
  */
 
-import { describe, it, mock } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import * as assert from 'node:assert';
-import { detectProjectNameSync, detectProjectName } from '../../../utils/project-detector.js';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { execSync } from 'node:child_process';
+import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
+import {
+  detectProjectNameSync,
+  detectProjectName,
+  resolveConfiguredProjectName,
+} from '../../../utils/project-detector.js';
+import { SQLEW_ENV_VARS } from '../../../config/env-overrides.js';
+
+function makeTempDir(prefix: string): string {
+  const dir = join(tmpdir(), `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function writeConfig(dir: string, name: string): void {
+  mkdirSync(join(dir, '.sqlew'), { recursive: true });
+  writeFileSync(join(dir, '.sqlew', 'config.toml'), `[project]\nname = "${name}"\n`);
+}
+
+function initGitWithRemote(dir: string, remoteUrl: string): void {
+  execSync('git init', { cwd: dir, stdio: 'ignore' });
+  execSync(`git remote add origin ${remoteUrl}`, { cwd: dir, stdio: 'ignore' });
+}
 
 describe('Project Detector', () => {
+  const originalEnv = process.env[SQLEW_ENV_VARS.PROJECT_NAME];
+
+  beforeEach(() => {
+    delete process.env[SQLEW_ENV_VARS.PROJECT_NAME];
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env[SQLEW_ENV_VARS.PROJECT_NAME];
+    } else {
+      process.env[SQLEW_ENV_VARS.PROJECT_NAME] = originalEnv;
+    }
+  });
+
   describe('detectProjectNameSync', () => {
-    it('should detect from config.toml when present', () => {
-      const testDir = join(process.cwd(), '.tmp-test', 'project-detector-config');
+    it('should prefer SQLEW_PROJECT_NAME over config.toml', () => {
+      const testDir = makeTempDir('project-detector-env-sync');
+      writeConfig(testDir, 'from-config');
+      process.env[SQLEW_ENV_VARS.PROJECT_NAME] = 'from-env';
 
-      // Setup: Create test directory with config.toml
-      if (existsSync(testDir)) {
-        rmSync(testDir, { recursive: true, force: true });
-      }
-      mkdirSync(join(testDir, '.sqlew'), { recursive: true });
-
-      const configContent = `
-[project]
-name = "my-test-project"
-`;
-      writeFileSync(join(testDir, '.sqlew', 'config.toml'), configContent);
-
-      // Test
       const result = detectProjectNameSync(testDir);
 
-      // Verify
+      assert.strictEqual(result.name, 'from-env');
+      assert.strictEqual(result.source, 'env');
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    it('should detect from config.toml when present', () => {
+      const testDir = makeTempDir('project-detector-config');
+      writeConfig(testDir, 'my-test-project');
+
+      const result = detectProjectNameSync(testDir);
+
       assert.strictEqual(result.name, 'my-test-project');
       assert.strictEqual(result.source, 'config');
-
-      // Cleanup
       rmSync(testDir, { recursive: true, force: true });
     });
 
     it('should fallback to directory name when config.toml missing', () => {
-      const testDir = join(process.cwd(), '.tmp-test', 'fallback-dir-name');
+      const testDir = makeTempDir('fallback-dir-name');
 
-      // Setup: Create test directory WITHOUT config.toml
-      if (existsSync(testDir)) {
-        rmSync(testDir, { recursive: true, force: true });
-      }
-      mkdirSync(testDir, { recursive: true });
-
-      // Test
       const result = detectProjectNameSync(testDir);
 
-      // Verify
-      assert.strictEqual(result.name, 'fallback-dir-name');
+      assert.strictEqual(result.name, testDir.split(/[/\\]/).pop());
       assert.strictEqual(result.source, 'directory');
-
-      // Cleanup
       rmSync(testDir, { recursive: true, force: true });
     });
 
     it('should handle Windows path separators', () => {
-      // Windows path with backslashes
       const windowsPath = 'C:\\Users\\test\\my-windows-project';
-
       const result = detectProjectNameSync(windowsPath);
-
-      // Should extract last directory name regardless of separator
       assert.strictEqual(result.name, 'my-windows-project');
       assert.strictEqual(result.source, 'directory');
     });
 
     it('should skip hidden directories like .sqlew', () => {
-      // Path ending with hidden directory (common when using --db-path)
       const pathWithHidden = '/home/kitayama/.sqlew';
-
       const result = detectProjectNameSync(pathWithHidden);
-
-      // Should skip .sqlew and use parent directory 'kitayama'
       assert.strictEqual(result.name, 'kitayama');
       assert.strictEqual(result.source, 'directory');
     });
 
     it('should skip multiple hidden directories', () => {
-      // Multiple hidden directories at the end
       const pathWithMultipleHidden = '/home/kitayama/.config/.sqlew';
-
       const result = detectProjectNameSync(pathWithMultipleHidden);
-
-      // Should skip .sqlew and .config, use 'kitayama'
       assert.strictEqual(result.name, 'kitayama');
       assert.strictEqual(result.source, 'directory');
     });
 
     it('should return default when all segments are hidden', () => {
-      // Only hidden directories
       const onlyHidden = '/.hidden/.another';
-
       const result = detectProjectNameSync(onlyHidden);
-
-      // Should fallback to 'default'
       assert.strictEqual(result.name, 'default');
       assert.strictEqual(result.source, 'directory');
     });
 
     it('should handle empty path', () => {
       const result = detectProjectNameSync('');
-
-      // Empty path resolves to current directory, which has config.toml or is a git repo
-      // Just verify it returns something non-empty with valid source
       assert.ok(result.name.length > 0);
-      assert.ok(['config', 'directory', 'git'].includes(result.source));
+      assert.ok(['config', 'directory', 'env'].includes(result.source));
     });
 
     it('should ignore empty config.toml project name', () => {
-      const testDir = join(process.cwd(), '.tmp-test', 'empty-config-name');
-
-      // Setup: Create config with empty project name
-      if (existsSync(testDir)) {
-        rmSync(testDir, { recursive: true, force: true });
-      }
+      const testDir = makeTempDir('empty-config-name');
       mkdirSync(join(testDir, '.sqlew'), { recursive: true });
+      writeFileSync(join(testDir, '.sqlew', 'config.toml'), '[project]\nname = ""\n');
 
-      const configContent = `
-[project]
-name = ""
-`;
-      writeFileSync(join(testDir, '.sqlew', 'config.toml'), configContent);
-
-      // Test
       const result = detectProjectNameSync(testDir);
 
-      // Verify: Should fallback to directory name
-      assert.strictEqual(result.name, 'empty-config-name');
+      assert.strictEqual(result.name, testDir.split(/[/\\]/).pop());
       assert.strictEqual(result.source, 'directory');
-
-      // Cleanup
       rmSync(testDir, { recursive: true, force: true });
     });
 
     it('should handle malformed config.toml', () => {
-      const testDir = join(process.cwd(), '.tmp-test', 'malformed-config');
-
-      // Setup: Create invalid TOML
-      if (existsSync(testDir)) {
-        rmSync(testDir, { recursive: true, force: true });
-      }
+      const testDir = makeTempDir('malformed-config');
       mkdirSync(join(testDir, '.sqlew'), { recursive: true });
+      writeFileSync(
+        join(testDir, '.sqlew', 'config.toml'),
+        '[project\nname = invalid toml syntax\n'
+      );
 
-      const configContent = `
-[project
-name = invalid toml syntax
-`;
-      writeFileSync(join(testDir, '.sqlew', 'config.toml'), configContent);
-
-      // Test
       const result = detectProjectNameSync(testDir);
 
-      // Verify: Should fallback to directory name
-      assert.strictEqual(result.name, 'malformed-config');
+      assert.strictEqual(result.name, testDir.split(/[/\\]/).pop());
       assert.strictEqual(result.source, 'directory');
-
-      // Cleanup
       rmSync(testDir, { recursive: true, force: true });
     });
   });
 
   describe('detectProjectName (async)', () => {
-    it('should detect from config.toml when present', async () => {
-      const testDir = join(process.cwd(), '.tmp-test', 'async-config-detect');
+    it('should prefer SQLEW_PROJECT_NAME over git and config', async () => {
+      const testDir = makeTempDir('async-env-wins');
+      writeConfig(testDir, 'from-config');
+      initGitWithRemote(testDir, 'git@github.com:acme/from-git.git');
+      process.env[SQLEW_ENV_VARS.PROJECT_NAME] = 'from-env';
 
-      // Setup
-      if (existsSync(testDir)) {
-        rmSync(testDir, { recursive: true, force: true });
-      }
-      mkdirSync(join(testDir, '.sqlew'), { recursive: true });
-
-      const configContent = `
-[project]
-name = "async-test-project"
-`;
-      writeFileSync(join(testDir, '.sqlew', 'config.toml'), configContent);
-
-      // Test
       const result = await detectProjectName(testDir);
 
-      // Verify
-      assert.strictEqual(result.name, 'async-test-project');
-      assert.strictEqual(result.source, 'config');
-
-      // Cleanup
+      assert.strictEqual(result.name, 'from-env');
+      assert.strictEqual(result.source, 'env');
       rmSync(testDir, { recursive: true, force: true });
     });
 
-    it('should fallback to directory name when no VCS', async () => {
-      const testDir = join(process.cwd(), '.tmp-test', 'async-no-vcs');
+    it('should prefer git remote basename over config.toml', async () => {
+      const testDir = makeTempDir('async-git-over-config');
+      writeConfig(testDir, 'from-config');
+      initGitWithRemote(testDir, 'https://github.com/sqlew-io/sqlew.git');
 
-      // Setup: Directory without config or .git
-      if (existsSync(testDir)) {
-        rmSync(testDir, { recursive: true, force: true });
-      }
-      mkdirSync(testDir, { recursive: true });
-
-      // Test
       const result = await detectProjectName(testDir);
 
-      // Verify: May detect parent VCS, so just check source is valid
-      // In a real isolated directory, it would be 'directory', but in a git repo subdirectory, it might be 'git'
-      assert.ok(result.name.length > 0);
-      assert.ok(['directory', 'git'].includes(result.source));
+      assert.strictEqual(result.name, 'sqlew');
+      assert.strictEqual(result.source, 'git');
+      rmSync(testDir, { recursive: true, force: true });
+    });
 
-      // Cleanup
+    it('should detect from config.toml when no env and no git', async () => {
+      const testDir = makeTempDir('async-config-detect');
+      writeConfig(testDir, 'async-test-project');
+
+      const result = await detectProjectName(testDir);
+
+      assert.strictEqual(result.name, 'async-test-project');
+      assert.strictEqual(result.source, 'config');
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    it('should fallback to directory name when no env/git/config', async () => {
+      const testDir = makeTempDir('async-no-vcs');
+
+      const result = await detectProjectName(testDir);
+
+      assert.strictEqual(result.name, testDir.split(/[/\\]/).pop());
+      assert.strictEqual(result.source, 'directory');
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    it('should extract HTTPS remote basename without .git suffix', async () => {
+      const testDir = makeTempDir('async-https-remote');
+      initGitWithRemote(testDir, 'https://github.com/acme/my-app');
+
+      const result = await detectProjectName(testDir);
+
+      assert.strictEqual(result.name, 'my-app');
+      assert.strictEqual(result.source, 'git');
+      rmSync(testDir, { recursive: true, force: true });
+    });
+  });
+
+  describe('resolveConfiguredProjectName', () => {
+    it('returns undefined when only directory would apply', async () => {
+      const testDir = makeTempDir('resolve-no-sources');
+      const result = await resolveConfiguredProjectName(testDir);
+      assert.strictEqual(result, undefined);
+      rmSync(testDir, { recursive: true, force: true });
+    });
+
+    it('returns git without falling back to directory', async () => {
+      const testDir = makeTempDir('resolve-git-only');
+      initGitWithRemote(testDir, 'git@github.com:org/cloud-repo.git');
+
+      const result = await resolveConfiguredProjectName(testDir);
+
+      assert.ok(result);
+      assert.strictEqual(result.name, 'cloud-repo');
+      assert.strictEqual(result.source, 'git');
       rmSync(testDir, { recursive: true, force: true });
     });
   });
@@ -219,12 +228,10 @@ name = "async-test-project"
   describe('Real project detection', () => {
     it('should detect a project name from the current checkout', () => {
       const projectRoot = process.cwd();
-
-      // Runs in the actual checkout (CI: often "sqlew"; Cloud Agent: often "workspace")
       const result = detectProjectNameSync(projectRoot);
 
       assert.ok(typeof result.name === 'string' && result.name.length > 0);
-      assert.ok(['config', 'directory', 'git'].includes(result.source));
+      assert.ok(['config', 'directory', 'env'].includes(result.source));
     });
   });
 });
