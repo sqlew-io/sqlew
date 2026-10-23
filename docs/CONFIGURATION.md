@@ -177,6 +177,8 @@ npx @sqlew/pg
 
 Local desktops should keep the full install: `npm i -g sqlew` (or `@sqlew/full`). See [SCOPED_PACKAGES.md](./SCOPED_PACKAGES.md).
 
+**Per-repo Cloud MCP:** this repository ships [`.cursor/mcp.json`](../.cursor/mcp.json) so Cursor Cloud Agents launch `npx -y @sqlew/pg` without a global MCP entry. Supply `SQLEW_DATABASE_URL` (or discrete `SQLEW_DATABASE_*`) and `SQLEW_PROJECT_NAME` via Environment / repository Secrets — do not hardcode them in the MCP file.
+
 **Plan-less hooks on Cloud:** with [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin), PostToolUse research inject still works; Write enqueues draft ADRs to `.sqlew/queue/pending.json` and Stop / `sqlew flush-queue` upserts them (needed when the MCP QueueWatcher is absent). Plan Mode capture remains optional.
 
 #### Option A — sqlew SaaS
