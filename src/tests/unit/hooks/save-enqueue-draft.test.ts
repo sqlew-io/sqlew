@@ -15,6 +15,7 @@ import {
   toProjectRelativePath,
   enqueueDraftFromWrite,
   processSaveHook,
+  shouldPromotePlan,
 } from '../../../cli/hooks/save.js';
 import { readQueue, clearQueue } from '../../../utils/hook-queue.js';
 import {
@@ -177,8 +178,8 @@ describe('processSaveHook — draft enqueue vs plan promote', () => {
     assert.ok(types.some((t) => t === 'decision:update'));
   });
 
-  it('recorded=true (extraction done) still enqueues draft; promote still runs if not started', () => {
-    // recorded means SubagentStop already extracted — must not block Write→enqueue
+  it('recorded=true + explicit implementation_started:false: draft AND promote once', () => {
+    // Post-v5.4.1 path: SubagentStop set recorded, promote flag still false
     saveCurrentPlan(
       projectPath,
       makePlan({ recorded: true, implementation_started: false }),
@@ -208,6 +209,76 @@ describe('processSaveHook — draft enqueue vs plan promote', () => {
           i.data.key === 'cursor/auto/src/c.ts',
       ),
     );
+    assert.ok(
+      queue.items.some(
+        (i) => i.type === 'decision' && (i as { action: string }).action === 'update',
+      ),
+    );
+  });
+
+  it('legacy recorded:true without implementation_started: draft only, no re-promote', () => {
+    // Pre-v5.4.1 session cache: field absent, not false
+    const legacy = makePlan({ recorded: true });
+    delete (legacy as { implementation_started?: boolean }).implementation_started;
+    assert.equal('implementation_started' in legacy, false);
+    assert.equal(shouldPromotePlan(legacy), false);
+
+    saveCurrentPlan(projectPath, legacy);
+    // Persist then re-read as JSON would (no key) — saveCurrentPlan may round-trip;
+    // force-write a file without the key if the helper keeps undefined away.
+    const cached = loadCurrentPlan(projectPath);
+    assert.ok(cached);
+    // If JSON.stringify dropped undefined, flag is absent after reload
+    assert.equal(cached.implementation_started, undefined);
+
+    const filePath = join(projectPath, 'src', 'legacy.ts');
+    const result = processSaveHook({
+      projectPath,
+      toolName: 'Write',
+      filePath,
+      client: 'cursor',
+    });
+
+    assert.equal(result.skipped, false);
+    assert.equal(result.draft?.key, 'cursor/auto/src/legacy.ts');
+    assert.equal(result.planPromoted, undefined);
+    assert.equal(loadCurrentPlan(projectPath)?.recorded, true);
+    // Optional backfill so later edits take the fast path
+    assert.equal(loadCurrentPlan(projectPath)?.implementation_started, true);
+
+    const queue = readQueue(projectPath);
+    assert.equal(queue.items.length, 1);
+    assert.equal(queue.items[0].type, 'decision');
+    assert.equal((queue.items[0] as { action: string }).action, 'create');
+    assert.equal(
+      (queue.items[0] as { data: { key: string } }).data.key,
+      'cursor/auto/src/legacy.ts',
+    );
+  });
+
+  it('new plan recorded:false + flag absent: still promotes once', () => {
+    const fresh = makePlan({ recorded: false });
+    delete (fresh as { implementation_started?: boolean }).implementation_started;
+    assert.equal(shouldPromotePlan(fresh), true);
+
+    saveCurrentPlan(projectPath, fresh);
+    const filePath = join(projectPath, 'src', 'fresh.ts');
+
+    const result = processSaveHook({
+      projectPath,
+      toolName: 'Write',
+      filePath,
+      client: 'cursor',
+    });
+
+    assert.ok(result.planPromoted);
+    assert.equal(result.draft?.key, 'cursor/auto/src/fresh.ts');
+    assert.equal(loadCurrentPlan(projectPath)?.implementation_started, true);
+
+    const queue = readQueue(projectPath);
+    const types = queue.items.map((i) => `${i.type}:${(i as { action: string }).action}`);
+    assert.ok(types.some((t) => t === 'decision:create'));
+    assert.ok(types.some((t) => t === 'decision:update'));
   });
 
   it('implementation_started: draft only; does not re-promote or touch recorded', () => {
