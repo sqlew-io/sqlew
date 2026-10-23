@@ -82,6 +82,9 @@ export async function onExitPlanCommand(): Promise<void> {
           plan_updated_at: new Date().toISOString(),
           recorded: sameSession ? (existing?.recorded ?? false) : false,
           decision_pending: sameSession ? (existing?.decision_pending ?? true) : true,
+          implementation_started: sameSession
+            ? (existing?.implementation_started ?? false)
+            : false,
           enforcement_shown_at: sameSession ? existing?.enforcement_shown_at : undefined,
         };
         saveCurrentPlan(projectPath, planInfo);
@@ -110,6 +113,7 @@ export async function onExitPlanCommand(): Promise<void> {
             plan_updated_at: new Date().toISOString(),
             recorded: existing?.recorded ?? false,
             decision_pending: existing?.decision_pending ?? true,
+            implementation_started: existing?.implementation_started ?? false,
             enforcement_shown_at: existing?.enforcement_shown_at,
           };
           saveCurrentPlan(projectPath, planInfo);

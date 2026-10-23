@@ -29,7 +29,7 @@ Minimum sqlew versions: Grok Build **5.2+**, Codex **5.2.1+**, Hermes **5.3.0+**
 | **Plan mode enforcement** (suggest-before-plan, 📌/🚫 format) | ✓ | △ | ◎+file | ✓ | ✓ | ✎ |
 | **Plan-to-ADR extraction** (📌 Decision / 🚫 Constraint → DB) | ✓ | △ | △ | ✓ | ✓ | ✎ |
 | **Plan file tracking** (`track-plan`) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Decision draft on code edit** (`save` hook; plan promote **or** plan-less enqueue) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Decision draft on code edit** (`save` hook; plan-less enqueue **and** optional one-shot plan promote) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Related-context suggest** (`suggest` on Task / delegate) | ✓ | ✓ | △ | △ | △ | ✎ |
 | **PR ADR guard** (`pr-adr` on `gh pr create`) | ✓ | ✓ | △ | ✓ | ✓ | — |
 | **Todo completion → decision status** (`check-completion`) | ✓ | ✓ | △ | ✓ | ✓ | — |

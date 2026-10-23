@@ -255,11 +255,13 @@ export function materializeOmpPlan(opts: {
   let recorded = false;
   let planId: string = randomUUID();
   let decisionPending = true;
+  let implementationStarted = false;
   let enforcementShownAt: string | undefined;
 
   if (samePath && existing) {
     planId = existing.plan_id;
     enforcementShownAt = existing.enforcement_shown_at;
+    implementationStarted = existing.implementation_started ?? false;
 
     if (existing.recorded && newHash !== undefined && previousHash !== undefined) {
       if (previousHash === newHash) {
@@ -287,6 +289,7 @@ export function materializeOmpPlan(opts: {
     plan_updated_at: new Date().toISOString(),
     recorded,
     decision_pending: decisionPending,
+    implementation_started: implementationStarted,
     enforcement_shown_at: enforcementShownAt,
   };
   saveCurrentPlan(projectPath, planInfo);

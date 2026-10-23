@@ -2,14 +2,15 @@
  * Save Hook Command
  *
  * PostToolUse hook for Edit|Write:
- * - With a tracked plan: promote decisions/constraints when implementation starts
- * - Plan-less: enqueue a draft decision create from the file path (NO DB)
+ * - Always enqueue a plan-less draft decision create from the file path (NO DB)
+ * - With a tracked unrecorded plan: also promote decisions/constraints once
  *
  * Usage:
  *   echo '{"tool_name": "Write", "tool_input": {"file_path": "src/foo.ts"}}' | sqlew save
  *
  * @since v4.1.0
  * @updated v5.4.x - Plan-less Write path enqueues draft to pending.json (no DB)
+ * @updated v5.4.x - Draft enqueue is not gated on absence of a tracked plan
  */
 
 import { resolve as pathResolve, relative as pathRelative, basename } from 'path';
@@ -157,6 +158,98 @@ export function enqueueDraftFromWrite(
   return { enqueued: true, key, relPath };
 }
 
+/**
+ * Result of processing one Edit|Write save hook invocation.
+ *
+ * Draft enqueue and plan promote are independent concerns:
+ * - Draft always runs for implementation files (ignores `recorded`)
+ * - Plan promote is one-shot via `implementation_started` (not `recorded`)
+ *
+ * `recorded` belongs to plan-processor / SubagentStop (skip re-extracting the
+ * same plan body). Reusing it here previously blocked plan-less drafts by
+ * accident — that coupling is removed.
+ */
+export interface SaveHookResult {
+  /** Early-out (wrong tool / non-impl file) — caller should sendContinue */
+  skipped: boolean;
+  draft?: { key: string; relPath: string };
+  /** One-shot plan status transition ran on this invocation */
+  planPromoted?: { planFile: string; planId: string };
+}
+
+export interface ProcessSaveHookInput {
+  projectPath: string;
+  toolName?: string;
+  filePath?: string;
+  client?: HookClient | string | null;
+  summary?: string;
+}
+
+/**
+ * Core save-hook logic (testable without stdin).
+ *
+ * Plan-less draft enqueue is never gated on session-cache plan presence or
+ * `recorded`. Promote uses `implementation_started` so save never mutates
+ * the extraction-dedup flag that SubagentStop / ExitPlanMode rely on.
+ */
+export function processSaveHook(input: ProcessSaveHookInput): SaveHookResult {
+  const { projectPath, toolName, filePath, client, summary } = input;
+
+  if (toolName !== 'Edit' && toolName !== 'Write') {
+    return { skipped: true };
+  }
+
+  if (!isImplementationFile(filePath) || !filePath) {
+    return { skipped: true };
+  }
+
+  // Always enqueue plan-less draft (keys are `{client}/auto/...`, distinct from plan/)
+  const draft = enqueueDraftFromWrite(projectPath, filePath, { client, summary });
+
+  let planPromoted: SaveHookResult['planPromoted'];
+  const planInfo = loadCurrentPlan(projectPath);
+  if (planInfo && !planInfo.implementation_started) {
+    // One-shot promote only — do NOT set `recorded` (that flag is for extraction dedup)
+    enqueueDecisionUpdate(projectPath, {
+      key: `plan/${planInfo.plan_file.replace(/\.md$/, '')}`,
+      status: IN_PROGRESS_STATUS,
+      tags: ['plan', planInfo.plan_id.slice(0, 8)],
+    });
+
+    enqueueConstraintActivate(projectPath, planInfo.plan_id);
+
+    const updatedInfo: CurrentPlanInfo = {
+      ...planInfo,
+      implementation_started: true,
+      plan_updated_at: new Date().toISOString(),
+    };
+    saveCurrentPlan(projectPath, updatedInfo);
+
+    planPromoted = {
+      planFile: planInfo.plan_file,
+      planId: planInfo.plan_id,
+    };
+  }
+
+  return { skipped: false, draft, planPromoted };
+}
+
+function buildSaveContextMessage(result: SaveHookResult): string {
+  const parts: string[] = [];
+  if (result.draft) {
+    parts.push(
+      `Queued draft decision ${result.draft.key} for ${result.draft.relPath} (flush on Stop / QueueWatcher)`,
+    );
+  }
+  if (result.planPromoted) {
+    parts.push(
+      `Implementation started for plan: ${result.planPromoted.planFile} | ` +
+        `Queued: decisions → in_progress, constraints → active`,
+    );
+  }
+  return `[sqlew] ${parts.join(' | ')}`;
+}
+
 // ============================================================================
 // Main Entry Point
 // ============================================================================
@@ -165,19 +258,11 @@ export function enqueueDraftFromWrite(
  * Main save command entry point
  *
  * Called as PostToolUse hook when Edit|Write completes.
- * Plan path: promote decisions / activate constraints.
- * Plan-less: enqueue draft decision create (pending.json only).
+ * Always enqueues draft for implementation files; may also promote a tracked plan once.
  */
 export async function saveCommand(): Promise<void> {
   try {
     const input = await readStdinJson();
-
-    // Only process Edit and Write tools
-    const toolName = input.tool_name;
-    if (toolName !== 'Edit' && toolName !== 'Write') {
-      sendContinue();
-      return;
-    }
 
     const projectPath = getProjectPath(input);
     if (!projectPath) {
@@ -185,69 +270,30 @@ export async function saveCommand(): Promise<void> {
       return;
     }
 
-    // Get file path from tool input
     const filePath =
       (input.tool_input?.file_path as string | undefined) ||
       (input.tool_input?.path as string | undefined);
 
-    // Only process implementation files
-    if (!isImplementationFile(filePath)) {
-      sendContinue();
-      return;
-    }
+    const summary =
+      typeof input.tool_response?.summary === 'string'
+        ? input.tool_response.summary
+        : undefined;
 
-    // Check if there's a current plan being tracked
-    const planInfo = loadCurrentPlan(projectPath);
-    if (!planInfo) {
-      // Plan-less: enqueue draft only (NO DB / NO MCP decision set)
-      const summary =
-        typeof input.tool_response?.summary === 'string'
-          ? input.tool_response.summary
-          : undefined;
-      const { key, relPath } = enqueueDraftFromWrite(projectPath, filePath!, {
-        client: input.client,
-        summary,
-      });
-      sendPostToolUseContext(
-        `[sqlew] Queued draft decision ${key} for ${relPath} (flush on Stop / QueueWatcher)`,
-        input.client,
-      );
-      return;
-    }
-
-    // Check if already recorded for this plan
-    if (planInfo.recorded) {
-      // Already recorded - no need to record again
-      sendContinue();
-      return;
-    }
-
-    // Enqueue decision status update: draft → in_progress
-    // This will update all decisions with the plan_id tag
-    enqueueDecisionUpdate(projectPath, {
-      key: `plan/${planInfo.plan_file.replace(/\.md$/, '')}`,
-      status: IN_PROGRESS_STATUS,
-      tags: ['plan', planInfo.plan_id.slice(0, 8)],
+    const result = processSaveHook({
+      projectPath,
+      toolName: input.tool_name,
+      filePath,
+      client: input.client,
+      summary,
     });
 
-    // Enqueue constraint activation: active=0 → active=1
-    enqueueConstraintActivate(projectPath, planInfo.plan_id);
-
-    // Mark plan as recorded (implementation started)
-    const updatedInfo: CurrentPlanInfo = {
-      ...planInfo,
-      recorded: true,
-      decision_pending: false,
-      plan_updated_at: new Date().toISOString(),
-    };
-    saveCurrentPlan(projectPath, updatedInfo);
+    if (result.skipped || !result.draft) {
+      sendContinue();
+      return;
+    }
 
     // PostToolUse inject — shape depends on stdin client (Cursor/Claude/Grok/omp/Codex).
-    sendPostToolUseContext(
-      `[sqlew] Implementation started for plan: ${planInfo.plan_file} | ` +
-      `Queued: decisions → in_progress, constraints → active`,
-      input.client,
-    );
+    sendPostToolUseContext(buildSaveContextMessage(result), input.client);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[sqlew save] Error: ${message}`);

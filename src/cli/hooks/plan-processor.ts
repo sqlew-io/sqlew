@@ -68,7 +68,9 @@ export function processPlanPatterns(projectPath: string): ProcessPlanResult {
     return { processed: false, skipReason: 'no_active_plan' };
   }
 
-  // DUPLICATE PREVENTION: Skip if already processed
+  // DUPLICATE PREVENTION: Skip if this plan body was already extracted/enqueued.
+  // `recorded` exists so SubagentStop / ExitPlanMode do not re-queue the same
+  // plan's decisions on every stop — not a gate for plan-less save drafts.
   if (planInfo.recorded) {
     return { processed: false, skipReason: 'already_recorded' };
   }
@@ -156,7 +158,7 @@ export function processPlanPatterns(projectPath: string): ProcessPlanResult {
     });
   }
 
-  // Mark plan as recorded (CRITICAL: prevents duplicate processing)
+  // Mark plan as recorded (CRITICAL: prevents re-extract on later SubagentStop)
   const updatedInfo: CurrentPlanInfo = {
     ...planInfo,
     recorded: true,

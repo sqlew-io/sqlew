@@ -393,10 +393,20 @@ export interface CurrentPlanInfo {
   plan_path?: string;
   /** Plan file last updated timestamp (ISO 8601) */
   plan_updated_at: string;
-  /** Whether decision has been recorded for this plan */
+  /**
+   * Whether plan-body pattern extraction has already been enqueued for this plan.
+   * Used by `plan-processor` / SubagentStop / ExitPlanMode to prevent the same
+   * plan's decisions from being re-queued on every stop event — not a gate for
+   * plan-less Write→enqueue drafts in `save`.
+   */
   recorded: boolean;
   /** Whether decision needs to be created in DB (lazy registration) */
   decision_pending?: boolean;
+  /**
+   * Whether `save` already ran the one-shot plan promote (status → in_progress,
+   * constraint activate) for this plan. Independent of `recorded`.
+   */
+  implementation_started?: boolean;
   /** ISO 8601 timestamp of when full enforcement message was first shown */
   enforcement_shown_at?: string;
 }
@@ -503,7 +513,8 @@ export function saveCurrentPlan(projectPath: string, info: CurrentPlanInfo): voi
 }
 
 /**
- * Mark current plan as recorded (decision saved)
+ * Mark current plan as recorded (plan-body patterns already extracted / enqueued).
+ * Does not affect plan-less draft enqueue eligibility in `save`.
  *
  * @param projectPath - Project root path
  */
