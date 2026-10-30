@@ -1,7 +1,7 @@
 {
   "name": "@sqlew/full",
   "description": "Full sqlew MCP server (all RDB drivers) — thin alias of the `sqlew` package",
-  "version": "5.4.2",
+  "version": "5.4.3",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -42,6 +42,6 @@
     "access": "public"
   },
   "dependencies": {
-    "sqlew": "5.4.2"
+    "sqlew": "5.4.3"
   }
 }
