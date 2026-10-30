@@ -8,7 +8,24 @@
 import type { Knex } from 'knex';
 import { getProjectContext } from '../../../utils/project-context.js';
 import { formatGroupConcatTags } from '../../../utils/tag-parser.js';
+import { UniversalKnex } from '../../../utils/universal-knex.js';
 import type { DecisionCandidate } from '../types.js';
+
+/**
+ * Dialect cast so COALESCE can mix text `t_decisions.value` with
+ * double-precision `t_decisions_numeric.value`.
+ *
+ * PostgreSQL rejects COALESCE(text, double precision) at plan time, even
+ * when the query returns zero rows. MySQL coerces that pair to double and
+ * can collapse string decisions to 0. SQLite accepts mixed types; casting
+ * would change numeric results from number to string.
+ */
+function numericValueAsText(knex: Knex): string {
+  const db = new UniversalKnex(knex);
+  if (db.isPostgreSQL) return 'CAST(dn.value AS TEXT)';
+  if (db.isSQLite) return 'dn.value';
+  return 'CAST(dn.value AS CHAR)';
+}
 
 /**
  * Build base decision query with all necessary JOINs
@@ -38,7 +55,7 @@ export function buildDecisionQuery(
   const selectFields = [
     'd.key_id',
     'ck.key_name as key',  // Alias to match DecisionCandidate.key
-    knex.raw('COALESCE(NULLIF(d.value, \'\'), dn.value) as value'),  // NULLIF converts empty string to NULL
+    knex.raw(`COALESCE(NULLIF(d.value, ''), ${numericValueAsText(knex)}) as value`),  // NULLIF converts empty string to NULL
     'l.name as layer',
     'd.ts',
     formatGroupConcatTags(knex, distinct),
@@ -88,7 +105,7 @@ export function buildTagIndexQuery(
     .select(
       'd.key_id',
       'ck.key_name as key',  // Alias to match DecisionCandidate.key
-      knex.raw('COALESCE(NULLIF(d.value, \'\'), dn.value) as value'),  // NULLIF converts empty string to NULL
+      knex.raw(`COALESCE(NULLIF(d.value, ''), ${numericValueAsText(knex)}) as value`),  // NULLIF converts empty string to NULL
       'l.name as layer',
       'd.ts',
       formatGroupConcatTags(knex, true),  // DISTINCT for t_tag_index queries

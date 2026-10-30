@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+**suggest: PostgreSQL no longer rejects numeric/text COALESCE** ([#149](https://github.com/sqlew-io/sqlew/issues/149))
+
+- `suggest` failed at plan time with `COALESCE types text and double precision cannot be matched`, including when no decisions matched.
+- `buildDecisionQuery` and `buildTagIndexQuery` cast `t_decisions_numeric.value` per dialect: PostgreSQL `CAST AS TEXT`, MySQL/MariaDB `CAST AS CHAR`, SQLite left uncast.
+- String decisions stay text. Numeric decisions (`t_decisions.value = ''`) still return the numeric side. Values are not coerced back to JS numbers.
+
 ---
 
 ## [5.4.2] - 2026-10-23
