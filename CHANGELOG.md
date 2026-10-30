@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [5.4.3] - 2026-10-30
+
 ### Fixed
 
-**suggest: PostgreSQL no longer rejects numeric/text COALESCE** ([#149](https://github.com/sqlew-io/sqlew/issues/149))
+**suggest: PostgreSQL no longer rejects numeric/text COALESCE** ([#149](https://github.com/sqlew-io/sqlew/issues/149), [#150](https://github.com/sqlew-io/sqlew/pull/150))
 
 - `suggest` failed at plan time with `COALESCE types text and double precision cannot be matched`, including when no decisions matched.
 - `buildDecisionQuery` and `buildTagIndexQuery` cast `t_decisions_numeric.value` per dialect: PostgreSQL `CAST AS TEXT`, MySQL/MariaDB `CAST AS CHAR`, SQLite left uncast.
