@@ -9,6 +9,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import type { Knex } from 'knex';
 import { runTestsOnAllDatabases } from './test-harness.js';
+import { buildDecisionQuery, buildTagIndexQuery } from '../../../tools/suggest/internal/queries.js';
+import { ProjectContext, runWithProjectScope } from '../../../utils/project-context.js';
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -767,6 +769,128 @@ runTestsOnAllDatabases('Suggest Tool (v3.9.0) - Refactored', (getDb, dbType) => 
       // Should have 3 tag matches for the multi-tag decision
       const maxMatches = Math.max(...decisionMatches.values());
       assert.strictEqual(maxMatches, 3, 'Should find decision with 3 tag matches');
+    });
+  });
+
+  describe('numeric/text COALESCE cast', () => {
+    const textKey = 'suggest-cast/text';
+    const numericKey = 'suggest-cast/numeric';
+    const tag = 'suggest-cast';
+
+    async function insertContextKey(db: Knex, keyName: string): Promise<number> {
+      await db('m_context_keys').insert({ key_name: keyName });
+      const row = await db('m_context_keys').where({ key_name: keyName }).first();
+      assert.ok(row, `context key ${keyName} should exist`);
+      return row.id;
+    }
+
+    async function deleteSuggestCastRows(db: Knex, scopedProjectId: number): Promise<void> {
+      const keys = await db('m_context_keys')
+        .whereIn('key_name', [textKey, numericKey])
+        .select('id');
+      const keyIds = keys.map((row: { id: number }) => row.id);
+      if (keyIds.length === 0) return;
+      await db('t_tag_index').whereIn('source_id', keyIds).where('project_id', scopedProjectId).del();
+      await db('t_decisions_numeric').whereIn('key_id', keyIds).where('project_id', scopedProjectId).del();
+      await db('t_decisions').whereIn('key_id', keyIds).where('project_id', scopedProjectId).del();
+      await db('m_context_keys').whereIn('id', keyIds).del();
+    }
+
+    function assertCoalescedValues(rows: Array<{ key: string; value: string | number }>, label: string): void {
+      const text = rows.find((row) => row.key === textKey);
+      const numeric = rows.find((row) => row.key === numericKey);
+      assert.ok(text, `${label} should include ${textKey}`);
+      assert.ok(numeric, `${label} should include ${numericKey}`);
+      assert.strictEqual(text.value, 'keep-text', `${label} text value must stay a string`);
+      assert.notStrictEqual(numeric.value, '', `${label} numeric value must not be empty`);
+      assert.strictEqual(Number(numeric.value), 42.5, `${label} numeric value`);
+    }
+
+    it('returns an empty list when no decisions match', async () => {
+      const db = getDb();
+      await runWithProjectScope(
+        ProjectContext.createScoped({
+          id: 999999,
+          name: 'suggest-cast-empty',
+          detection_source: 'config',
+        }),
+        async () => {
+          const decisions = await buildDecisionQuery(db);
+          const tagged = await buildTagIndexQuery(db, ['suggest-cast-missing']);
+          assert.deepStrictEqual(decisions, []);
+          assert.deepStrictEqual(tagged, []);
+        },
+      );
+    });
+
+    it('prefers numeric values and keeps text values', async () => {
+      const db = getDb();
+      assert.ok(projectId, 'projectId should be set by the leading project lookup');
+      const ts = Math.floor(Date.now() / 1000);
+
+      try {
+        const textKeyId = await insertContextKey(db, textKey);
+        const numericKeyId = await insertContextKey(db, numericKey);
+
+        await db('t_decisions').insert([
+          {
+            key_id: textKeyId,
+            project_id: projectId,
+            value: 'keep-text',
+            version: '1.0.0',
+            status: 1,
+            ts,
+          },
+          {
+            key_id: numericKeyId,
+            project_id: projectId,
+            value: '',
+            version: '1.0.0',
+            status: 1,
+            ts,
+          },
+        ]);
+        await db('t_decisions_numeric').insert({
+          key_id: numericKeyId,
+          project_id: projectId,
+          value: 42.5,
+          version: '1.0.0',
+          status: 1,
+          ts,
+        });
+        await db('t_tag_index').insert([
+          {
+            tag,
+            source_type: 'decision',
+            source_id: textKeyId,
+            project_id: projectId,
+            created_ts: ts,
+          },
+          {
+            tag,
+            source_type: 'decision',
+            source_id: numericKeyId,
+            project_id: projectId,
+            created_ts: ts,
+          },
+        ]);
+
+        await runWithProjectScope(
+          ProjectContext.createScoped({
+            id: projectId,
+            name: 'suggest-cast',
+            detection_source: 'config',
+          }),
+          async () => {
+            const decisions = await buildDecisionQuery(db);
+            const tagged = await buildTagIndexQuery(db, [tag]);
+            assertCoalescedValues(decisions, 'buildDecisionQuery');
+            assertCoalescedValues(tagged, 'buildTagIndexQuery');
+          },
+        );
+      } finally {
+        await deleteSuggestCastRows(db, projectId);
+      }
     });
   });
 });
