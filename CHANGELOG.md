@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+**Windows / Node 24 MCP crash when better-sqlite3 bindings are missing**
+
+- Root cause: npm 12+ (shipped with Node 24.19+) skips dependency install scripts, so `better-sqlite3`'s `prebuild-install` never downloads `node-v137-win32-x64` even though the prebuild exists. Cursor then reports MCP Connection closed for `plugin-sqlew-sqlew`.
+- SQLite load failures now surface an actionable hint (`--allow-scripts=better-sqlite3`, Node 22 LTS, or `@sqlew/pg` + Postgres URL) instead of a raw bindings path.
+- Bump `better-sqlite3` to `^12.11.1` (still Node ≥20; avoid 13.x which requires Node ≥22 and changes the install model).
+- README: Windows/Cursor troubleshooting for the Node 24 bindings miss.
+
 ---
 
 ## [5.4.3] - 2026-10-30

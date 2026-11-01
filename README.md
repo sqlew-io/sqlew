@@ -74,7 +74,9 @@ Wire a remote DB with `SQLEW_DATABASE_URL` / `DATABASE_URL` in Environment Secre
 npm install -g --allow-scripts=better-sqlite3 sqlew
 ```
 
-Without the flag, `sqlew` installs but exits on first run with `Could not locate the bindings file`. Re-run the command above to repair an existing install. `@sqlew/pg` and `@sqlew/mysql` do not need this flag.
+Without the flag, `sqlew` installs but exits on first run with `Could not locate the bindings file` (often under `node-v137-win32-x64` on Node 24 / Windows). That is **not** a missing Node 24 prebuild — the prebuild exists, but npm never ran `prebuild-install`. Re-run the command above to repair an existing install. `@sqlew/pg` and `@sqlew/mysql` do not need this flag.
+
+**Windows + Cursor plugin MCP (`plugin-sqlew-sqlew`)** using global `sqlew` on Node 24: if MCP shows “Connection closed”, reinstall with `--allow-scripts=better-sqlite3`, or switch the MCP command to Node 22 LTS, or use Postgres instead (`npx -y @sqlew/pg` + `SQLEW_DATABASE_URL` / Neon). See [Troubleshooting](#troubleshooting-sqlite-native-addon).
 
 npm 11 and earlier still run install scripts by default; `npm install -g sqlew` is enough there.
 
@@ -304,6 +306,20 @@ name = "your-project-name"
 8 action-based tools: `decision`, `constraint`, `project`, `suggest`, `help`, `example`, `use_case`, `queue`
 
 All tools support `action: "help"` for documentation. The `project` tool targets a project per call for desktop AI agents (Claude Desktop, Hermes Desktop) — see [Shared Database](docs/SHARED_DATABASE.md).
+
+## Troubleshooting: SQLite native addon
+
+Symptom: Cursor MCP `plugin-sqlew-sqlew` closes immediately; stderr / logs mention:
+
+`.../better-sqlite3/lib/binding/node-v137-win32-x64/better_sqlite3.node` → `Could not locate the bindings file`.
+
+| Option | Command / change |
+|--------|------------------|
+| **Repair global `sqlew` (preferred on local Windows)** | `npm install -g --allow-scripts=better-sqlite3 sqlew` |
+| **Use Node 22 LTS** | `nvm use 22` (or install 22), then reinstall with the flag above |
+| **Skip SQLite** | MCP command `npx` args `["-y","@sqlew/pg"]` + `SQLEW_DATABASE_URL` / `DATABASE_URL` (Neon/Postgres) |
+
+Node 24 (ABI 137) **does** have win32-x64 prebuilds in better-sqlite3 12.1+. The usual failure is npm 12 skipping the install script, not a missing binary.
 
 ## Support
 
