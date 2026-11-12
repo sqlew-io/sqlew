@@ -25,6 +25,7 @@ import {
   computeGrokPlanPath,
   getProjectPath,
   sendHermesContext,
+  toMusePlainText,
   type HookInput,
 } from './stdin-parser.js';
 import {
@@ -245,22 +246,27 @@ export async function onPromptCommand(): Promise<void> {
       return;
     }
 
+    // Muse misreads stdout beginning with `[` as JSON; sanitize its plain text.
+    const writePlain = (text: string): void => {
+      process.stdout.write(input.client === 'muse' ? toMusePlainText(text) : text);
+    };
+
     // Claude plan mode (session context injected via SessionStart, not here)
     if (!projectPath) {
-      process.stdout.write(ENFORCEMENT_FULL);
+      writePlain(ENFORCEMENT_FULL);
       return;
     }
 
     let planInfo = loadCurrentPlan(projectPath);
 
     if (!planInfo || !planInfo.enforcement_shown_at) {
-      process.stdout.write(ENFORCEMENT_FULL);
+      writePlain(ENFORCEMENT_FULL);
       if (planInfo) {
         planInfo.enforcement_shown_at = new Date().toISOString();
         saveCurrentPlan(projectPath, planInfo);
       }
     } else {
-      process.stdout.write(ENFORCEMENT_SHORT);
+      writePlain(ENFORCEMENT_SHORT);
     }
   } catch {
     // Non-fatal: silent exit (allow)

@@ -86,6 +86,10 @@ export interface HookInput {
   transcript_path?: string;
   /** Permission mode */
   permission_mode?: string;
+  /** Turn ID (Muse Code; absent on SessionStart) */
+  turn_id?: string;
+  /** Model provider (Muse Code payloads only; detection marker) */
+  model_provider?: string;
   /** Stop hook active flag (for Stop/SubagentStop - prevents infinite loops) */
   stop_hook_active?: boolean;
   /** SessionStart source: startup | resume | clear | compact */
@@ -112,7 +116,7 @@ export interface HookInput {
  * Known harness clients for hook I/O adapters.
  * @since v5.4.x — PostToolUse additional-context shapes differ per client.
  */
-export type HookClient = 'cursor' | 'claude' | 'grok' | 'codex' | 'omp' | 'hermes';
+export type HookClient = 'cursor' | 'claude' | 'grok' | 'codex' | 'omp' | 'hermes' | 'muse';
 
 const KNOWN_HOOK_CLIENTS = new Set<string>([
   'cursor',
@@ -121,6 +125,7 @@ const KNOWN_HOOK_CLIENTS = new Set<string>([
   'codex',
   'omp',
   'hermes',
+  'muse',
 ]);
 
 function asHookClient(value: unknown): HookClient | undefined {
@@ -300,6 +305,24 @@ export const OMP_TOOL_MAP: Record<string, string> = {
 };
 
 /**
+ * Muse Code built-in tool names → Claude canonical tool names.
+ * Verified against Muse Code 1.4.15 hook payloads (2026-11-12);
+ * unknown names pass through unchanged.
+ */
+const MUSE_TOOL_MAP: Record<string, string> = {
+  read_file: 'Read',
+  write_file: 'Write',
+  edit_file: 'Edit',
+  search: 'Grep',
+  web_search: 'WebSearch',
+  web_fetch: 'WebFetch',
+  powershell: 'Bash',
+  shell: 'Bash',
+  bash: 'Bash',
+  subagent_spawn: 'Task',
+};
+
+/**
  * True when filePath is an omp plan artifact, materialize path, or propose device.
  */
 export function isOmpPlanPath(filePath: string | undefined): boolean {
@@ -434,6 +457,49 @@ function normalizeCodexPayload(raw: Record<string, unknown>): HookInput {
 }
 
 /**
+ * Muse Code payloads are Claude-shaped (snake_case, PascalCase events)
+ * but carry a `model_provider` field Claude Code never sends; hook processes
+ * also receive `MUSE_SESSION_ID` in the environment. Either marks Muse.
+ * Must run before Hermes detection: Muse shares `read_file`/`write_file`
+ * tool names with Hermes native tools.
+ */
+function isMusePayload(raw: Record<string, unknown>): boolean {
+  if (typeof raw.model_provider === 'string' && raw.model_provider) {
+    return true;
+  }
+  return !!process.env.MUSE_SESSION_ID;
+}
+
+function normalizeMusePayload(raw: Record<string, unknown>): HookInput {
+  const rawTool = raw.tool_name as string | undefined;
+  const toolInput = raw.tool_input as ToolInput | undefined;
+
+  // Muse file tools use `path` (not `file_path`); edit_file uses find/replace.
+  const normalizedToolInput: ToolInput | undefined = toolInput
+    ? {
+        ...toolInput,
+        file_path:
+          (toolInput.file_path as string | undefined) ??
+          (toolInput.path as string | undefined),
+        old_string:
+          (toolInput.old_string as string | undefined) ??
+          (toolInput.find as string | undefined),
+        new_string:
+          (toolInput.new_string as string | undefined) ??
+          (toolInput.replace as string | undefined),
+      }
+    : undefined;
+
+  return {
+    ...(raw as HookInput),
+    client: 'muse',
+    tool_name: rawTool ? MUSE_TOOL_MAP[rawTool] || rawTool : undefined,
+    tool_input: normalizedToolInput,
+    session_id: (raw.session_id || process.env.MUSE_SESSION_ID) as string | undefined,
+  };
+}
+
+/**
  * Normalize a raw hook payload into the canonical (Claude-shaped) HookInput.
  *
  * Claude Code payloads already use snake_case keys + PascalCase event/tool names,
@@ -445,6 +511,13 @@ function normalizeCodexPayload(raw: Record<string, unknown>): HookInput {
  * @param raw - Parsed JSON from stdin (any shape)
  * @returns Canonical HookInput
  */
+/**
+ * Most recent input produced by {@link normalizeHookInput} in this process.
+ * Hook CLIs are single-shot (one event per process), so senders can consult
+ * this when the harness expects event-specific output discipline.
+ */
+let lastNormalizedInput: HookInput | undefined;
+
 export function normalizeHookInput(raw: unknown): HookInput {
   if (!raw || typeof raw !== 'object') {
     raw = {};
@@ -456,7 +529,7 @@ export function normalizeHookInput(raw: unknown): HookInput {
   // Cursor / omp often pass client explicitly; skip Grok camelCase heuristics that
   // would mis-label Cursor payloads with sessionId-like fields.
   if (explicitClient === 'cursor' || explicitClient === 'omp' || explicitClient === 'claude') {
-    return {
+    lastNormalizedInput = {
       ...(r as HookInput),
       client: explicitClient,
       hook_event_name: (r.hook_event_name || r.hookEventName) as HookInput['hook_event_name'],
@@ -465,6 +538,7 @@ export function normalizeHookInput(raw: unknown): HookInput {
       session_id: (r.session_id || r.sessionId) as string | undefined,
       cwd: (r.cwd || r.workspaceRoot) as string | undefined,
     };
+    return lastNormalizedInput;
   }
 
   const isGrok = !!(
@@ -497,6 +571,8 @@ export function normalizeHookInput(raw: unknown): HookInput {
       // Grok provides cwd + workspaceRoot (equal); fall back to env for empty-stdin events.
       cwd: (r.cwd || r.workspaceRoot || process.env.GROK_WORKSPACE_ROOT) as string | undefined,
     };
+  } else if (explicitClient === 'muse' || isMusePayload(r)) {
+    normalized = normalizeMusePayload(r);
   } else if (isHermesPayload(r)) {
     normalized = normalizeHermesPayload(r);
   } else if (isCodexPayload(r)) {
@@ -509,6 +585,7 @@ export function normalizeHookInput(raw: unknown): HookInput {
   if (explicitClient) {
     normalized = { ...normalized, client: explicitClient };
   }
+  lastNormalizedInput = normalized;
   return normalized;
 }
 
@@ -711,6 +788,15 @@ export function writeHookOutput(output: HookOutput | PostToolUseContextOutput | 
  * @param systemMessage - Optional system message
  */
 export function sendContinue(additionalContext?: string, systemMessage?: string): void {
+  // Muse Code PreToolUse rejects `{"continue":true}` output outright
+  // ("unsupported `continue` in output of PreToolUse hook output"). Silent
+  // exit 0 is its continue; context injection is unavailable there anyway.
+  if (
+    lastNormalizedInput?.client === 'muse' &&
+    lastNormalizedInput?.hook_event_name === 'PreToolUse'
+  ) {
+    return;
+  }
   const output: HookOutput = { continue: true };
   if (additionalContext) {
     output.additionalContext = additionalContext;
@@ -753,6 +839,7 @@ export function buildPostToolUseContextOutput(
       // post_tool_call return values are ignored; do not emit unused keys.
       return { continue: true };
     case 'grok':
+    case 'muse':
     case 'claude':
     default:
       return {
@@ -790,7 +877,28 @@ export function sendPostToolUseContext(
  *
  * @param additionalContext - Context to inject at session start
  */
-export function sendSessionStartContext(additionalContext: string): void {
+/**
+ * Make context text safe for Muse Code's plain-text hook stdout.
+ *
+ * Muse decides "started as JSON" from the first byte: sqlew's canonical
+ * `[sqlew] …` prefix makes it try (and fail) to parse stdout as a JSON
+ * array, which drops the injection entirely ("malformed_output"). Rewrite
+ * that one prefix to letter-leading `sqlew: …`; other text passes through.
+ */
+export function toMusePlainText(text: string): string {
+  return text.startsWith('[sqlew] ') ? `sqlew: ${text.slice('[sqlew] '.length)}` : text;
+}
+
+export function sendSessionStartContext(
+  additionalContext: string,
+  client?: HookClient | string | null,
+): void {
+  // Muse Code SessionStart: only plain-text stdout reaches the model
+  // (Claude JSON shapes are ignored; verified 2026-11-12, Muse Code 1.4.15).
+  if (asHookClient(client) === 'muse') {
+    process.stdout.write(toMusePlainText(additionalContext));
+    return;
+  }
   const output: HookOutput = {
     continue: true,
     additionalContext,
