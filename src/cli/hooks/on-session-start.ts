@@ -69,10 +69,10 @@ export async function onSessionStartCommand(): Promise<void> {
       processClearPlanRescue(projectPath);
     }
 
-    // Session context injection: Claude/Codex/omp on startup or clear only
+    // Session context injection: Claude/Codex/omp/Muse on startup or clear only
     // omp has no source field — missing source defaults to startup above
     const shouldInject =
-      (client === 'claude' || client === 'codex' || client === 'omp') &&
+      (client === 'claude' || client === 'codex' || client === 'omp' || client === 'muse') &&
       (source === 'startup' || source === 'clear');
 
     if (shouldInject && projectPath) {
@@ -83,7 +83,7 @@ export async function onSessionStartCommand(): Promise<void> {
           injected_at: new Date().toISOString(),
           harness: client,
         });
-        sendSessionStartContext(context);
+        sendSessionStartContext(context, client);
         return;
       }
     }

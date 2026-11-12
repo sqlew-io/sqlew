@@ -205,7 +205,7 @@ On **Windows**, the npm `sqlew.cmd` shim cannot be spawned directly — register
 muse mcp add sqlew --user -- cmd /c sqlew
 ```
 
-If the project `.mcp.json` already defines a server named `sqlew`, it takes precedence over the user registration; register under a different name in that case. Muse Code is MCP-only (no plugin hooks/skills yet) — see [Harness Compatibility](docs/HARNESS_COMPATIBILITY.md#muse-code).
+If the project `.mcp.json` already defines a server named `sqlew`, it takes precedence over the user registration; register under a different name in that case. For hooks and skills, install the native Muse bundle from [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin#muse-code) instead — see [Harness Compatibility](docs/HARNESS_COMPATIBILITY.md#muse-code).
 
 The database (`~/.config/sqlew/sqlew-shared.db`) and config are auto-created on first run. See [Shared Database](docs/SHARED_DATABASE.md) for details.
 
