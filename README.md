@@ -193,6 +193,20 @@ Add to `.mcp.json` in your project root:
 }
 ```
 
+**Muse Code**: register via CLI instead of editing settings by hand:
+
+```bash
+muse mcp add sqlew --user -- sqlew
+```
+
+On **Windows**, the npm `sqlew.cmd` shim cannot be spawned directly — register through `cmd /c` (verified on Muse Code 1.4.15):
+
+```powershell
+muse mcp add sqlew --user -- cmd /c sqlew
+```
+
+If the project `.mcp.json` already defines a server named `sqlew`, it takes precedence over the user registration; register under a different name in that case. Muse Code is MCP-only (no plugin hooks/skills yet) — see [Harness Compatibility](docs/HARNESS_COMPATIBILITY.md#muse-code).
+
 The database (`~/.config/sqlew/sqlew-shared.db`) and config are auto-created on first run. See [Shared Database](docs/SHARED_DATABASE.md) for details.
 
 ### 3. Capture decisions (Plan Mode optional)
