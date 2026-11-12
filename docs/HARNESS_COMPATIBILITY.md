@@ -2,7 +2,7 @@
 
 Which sqlew features work on which AI harness (client). Install [sqlew-plugin](https://github.com/sqlew-io/sqlew-plugin) for hooks and skills unless you use an **Other harness** setup (MCP server only, no plugin).
 
-**Harnesses:** Claude Code · Codex · Grok Build · Hermes · oh-my-pi (omp) · Muse Code (MCP only) · **Other harness** (MCP tools only — Cursor, Claude Desktop, custom clients, …)
+**Harnesses:** Claude Code · Codex · Grok Build · Hermes · oh-my-pi (omp) · Muse Code · **Other harness** (MCP tools only — Cursor, Claude Desktop, custom clients, …)
 
 ## Legend
 
@@ -14,7 +14,7 @@ Which sqlew features work on which AI harness (client). Install [sqlew-plugin](h
 | ✎ | Manual — call MCP tools yourself (`decision`, `suggest`, …); no automation |
 | — | Not available |
 
-Minimum sqlew versions: Grok Build **5.2+**, Codex **5.2.1+**, Hermes **5.3.0+**, oh-my-pi (omp) Extension **5.4.0+**, session context injection **5.4.0+** (unreleased until tagged), Muse Code (MCP only, verified Muse Code 1.4.15).
+Minimum sqlew versions: Grok Build **5.2+**, Codex **5.2.1+**, Hermes **5.3.0+**, oh-my-pi (omp) Extension **5.4.0+**, session context injection **5.4.0+** (unreleased until tagged), Muse Code hook support **next release after 5.4.3** (verified Muse Code 1.4.15).
 
 ---
 
@@ -23,18 +23,18 @@ Minimum sqlew versions: Grok Build **5.2+**, Codex **5.2.1+**, Hermes **5.3.0+**
 | Feature | Claude Code | Codex | Grok Build | Hermes | omp | Muse Code | Other harness |
 |---------|:-----------:|:-----:|:----------:|:------:|:---:|:-----------:|:--------------:|
 | **MCP tools** (`decision`, `constraint`, `suggest`, `project`, `queue`, …) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **Session context injection** (recent decisions + active constraints at session start) | ✓ | △ | — | ✓ | ✓ | ✎ | ✎ |
-| **Research Post suggest** (Grep / WebSearch / WebFetch → related context) | ✓ | △ | △ | ◎ | ✓ | ✎ | ✎ |
-| **Plan-less ADR draft** (Write → `pending.json` enqueue; Stop / flush → DB upsert) | ✓ | △ | △ | ◎ | ✓ | ✎ | ✎ |
-| **Plan mode enforcement** (suggest-before-plan, 📌/🚫 format) | ✓ | △ | ◎+file | ✓ | ✓ | ✎ | ✎ |
+| **Session context injection** (recent decisions + active constraints at session start) | ✓ | △ | — | ✓ | ✓ | ✓ | ✎ |
+| **Research Post suggest** (Grep / WebSearch / WebFetch → related context) | ✓ | △ | △ | ◎ | ✓ | ◎ | ✎ |
+| **Plan-less ADR draft** (Write → `pending.json` enqueue; Stop / flush → DB upsert) | ✓ | △ | △ | ◎ | ✓ | ✓ | ✎ |
+| **Plan mode enforcement** (suggest-before-plan, 📌/🚫 format) | ✓ | △ | ◎+file | ✓ | ✓ | △ | ✎ |
 | **Plan-to-ADR extraction** (📌 Decision / 🚫 Constraint → DB) | ✓ | △ | △ | ✓ | ✓ | ✎ | ✎ |
 | **Plan file tracking** (`track-plan`) | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
-| **Decision draft on code edit** (`save` hook; plan-less enqueue **and** optional one-shot plan promote) | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
-| **Related-context suggest** (`suggest` on Task / delegate) | ✓ | ✓ | △ | △ | △ | ✎ | ✎ |
-| **PR ADR guard** (`pr-adr` on `gh pr create`) | ✓ | ✓ | △ | ✓ | ✓ | — | — |
+| **Decision draft on code edit** (`save` hook; plan-less enqueue **and** optional one-shot plan promote) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Related-context suggest** (`suggest` on Task / delegate) | ✓ | ✓ | △ | △ | △ | ◎ | ✎ |
+| **PR ADR guard** (`pr-adr` on `gh pr create`) | ✓ | ✓ | △ | ✓ | ✓ | ✓ | — |
 | **Todo completion → decision status** (`check-completion`) | ✓ | ✓ | △ | ✓ | ✓ | — | — |
 | **Plan-to-ADR rescue on session clear** (`on-session-start`, source=clear) | ✓ | △ | — | — | △ | — | — |
-| **PR body ADR enrichment** (`sqlew-pr-adr` skill) | ✓ | ✓ | ◎ | ◎ | ◎ | — | — |
+| **PR body ADR enrichment** (`sqlew-pr-adr` skill) | ✓ | ✓ | ◎ | ◎ | ◎ | ◎ | — |
 | **Slash command** `/sqlew` | ✓ | △ | △ | — | — | — | — |
 | **Desktop project targeting** (`project` tool / `_sqlew_project`) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
@@ -82,6 +82,7 @@ Plugin skills (`sqlew-decision-format`) remind the agent of this format when nee
 | **Grok Build** | **Plan mode** **or** research + Write | When you **approve the plan**; plan-less enqueue via `save` | Skills guide 📌/🚫; stdout inject is passive — suggest-on-Post is limited. |
 | **Hermes** | **`/plan <prompt>`** (plan skill → `.hermes/plans/*.md`) **or** Skill obligating `suggest` + ADR | Plan-file write/update; MCP tools via Skill | No Post-hook research→ADR inject — create a Skill with `/learn` (例: 「調査開始時にsqlewを使ってサジェストを取得し、実装前にADRをsqlewで記録することを義務付けて」). |
 | **oh-my-pi (omp)** | **Plan mode** + `local://*-plan.md` **or** research + Write | `xd://propose` **or** `session_stop` flush | Extension maps events in-process; plan-less enqueue on implementation `tool_result`. |
+| **Muse Code** | Research + Write (built-in `/plan` persistence is not wired to sqlew yet) | Stop / flush after Write enqueue | Native plugin hooks have no matchers; sqlew gates by normalized tool name. PreToolUse cannot inject context. |
 | **Other harness** | No auto flow | When **you** call MCP `decision` / `constraint` | Use `decision set` and `constraint add` explicitly; or install Cursor/plugin hooks where available. |
 
 ---
@@ -110,7 +111,7 @@ In-process **Extension** (not shell `hooks.json`). Install `.omp-plugin` from sq
 
 ### Muse Code
 
-MCP only — no sqlew-plugin bundle yet (hooks/skills are a planned follow-up, not available today). Register with `muse mcp add sqlew --user -- sqlew`; on **Windows** the npm `sqlew.cmd` shim cannot be spawned directly, so register via `cmd /c`: `muse mcp add sqlew --user -- cmd /c sqlew` (verified on Muse Code 1.4.15). Note: if the workspace `.mcp.json` already defines a server named `sqlew`, it takes precedence and shadows the user registration — register under a different name or fix the project entry. Project auto-detection works from the workspace root (no `SQLEW_PROJECT_ROOT` needed). sqlew tools carry no read-only annotations, so tool calls may require approval depending on your permission profile; headless runs can use `muse exec --disable-approval`. Record and recall decisions by calling MCP tools directly (✎).
+Native sqlew-plugin bundle (`.muse-plugin/`) provides hooks, skills, and MCP registration. Hooks cover session-context injection, plan-less Write→enqueue→Stop flush, SubagentStop, and the `gh pr create` ADR guard. Muse hook payloads are normalized as client `muse`: `read_file`/`write_file`/`edit_file`/`search`/web and shell tools map to sqlew's canonical tool names. SessionStart and UserPromptSubmit accept plain-text stdout (Claude JSON is ignored; text starting with `[` is misparsed as JSON, so sqlew rewrites its `[sqlew] ` prefix there); PostToolUse accepts Claude `hookSpecificOutput`; PreToolUse can only block via exit code 2 and rejects `{"continue":true}`, so sqlew stays silent there. Native plugin hooks have no matcher support and cannot spawn the npm `sqlew.cmd` shim on Windows, so the bundle launches hooks and MCP through its bundled Node wrapper. Manual MCP registration remains supported with `muse mcp add sqlew --user -- sqlew` (Windows: `cmd /c sqlew`).
 
 ### Other harness
 
